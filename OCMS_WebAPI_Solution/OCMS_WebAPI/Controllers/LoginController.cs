@@ -1,0 +1,47 @@
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using OCMS_BOs.ViewModel;
+using OCMS_Repositories.IRepository;
+using OCMS_Services.IService;
+using OCMS_Services.Service;
+using OCMS_WebAPI;
+
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+
+namespace OCMS_WebAPI.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class LoginController : ControllerBase
+    {
+        private readonly IUserService _userService;
+
+        public LoginController(IUserService userService) 
+        {
+            _userService = userService;
+        }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginModel loginModel)
+        {
+            try
+            {
+                // Validate input
+                if (loginModel == null || string.IsNullOrEmpty(loginModel.Username) || string.IsNullOrEmpty(loginModel.Password))
+                {
+                    return BadRequest("Username and password are required.");
+                }
+
+                var result = await _userService.LoginAsync(loginModel);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return Unauthorized(new { message = ex.Message });
+            }
+        }
+    }
+}

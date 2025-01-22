@@ -1,15 +1,15 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.12.35527.113 d17.12
+VisualStudioVersion = 17.12.35527.113
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OCMS_WebAPI", "OCMS_WebAPI\OCMS_WebAPI.csproj", "{D357B42E-AE25-455E-B047-F7A380F5F786}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OCMS_BOs", "OCMS_BOs\OCMS_BOs.csproj", "{5A6EA39B-022B-4834-B404-E1188E3AA861}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OCMS_BOs", "OCMS_BOs\OCMS_BOs.csproj", "{5A6EA39B-022B-4834-B404-E1188E3AA861}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OCMS_Repositories", "OCMS_Repositories\OCMS_Repositories.csproj", "{EE6BF975-21BA-43B4-BCA9-42D4318A8E77}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OCMS_Repositories", "OCMS_Repositories\OCMS_Repositories.csproj", "{EE6BF975-21BA-43B4-BCA9-42D4318A8E77}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OCMS_Services", "OCMS_Services\OCMS_Services.csproj", "{A632E780-D538-4A4F-A087-567F6756AE27}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OCMS_Services", "OCMS_Services\OCMS_Services.csproj", "{A632E780-D538-4A4F-A087-567F6756AE27}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OCMS_WebAPI", "OCMS_WebAPI\OCMS_WebAPI.csproj", "{FBD3DC54-200B-44F7-9B23-DD85EE462DF6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,10 +17,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{D357B42E-AE25-455E-B047-F7A380F5F786}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D357B42E-AE25-455E-B047-F7A380F5F786}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D357B42E-AE25-455E-B047-F7A380F5F786}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D357B42E-AE25-455E-B047-F7A380F5F786}.Release|Any CPU.Build.0 = Release|Any CPU
 		{5A6EA39B-022B-4834-B404-E1188E3AA861}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{5A6EA39B-022B-4834-B404-E1188E3AA861}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5A6EA39B-022B-4834-B404-E1188E3AA861}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -33,6 +29,10 @@ Global
 		{A632E780-D538-4A4F-A087-567F6756AE27}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A632E780-D538-4A4F-A087-567F6756AE27}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A632E780-D538-4A4F-A087-567F6756AE27}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FBD3DC54-200B-44F7-9B23-DD85EE462DF6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FBD3DC54-200B-44F7-9B23-DD85EE462DF6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FBD3DC54-200B-44F7-9B23-DD85EE462DF6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FBD3DC54-200B-44F7-9B23-DD85EE462DF6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

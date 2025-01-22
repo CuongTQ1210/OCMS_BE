@@ -10,9 +10,4 @@
     <ProjectReference Include="..\OCMS_Repositories\OCMS_Repositories.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="IService\" />
-    <Folder Include="Service\" />
-  </ItemGroup>
-
 </Project>

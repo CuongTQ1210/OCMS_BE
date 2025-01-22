@@ -10,9 +10,4 @@
     <ProjectReference Include="..\OCMS_BOs\OCMS_BOs.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="IRepository\" />
-    <Folder Include="Repository\" />
-  </ItemGroup>
-
 </Project>
