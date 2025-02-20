@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -8,17 +10,26 @@ namespace OCMS_BOs.Entities
 {
     public class User
     {
+        [Key]
         public string UserId { get; set; }
+
+        [Required, MaxLength(100)]
         public string Username { get; set; }
-        public string Email { get; set; }
+
+        [Required]
         public string PasswordHash { get; set; }
-        public DateTime CreatedDate { get; set; }
-        public bool IsActive { get; set; }
 
-        // Foreign key for Role
+        [Required, EmailAddress]
+        public string Email { get; set; }
+
+        [ForeignKey("Role")]
         public int RoleId { get; set; }
-
-        // Navigation property for Role
         public Role Role { get; set; }
+
+        public string Status { get; set; } // active, deactivated
+        public bool IsDeleted { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? LastLogin { get; set; }
     }
 }
