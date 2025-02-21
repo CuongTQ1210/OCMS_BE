@@ -144,7 +144,7 @@ namespace OCMS_BOs
                     PasswordHash = adminPassword,
                     RoleId = 1, // Admin role
                     CreatedAt = DateTime.UtcNow,
-                    Status = "active"
+                    Status = (AccountStatus)1
                 }
             );
         }

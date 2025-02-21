@@ -27,7 +27,7 @@ namespace OCMS_BOs.Entities
 
         public DateTime IssueDate { get; set; }
         public DateTime? ExpirationDate { get; set; }
-        public string Status { get; set; } // active, expired, revoked, returned
+        public CertificateStatus Status { get; set; } // active, expired, revoked, returned
         public string DigitalSignature { get; set; }
         public bool IsRevoked { get; set; }
         public string RevocationReason { get; set; }

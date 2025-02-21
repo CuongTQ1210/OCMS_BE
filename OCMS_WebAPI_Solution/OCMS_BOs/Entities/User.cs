@@ -26,8 +26,10 @@ namespace OCMS_BOs.Entities
         public int RoleId { get; set; }
         public Role Role { get; set; }
 
-        public string Status { get; set; } // active, deactivated
         public bool IsDeleted { get; set; }
+
+        public AccountStatus Status { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? LastLogin { get; set; }
