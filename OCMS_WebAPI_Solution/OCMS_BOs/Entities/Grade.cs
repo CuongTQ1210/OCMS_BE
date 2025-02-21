@@ -17,16 +17,13 @@ namespace OCMS_BOs.Entities
         public string CourseId { get; set; }
         public Course Course { get; set; }
 
-        // Trainee (Student) Foreign Key
-        [ForeignKey("Trainee")]
+        
         public string TraineeId { get; set; }
         public User Trainee { get; set; }
 
         public int GradeValue { get; set; }
         public DateTime EvaluationDate { get; set; }
 
-        // Instructor Foreign Key
-        [ForeignKey("Instructor")]
         public string SubmittedBy { get; set; }
         public User Instructor { get; set; }
 
