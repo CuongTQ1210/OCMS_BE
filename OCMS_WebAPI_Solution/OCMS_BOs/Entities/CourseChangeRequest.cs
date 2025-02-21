@@ -30,7 +30,7 @@ namespace OCMS_BOs.Entities
         public string ChangeDetails { get; set; }
 
         [ForeignKey("User")]
-        public int? ApprovedBy { get; set; } // Nullable, only set if approved
+        public string? ApprovedBy { get; set; } // Nullable, only set if approved
         public User ApprovedUser { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

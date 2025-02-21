@@ -22,7 +22,7 @@ namespace OCMS_BOs.Entities
         public Course Course { get; set; }
 
         [ForeignKey("CertificateTemplate")]
-        public int CertificateTemplateId { get; set; }
+        public string CertificateTemplateId { get; set; }
         public CertificateTemplate CertificateTemplate { get; set; }
 
         public DateTime IssueDate { get; set; }
