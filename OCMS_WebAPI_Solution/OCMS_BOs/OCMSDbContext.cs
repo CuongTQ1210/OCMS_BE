@@ -22,7 +22,6 @@ namespace OCMS_BOs
 
         // Define DbSet properties for your entities
         public DbSet<User> Users { get; set; }
-        public DbSet<TraineeNotification> Trainees { get; set; }
         public DbSet<TraineeProfile> TraineeProfiles { get; set; }
         public DbSet<Role> Roles { get; set; }
         public DbSet<Course> Courses { get; set; }
@@ -33,6 +32,7 @@ namespace OCMS_BOs
         public DbSet<CourseParticipant> CourseParticipants { get; set; }
         public DbSet<CourseChangeRequest> CourseChangeRequests { get; set; }
         public DbSet<ExternalCertificate> ExternalCertificates { get; set; }
+        public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<BackupLog> BackupLogs { get; set; }
         public DbSet<ApprovalLog> ApprovalLogs { get; set; }
         public DbSet<TraineeNotification> TraineeNotifications { get; set; }
