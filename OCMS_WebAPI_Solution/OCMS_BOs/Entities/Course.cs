@@ -14,9 +14,9 @@ namespace OCMS_BOs.Entities
         public string CourseId { get; set; }
 
         public string CourseName { get; set; }
-        public string CourseType { get; set; } // Initial, Relearn, Renew
-        public string Status { get; set; } // pending, approved, locked
-        public string ApprovalStatus { get; set; }
+        public CourseType CourseType { get; set; } // Initial, Relearn, Recurrent
+        public CourseStatus Status { get; set; } // pending, approved, rejected
+        public Progress Progress { get; set; } //Ongoing, Completed
         public DateTime? ApprovalDate { get; set; }
 
         [ForeignKey("User")]

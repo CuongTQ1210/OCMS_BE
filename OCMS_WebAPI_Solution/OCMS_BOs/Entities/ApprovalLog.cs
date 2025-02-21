@@ -25,7 +25,7 @@ namespace OCMS_BOs.Entities
         public User ApprovedUser { get; set; }
 
         [Required]
-        public string Status { get; set; } // pending, approved, rejected
+        public RequestStatus Status { get; set; } // pending, approved, rejected
 
         public string ActionDetails { get; set; }
 
