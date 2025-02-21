@@ -55,9 +55,8 @@ namespace OCMS_BOs.Migrations
                     b.Property<string>("RequestedUserUserId")
                         .HasColumnType("text");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
@@ -68,7 +67,37 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("RequestedUserUserId");
 
-                    b.ToTable("ApprovalLogs", (string)null);
+                    b.ToTable("ApprovalLogs");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.AuditLog", b =>
+                {
+                    b.Property<int>("LogId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("LogId"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ActionDetails")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("LogId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AuditLogs");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.BackupLog", b =>
@@ -94,7 +123,88 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("CreatedBy");
 
-                    b.ToTable("BackupLogs", (string)null);
+                    b.ToTable("BackupLogs");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.Certificate", b =>
+                {
+                    b.Property<string>("CertificateId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CertificateTemplateId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CourseId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DigitalSignature")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ExpirationDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("IsRevoked")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("IssueDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("RevocationReason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("CertificateId");
+
+                    b.HasIndex("CertificateTemplateId");
+
+                    b.HasIndex("CourseId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Certificates");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.CertificateTemplate", b =>
+                {
+                    b.Property<string>("CertificateTemplateId")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TemplateFile")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TemplateName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("CertificateTemplateId");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.ToTable("CertificatesTemplate");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Course", b =>
@@ -105,17 +215,12 @@ namespace OCMS_BOs.Migrations
                     b.Property<DateTime?>("ApprovalDate")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<string>("ApprovalStatus")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<string>("CourseName")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("CourseType")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<int>("CourseType")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
@@ -131,9 +236,11 @@ namespace OCMS_BOs.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<int>("Progress")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
@@ -144,7 +251,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("InstructorId");
 
-                    b.ToTable("Courses", (string)null);
+                    b.ToTable("Courses");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.CourseChangeRequest", b =>
@@ -152,8 +259,8 @@ namespace OCMS_BOs.Migrations
                     b.Property<string>("ChangeRequestId")
                         .HasColumnType("text");
 
-                    b.Property<int?>("ApprovedBy")
-                        .HasColumnType("integer");
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("text");
 
                     b.Property<string>("ApprovedUserUserId")
                         .HasColumnType("text");
@@ -180,9 +287,8 @@ namespace OCMS_BOs.Migrations
                     b.Property<string>("RequestedUserUserId")
                         .HasColumnType("text");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
@@ -195,7 +301,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("RequestedUserUserId");
 
-                    b.ToTable("CourseChangeRequests", (string)null);
+                    b.ToTable("CourseChangeRequests");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.CourseParticipant", b =>
@@ -219,9 +325,8 @@ namespace OCMS_BOs.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
@@ -240,7 +345,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("CourseParticipants", (string)null);
+                    b.ToTable("CourseParticipants");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.ExternalCertificate", b =>
@@ -266,7 +371,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("ExternalCertificates", (string)null);
+                    b.ToTable("ExternalCertificates");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Grade", b =>
@@ -306,7 +411,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("TraineeId");
 
-                    b.ToTable("Grades", (string)null);
+                    b.ToTable("Grades");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Role", b =>
@@ -324,7 +429,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasKey("RoleId");
 
-                    b.ToTable("Roles", (string)null);
+                    b.ToTable("Roles");
 
                     b.HasData(
                         new
@@ -364,6 +469,36 @@ namespace OCMS_BOs.Migrations
                         });
                 });
 
+            modelBuilder.Entity("OCMS_BOs.Entities.Subject", b =>
+                {
+                    b.Property<string>("SubjectId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CourseId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ScheduleFile")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SubjectName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("SubjectId");
+
+                    b.HasIndex("CourseId");
+
+                    b.ToTable("Subjects");
+                });
+
             modelBuilder.Entity("OCMS_BOs.Entities.TraineeNotification", b =>
                 {
                     b.Property<int>("NotificationId")
@@ -394,7 +529,52 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("TraineeNotifications", (string)null);
+                    b.ToTable("TraineeNotifications");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.TraineeProfile", b =>
+                {
+                    b.Property<string>("TraineeProfileId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("DateOfBirth")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ExternalCertificate")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PhoneNumber")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("TraineeProfileId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("TraineeProfiles");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.User", b =>
@@ -427,11 +607,10 @@ namespace OCMS_BOs.Migrations
                     b.Property<int>("RoleId")
                         .HasColumnType("integer");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
+                    b.Property<int>("Status")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("text")
-                        .HasDefaultValue("active");
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
 
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
@@ -450,19 +629,19 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
 
                     b.HasData(
                         new
                         {
                             UserId = "ADM-1",
-                            CreatedAt = new DateTime(2025, 2, 20, 16, 0, 32, 959, DateTimeKind.Utc).AddTicks(2795),
+                            CreatedAt = new DateTime(2025, 2, 21, 8, 3, 11, 845, DateTimeKind.Utc).AddTicks(4676),
                             Email = "admin@gmail.com",
                             IsDeleted = false,
-                            PasswordHash = "$2a$11$jcT9x56EggffsZtByPdFSOsaKlY0AQqg1VleR0reBD/nS4Bj84/k2",
+                            PasswordHash = "$2a$11$EoSDaFL7/q574IjgRlwWkOUjvS.m6indATZVGJSYgiFlVy9b432.6",
                             RoleId = 1,
-                            Status = "active",
-                            UpdatedAt = new DateTime(2025, 2, 20, 16, 0, 32, 959, DateTimeKind.Utc).AddTicks(2791),
+                            Status = 1,
+                            UpdatedAt = new DateTime(2025, 2, 21, 8, 3, 11, 845, DateTimeKind.Utc).AddTicks(4674),
                             Username = "Admin"
                         });
                 });
@@ -482,7 +661,56 @@ namespace OCMS_BOs.Migrations
                     b.Navigation("RequestedUser");
                 });
 
+            modelBuilder.Entity("OCMS_BOs.Entities.AuditLog", b =>
+                {
+                    b.HasOne("OCMS_BOs.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("OCMS_BOs.Entities.BackupLog", b =>
+                {
+                    b.HasOne("OCMS_BOs.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.Certificate", b =>
+                {
+                    b.HasOne("OCMS_BOs.Entities.CertificateTemplate", "CertificateTemplate")
+                        .WithMany()
+                        .HasForeignKey("CertificateTemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OCMS_BOs.Entities.Course", "Course")
+                        .WithMany()
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OCMS_BOs.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CertificateTemplate");
+
+                    b.Navigation("Course");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.CertificateTemplate", b =>
                 {
                     b.HasOne("OCMS_BOs.Entities.User", "User")
                         .WithMany()
@@ -596,7 +824,29 @@ namespace OCMS_BOs.Migrations
                     b.Navigation("Trainee");
                 });
 
+            modelBuilder.Entity("OCMS_BOs.Entities.Subject", b =>
+                {
+                    b.HasOne("OCMS_BOs.Entities.Course", "Course")
+                        .WithMany()
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Course");
+                });
+
             modelBuilder.Entity("OCMS_BOs.Entities.TraineeNotification", b =>
+                {
+                    b.HasOne("OCMS_BOs.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.TraineeProfile", b =>
                 {
                     b.HasOne("OCMS_BOs.Entities.User", "User")
                         .WithMany()
