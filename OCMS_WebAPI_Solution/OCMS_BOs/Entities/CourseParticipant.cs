@@ -25,7 +25,7 @@ namespace OCMS_BOs.Entities
         public string Role { get; set; } // Trainee, Instructor
 
         [Required]
-        public string Status { get; set; } // active, withdrawn
+        public CourseParticipantStatus Status { get; set; } // active, withdrawn
 
         [ForeignKey("Grade")]
         public string? GradeId { get; set; } // Nullable, for Trainees only

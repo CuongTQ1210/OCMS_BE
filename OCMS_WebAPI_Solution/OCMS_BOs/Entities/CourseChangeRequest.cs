@@ -25,7 +25,7 @@ namespace OCMS_BOs.Entities
         public string RequestType { get; set; } // edit, delete
 
         [Required]
-        public string Status { get; set; } // pending, approved, rejected
+        public RequestStatus Status { get; set; } // pending, approved, rejected
 
         public string ChangeDetails { get; set; }
 
