@@ -82,4 +82,35 @@ namespace OCMS_BOs.Entities
         Rejected=3,
         Completed=4
     }
+    public enum GradeStatus
+    {
+        Pass=1, Fail=0
+    }
+
+    public enum DigitalSignatureStatus
+    {
+        active=1, expired =0 , revoked=2
+    }
+
+    public enum TemplateStatus
+    {
+        active=1,inactive=0
+    }
+    public enum RequestType
+    {
+        NewPlan=0,RecurrentPlan=1, RelearnPlan=2, Complaint=3, PlanChange=4, PlanDelete=5, CreateNew=6, CreateRecurrent=7
+    }
+    public enum DecisionStatus
+    {
+        Draft = 0, Signed = 1, Revoked=2
+    }
+    public enum ReportType
+    {
+        ExpiredCertificate=1, CourseResult=2,TraineeResult=3,PlanResult=4 
+    }
+    public enum ResultStatus
+    {
+        Draft=0, Submitted=1, Approved=2, Rejected=3
+    }
+    
 }

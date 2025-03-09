@@ -22,7 +22,7 @@ namespace OCMS_BOs.Entities
         public int Credits { get; set; }
         public double PassingScore { get; set; }
         public string Schedule { get; set; }
-        [ForeignKey("User")]
+        [ForeignKey("CreateUser")]
         public string CreateByUserId { get; set; }
         public User CreateByUser { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

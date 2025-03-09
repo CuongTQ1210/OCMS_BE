@@ -21,7 +21,7 @@ namespace OCMS_BOs.Entities
         public Candidate Person { get; set; }
 
 
-        [ForeignKey("User")]
+        [ForeignKey("VerifyUser")]
         public string VerifyByUserId { get; set; } 
         public User VerifyByUser { get; set; }
         

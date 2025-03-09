@@ -19,16 +19,13 @@ namespace OCMS_BOs.Entities
         public CourseLevel CourseLevel { get; set; } // Initial, Relearn, Recurrent
         public CourseStatus Status { get; set; } // pending, approved, rejected
         public Progress Progress { get; set; } //Ongoing, Completed
-        [ForeignKey("User")]
-        public string ApproveByUserId { get; set; }
-        public User ApproveByUser { get; set; }
+        [ForeignKey("ApproveUser")]
+        public string? ApproveByUserId { get; set; }
+        public User? ApproveByUser { get; set; }
         public DateTime? ApprovalDate { get; set; }
 
-        [ForeignKey("User")]
-        public string InstructorId { get; set; }
-        public User Instructor { get; set; }
 
-        [ForeignKey("User")]
+        [ForeignKey("CreateUser")]
         public string CreatedByUserId { get; set; }
         public User CreatedByUser { get; set; }
 

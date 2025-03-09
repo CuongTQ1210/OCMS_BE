@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text;
@@ -9,8 +10,9 @@ namespace OCMS_BOs.Entities
 {
     public class TraineeAssign
     {
+        [Key]
         public string TraineeAssignId { get; set; }
-        [ForeignKey("User")]
+        [ForeignKey("TraineeUser")]
         public string TraineeId { get; set; } //assign trainee to course 
         public User Trainee {  get; set; }
         [ForeignKey("Course")]
@@ -18,10 +20,12 @@ namespace OCMS_BOs.Entities
         public Course Course { get; set; }
         
         public DateTime AssignDate { get; set; }= DateTime.Now;
-        [ForeignKey("User")]
+        [ForeignKey("ApproveUser")]
         public string ApproveByUserId { get; set; }
         public User ApproveByUser { get; set; }
-        
+        public DateTime ApprovalDate {  get; set; }= DateTime.Now;
+
+        public string Notes;
 
     }
 }

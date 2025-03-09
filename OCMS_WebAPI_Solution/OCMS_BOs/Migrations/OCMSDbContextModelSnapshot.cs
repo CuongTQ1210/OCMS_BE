@@ -39,7 +39,6 @@ namespace OCMS_BOs.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("ApprovedBy")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("ApprovedUserUserId")
@@ -126,12 +125,81 @@ namespace OCMS_BOs.Migrations
                     b.ToTable("BackupLogs");
                 });
 
+            modelBuilder.Entity("OCMS_BOs.Entities.Candidate", b =>
+                {
+                    b.Property<string>("CandidateId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("CandidateStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("DateOfBirth")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ExternalCertificate")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Gender")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ImportByUserID")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PersonalID")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PhoneNumber")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("CandidateId");
+
+                    b.HasIndex("ImportByUserID");
+
+                    b.ToTable("Candidate");
+                });
+
             modelBuilder.Entity("OCMS_BOs.Entities.Certificate", b =>
                 {
                     b.Property<string>("CertificateId")
                         .HasColumnType("text");
 
+                    b.Property<string>("ApprovebyUserId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CertificateCode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("CertificateTemplateId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CertificateURL")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -139,11 +207,7 @@ namespace OCMS_BOs.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("DigitalSignature")
-                        .IsRequired()
+                    b.Property<string>("DigitalSignatureId")
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("ExpirationDate")
@@ -152,18 +216,25 @@ namespace OCMS_BOs.Migrations
                     b.Property<bool>("IsRevoked")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("IssueByUserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("IssueDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("RevocationDate")
                         .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("RevocationReason")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<DateTime>("SignDate")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("UserId")
                         .IsRequired()
@@ -171,9 +242,15 @@ namespace OCMS_BOs.Migrations
 
                     b.HasKey("CertificateId");
 
+                    b.HasIndex("ApprovebyUserId");
+
                     b.HasIndex("CertificateTemplateId");
 
                     b.HasIndex("CourseId");
+
+                    b.HasIndex("DigitalSignatureId");
+
+                    b.HasIndex("IssueByUserId");
 
                     b.HasIndex("UserId");
 
@@ -185,12 +262,25 @@ namespace OCMS_BOs.Migrations
                     b.Property<string>("CertificateTemplateId")
                         .HasColumnType("text");
 
+                    b.Property<string>("ApprovedByUserId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CreateByUserUserId")
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<string>("CreatedBy")
+                    b.Property<string>("CreatedByUserId")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("LastUpdatedAt")
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("TemplateFile")
                         .IsRequired()
@@ -200,11 +290,16 @@ namespace OCMS_BOs.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("templateStatus")
+                        .HasColumnType("integer");
+
                     b.HasKey("CertificateTemplateId");
 
-                    b.HasIndex("CreatedBy");
+                    b.HasIndex("ApprovedByUserId");
 
-                    b.ToTable("CertificatesTemplate");
+                    b.HasIndex("CreateByUserUserId");
+
+                    b.ToTable("CertificateTemplates");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Course", b =>
@@ -215,24 +310,20 @@ namespace OCMS_BOs.Migrations
                     b.Property<DateTime?>("ApprovalDate")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<string>("ApproveByUserId")
+                        .HasColumnType("text");
+
+                    b.Property<int>("CourseLevel")
+                        .HasColumnType("integer");
+
                     b.Property<string>("CourseName")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int>("CourseType")
-                        .HasColumnType("integer");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("CreatedByUserUserId")
-                        .HasColumnType("text");
-
-                    b.Property<string>("InstructorId")
+                    b.Property<string>("CreatedByUserId")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -242,66 +333,22 @@ namespace OCMS_BOs.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
+                    b.Property<string>("TrainingPlanId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
 
                     b.HasKey("CourseId");
 
-                    b.HasIndex("CreatedByUserUserId");
+                    b.HasIndex("ApproveByUserId");
 
-                    b.HasIndex("InstructorId");
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("TrainingPlanId");
 
                     b.ToTable("Courses");
-                });
-
-            modelBuilder.Entity("OCMS_BOs.Entities.CourseChangeRequest", b =>
-                {
-                    b.Property<string>("ChangeRequestId")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ApprovedBy")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ApprovedUserUserId")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ChangeDetails")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("CourseId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("RequestType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("RequestedBy")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("RequestedUserUserId")
-                        .HasColumnType("text");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.HasKey("ChangeRequestId");
-
-                    b.HasIndex("ApprovedUserUserId");
-
-                    b.HasIndex("CourseId");
-
-                    b.HasIndex("RequestedUserUserId");
-
-                    b.ToTable("CourseChangeRequests");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.CourseParticipant", b =>
@@ -348,6 +395,180 @@ namespace OCMS_BOs.Migrations
                     b.ToTable("CourseParticipants");
                 });
 
+            modelBuilder.Entity("OCMS_BOs.Entities.CourseResult", b =>
+                {
+                    b.Property<string>("ResultID")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ApprovalDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ApprovedByUserUserId")
+                        .HasColumnType("text");
+
+                    b.Property<double>("AverageScore")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime>("CompletionDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CourseID")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("FailCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PassCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("SubmissionDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("SubmittedBy")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SubmittedByUserUserId")
+                        .HasColumnType("text");
+
+                    b.Property<int>("TotalTrainees")
+                        .HasColumnType("integer");
+
+                    b.HasKey("ResultID");
+
+                    b.HasIndex("ApprovedByUserUserId");
+
+                    b.HasIndex("CourseID");
+
+                    b.HasIndex("SubmittedByUserUserId");
+
+                    b.ToTable("CourseResults");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.Decision", b =>
+                {
+                    b.Property<string>("DecisionId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CertificateId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("DecisionCode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("DecisionStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("DigitalSignatureId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("IssueByUserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("IssueDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("SignDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("DecisionId");
+
+                    b.HasIndex("CertificateId");
+
+                    b.HasIndex("DigitalSignatureId");
+
+                    b.ToTable("Decisions");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.Department", b =>
+                {
+                    b.Property<string>("DepartmentId")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DepartmentDescription")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("DepartmentName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ManagerId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("DepartmentId");
+
+                    b.HasIndex("ManagerId");
+
+                    b.ToTable("Departments");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.DigitalSignature", b =>
+                {
+                    b.Property<string>("SignatureID")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CertificateChain")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("ExpireDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PublicKey")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("SignatureID");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("DigitalSignatures");
+                });
+
             modelBuilder.Entity("OCMS_BOs.Entities.ExternalCertificate", b =>
                 {
                     b.Property<int>("ExternalCertificateId")
@@ -356,20 +577,44 @@ namespace OCMS_BOs.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ExternalCertificateId"));
 
-                    b.Property<string>("CertificateFile")
+                    b.Property<string>("CertificateCode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CertificateFileURL")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CertificateName")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<string>("UserId")
+                    b.Property<string>("IssuingOrganization")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("PersonId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("VerificationStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("VerifyByUserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("VerifyDate")
+                        .HasColumnType("timestamp without time zone");
+
                     b.HasKey("ExternalCertificateId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("PersonId");
+
+                    b.HasIndex("VerifyByUserId");
 
                     b.ToTable("ExternalCertificates");
                 });
@@ -379,39 +624,315 @@ namespace OCMS_BOs.Migrations
                     b.Property<string>("GradeId")
                         .HasColumnType("text");
 
-                    b.Property<string>("CourseId")
+                    b.Property<DateTime>("EvaluationDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("GradedByInstructorId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Remarks")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<double>("Score")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("SubjectId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TraineeAssignID")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdateDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("gradeStatus")
+                        .HasColumnType("integer");
+
+                    b.HasKey("GradeId");
+
+                    b.HasIndex("GradedByInstructorId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("TraineeAssignID");
+
+                    b.ToTable("Grades");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.InstructorAssignment", b =>
+                {
+                    b.Property<string>("AssignmentId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AssignByUserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("AssignDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("InstructorId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("RequestStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SubjectId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("AssignmentId");
+
+                    b.HasIndex("AssignByUserId");
+
+                    b.HasIndex("InstructorId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.ToTable("InstructorAssignments");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.Notification", b =>
+                {
+                    b.Property<int>("NotificationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("NotificationId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("NotificationType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("NotificationId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.PlanChangeRequest", b =>
+                {
+                    b.Property<string>("PlanRequestId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ApprovedUserUserId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ChangeDetails")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<DateTime>("EvaluationDate")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<int>("GradeValue")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("SubmittedBy")
+                    b.Property<string>("PlanId")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("TraineeId")
+                    b.Property<string>("RequestType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RequestedBy")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RequestedUserUserId")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("PlanRequestId");
+
+                    b.HasIndex("ApprovedUserUserId");
+
+                    b.HasIndex("PlanId");
+
+                    b.HasIndex("RequestedUserUserId");
+
+                    b.ToTable("PlanChangeRequests");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.Profile", b =>
+                {
+                    b.Property<string>("ProfileId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("DateOfBirth")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DepartmentId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ExternalCertificate")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Gender")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PhoneNumber")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
 
-                    b.HasKey("GradeId");
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
 
-                    b.HasIndex("CourseId");
+                    b.HasKey("ProfileId");
 
-                    b.HasIndex("SubmittedBy");
+                    b.HasIndex("DepartmentId");
 
-                    b.HasIndex("TraineeId");
+                    b.HasIndex("UserId");
 
-                    b.ToTable("Grades");
+                    b.ToTable("Profiles");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.Report", b =>
+                {
+                    b.Property<string>("ReportId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("FileUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Format")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("GenerateByUserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("GenerateDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ReportName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("ReportType")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("ReportId");
+
+                    b.HasIndex("GenerateByUserId");
+
+                    b.ToTable("Reports");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.Request", b =>
+                {
+                    b.Property<string>("RequestId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ApprovedDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ApprovedUserUserId")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("RequestDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("RequestEntityId")
+                        .HasColumnType("text");
+
+                    b.Property<int>("RequestType")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RequestUserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("RequestId");
+
+                    b.HasIndex("ApprovedUserUserId");
+
+                    b.HasIndex("RequestUserId");
+
+                    b.ToTable("Requests");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Role", b =>
@@ -466,6 +987,11 @@ namespace OCMS_BOs.Migrations
                         {
                             RoleId = 7,
                             RoleName = "Trainee"
+                        },
+                        new
+                        {
+                            RoleId = 8,
+                            RoleName = "AOC Manager"
                         });
                 });
 
@@ -478,10 +1004,24 @@ namespace OCMS_BOs.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("CreateByUserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<string>("ScheduleFile")
+                    b.Property<int>("Credits")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<double>("PassingScore")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Schedule")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -496,85 +1036,221 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("CourseId");
 
+                    b.HasIndex("CreateByUserId");
+
                     b.ToTable("Subjects");
                 });
 
-            modelBuilder.Entity("OCMS_BOs.Entities.TraineeNotification", b =>
+            modelBuilder.Entity("OCMS_BOs.Entities.TraineeAssign", b =>
                 {
-                    b.Property<int>("NotificationId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
+                    b.Property<string>("TraineeAssignId")
+                        .HasColumnType("text");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("NotificationId"));
-
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<DateTime>("ApprovalDate")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<bool>("IsRead")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Message")
+                    b.Property<string>("ApproveByUserId")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("NotificationType")
+                    b.Property<DateTime>("AssignDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CourseId")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("UserId")
+                    b.Property<string>("TraineeId")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.HasKey("NotificationId");
+                    b.HasKey("TraineeAssignId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("ApproveByUserId");
 
-                    b.ToTable("TraineeNotifications");
+                    b.HasIndex("CourseId");
+
+                    b.HasIndex("TraineeId");
+
+                    b.ToTable("TraineeAssignments");
                 });
 
-            modelBuilder.Entity("OCMS_BOs.Entities.TraineeProfile", b =>
+            modelBuilder.Entity("OCMS_BOs.Entities.TrainingList", b =>
                 {
-                    b.Property<string>("TraineeProfileId")
+                    b.Property<string>("ListId")
                         .HasColumnType("text");
 
-                    b.Property<string>("Address")
+                    b.Property<string>("ApproveByUserId")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<DateTime>("ApproveDate")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<DateTime>("DateOfBirth")
+                    b.Property<string>("CreateByUserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ListName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.HasKey("ListId");
+
+                    b.HasIndex("ApproveByUserId");
+
+                    b.HasIndex("CreateByUserId");
+
+                    b.ToTable("TrainingLists");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.TrainingListDetail", b =>
+                {
+                    b.Property<string>("ListDetailId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PersonId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("RequestStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TrainingListId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("ListDetailId");
+
+                    b.HasIndex("PersonId");
+
+                    b.HasIndex("TrainingListId");
+
+                    b.ToTable("TrainingListDetails");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.TrainingPlan", b =>
+                {
+                    b.Property<string>("PlanId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ApproveByUserId")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ApproveDate")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<string>("Email")
+                    b.Property<string>("CreateByUserId")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("ExternalCertificate")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("PhoneNumber")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UpdatedAt")
+                    b.Property<DateTime>("CreateDate")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<string>("UserId")
+                    b.Property<string>("Desciption")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.HasKey("TraineeProfileId");
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("timestamp without time zone");
 
-                    b.HasIndex("UserId");
+                    b.Property<DateTime>("ModifyDate")
+                        .HasColumnType("timestamp without time zone");
 
-                    b.ToTable("TraineeProfiles");
+                    b.Property<int>("PlanLevel")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PlanName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("TrainingPlanStatus")
+                        .HasColumnType("integer");
+
+                    b.HasKey("PlanId");
+
+                    b.HasIndex("ApproveByUserId");
+
+                    b.HasIndex("CreateByUserId");
+
+                    b.ToTable("TrainingPlans");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.TrainingSchedule", b =>
+                {
+                    b.Property<string>("ScheduleID")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CreatedByUserUserId")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("EndDateTime")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("InstructorID")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("ModifiedDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Room")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("StartDateTime")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SubjectID")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("ScheduleID");
+
+                    b.HasIndex("CreatedByUserUserId");
+
+                    b.HasIndex("InstructorID");
+
+                    b.HasIndex("SubjectID");
+
+                    b.ToTable("TrainingSchedules");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.User", b =>
@@ -635,13 +1311,13 @@ namespace OCMS_BOs.Migrations
                         new
                         {
                             UserId = "ADM-1",
-                            CreatedAt = new DateTime(2025, 2, 21, 8, 3, 11, 845, DateTimeKind.Utc).AddTicks(4676),
+                            CreatedAt = new DateTime(2025, 3, 9, 19, 16, 0, 544, DateTimeKind.Utc).AddTicks(9491),
                             Email = "admin@gmail.com",
                             IsDeleted = false,
-                            PasswordHash = "$2a$11$EoSDaFL7/q574IjgRlwWkOUjvS.m6indATZVGJSYgiFlVy9b432.6",
+                            PasswordHash = "$2a$11$fF2mblsNa9L/gD.aLhxCfOiGxZ/lq7ub256YAbjS4jp54YMG4Wgeu",
                             RoleId = 1,
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 2, 21, 8, 3, 11, 845, DateTimeKind.Utc).AddTicks(4674),
+                            UpdatedAt = new DateTime(2025, 3, 9, 19, 16, 0, 544, DateTimeKind.Utc).AddTicks(9487),
                             Username = "Admin"
                         });
                 });
@@ -683,8 +1359,23 @@ namespace OCMS_BOs.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("OCMS_BOs.Entities.Candidate", b =>
+                {
+                    b.HasOne("OCMS_BOs.Entities.User", "ImportByUser")
+                        .WithMany()
+                        .HasForeignKey("ImportByUserID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ImportByUser");
+                });
+
             modelBuilder.Entity("OCMS_BOs.Entities.Certificate", b =>
                 {
+                    b.HasOne("OCMS_BOs.Entities.User", "ApprovebyUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovebyUserId");
+
                     b.HasOne("OCMS_BOs.Entities.CertificateTemplate", "CertificateTemplate")
                         .WithMany()
                         .HasForeignKey("CertificateTemplateId")
@@ -697,68 +1388,73 @@ namespace OCMS_BOs.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("OCMS_BOs.Entities.DigitalSignature", "DigitalSignature")
+                        .WithMany()
+                        .HasForeignKey("DigitalSignatureId");
+
+                    b.HasOne("OCMS_BOs.Entities.User", "IssueByUser")
+                        .WithMany()
+                        .HasForeignKey("IssueByUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("OCMS_BOs.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("ApprovebyUser");
+
                     b.Navigation("CertificateTemplate");
 
                     b.Navigation("Course");
+
+                    b.Navigation("DigitalSignature");
+
+                    b.Navigation("IssueByUser");
 
                     b.Navigation("User");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.CertificateTemplate", b =>
                 {
-                    b.HasOne("OCMS_BOs.Entities.User", "User")
+                    b.HasOne("OCMS_BOs.Entities.User", "ApprovedByUser")
                         .WithMany()
-                        .HasForeignKey("CreatedBy")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("ApprovedByUserId");
 
-                    b.Navigation("User");
+                    b.HasOne("OCMS_BOs.Entities.User", "CreateByUser")
+                        .WithMany()
+                        .HasForeignKey("CreateByUserUserId");
+
+                    b.Navigation("ApprovedByUser");
+
+                    b.Navigation("CreateByUser");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Course", b =>
                 {
+                    b.HasOne("OCMS_BOs.Entities.User", "ApproveByUser")
+                        .WithMany()
+                        .HasForeignKey("ApproveByUserId");
+
                     b.HasOne("OCMS_BOs.Entities.User", "CreatedByUser")
                         .WithMany()
-                        .HasForeignKey("CreatedByUserUserId");
-
-                    b.HasOne("OCMS_BOs.Entities.User", "Instructor")
-                        .WithMany()
-                        .HasForeignKey("InstructorId")
+                        .HasForeignKey("CreatedByUserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("OCMS_BOs.Entities.TrainingPlan", "TrainingPlan")
+                        .WithMany()
+                        .HasForeignKey("TrainingPlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ApproveByUser");
 
                     b.Navigation("CreatedByUser");
 
-                    b.Navigation("Instructor");
-                });
-
-            modelBuilder.Entity("OCMS_BOs.Entities.CourseChangeRequest", b =>
-                {
-                    b.HasOne("OCMS_BOs.Entities.User", "ApprovedUser")
-                        .WithMany()
-                        .HasForeignKey("ApprovedUserUserId");
-
-                    b.HasOne("OCMS_BOs.Entities.Course", "Course")
-                        .WithMany()
-                        .HasForeignKey("CourseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("OCMS_BOs.Entities.User", "RequestedUser")
-                        .WithMany()
-                        .HasForeignKey("RequestedUserUserId");
-
-                    b.Navigation("ApprovedUser");
-
-                    b.Navigation("Course");
-
-                    b.Navigation("RequestedUser");
+                    b.Navigation("TrainingPlan");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.CourseParticipant", b =>
@@ -786,7 +1482,60 @@ namespace OCMS_BOs.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("OCMS_BOs.Entities.ExternalCertificate", b =>
+            modelBuilder.Entity("OCMS_BOs.Entities.CourseResult", b =>
+                {
+                    b.HasOne("OCMS_BOs.Entities.User", "ApprovedByUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovedByUserUserId");
+
+                    b.HasOne("OCMS_BOs.Entities.Course", "Course")
+                        .WithMany()
+                        .HasForeignKey("CourseID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OCMS_BOs.Entities.User", "SubmittedByUser")
+                        .WithMany()
+                        .HasForeignKey("SubmittedByUserUserId");
+
+                    b.Navigation("ApprovedByUser");
+
+                    b.Navigation("Course");
+
+                    b.Navigation("SubmittedByUser");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.Decision", b =>
+                {
+                    b.HasOne("OCMS_BOs.Entities.Certificate", "Certificate")
+                        .WithMany()
+                        .HasForeignKey("CertificateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OCMS_BOs.Entities.DigitalSignature", "DigitalSignature")
+                        .WithMany()
+                        .HasForeignKey("DigitalSignatureId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Certificate");
+
+                    b.Navigation("DigitalSignature");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.Department", b =>
+                {
+                    b.HasOne("OCMS_BOs.Entities.User", "Manager")
+                        .WithMany()
+                        .HasForeignKey("ManagerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Manager");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.DigitalSignature", b =>
                 {
                     b.HasOne("OCMS_BOs.Entities.User", "User")
                         .WithMany()
@@ -797,31 +1546,156 @@ namespace OCMS_BOs.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("OCMS_BOs.Entities.ExternalCertificate", b =>
+                {
+                    b.HasOne("OCMS_BOs.Entities.Candidate", "Person")
+                        .WithMany()
+                        .HasForeignKey("PersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OCMS_BOs.Entities.User", "VerifyByUser")
+                        .WithMany()
+                        .HasForeignKey("VerifyByUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Person");
+
+                    b.Navigation("VerifyByUser");
+                });
+
             modelBuilder.Entity("OCMS_BOs.Entities.Grade", b =>
                 {
-                    b.HasOne("OCMS_BOs.Entities.Course", "Course")
+                    b.HasOne("OCMS_BOs.Entities.User", "GradedByInstructor")
                         .WithMany()
-                        .HasForeignKey("CourseId")
+                        .HasForeignKey("GradedByInstructorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OCMS_BOs.Entities.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OCMS_BOs.Entities.TraineeAssign", "TraineeAssign")
+                        .WithMany()
+                        .HasForeignKey("TraineeAssignID")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("GradedByInstructor");
+
+                    b.Navigation("Subject");
+
+                    b.Navigation("TraineeAssign");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.InstructorAssignment", b =>
+                {
+                    b.HasOne("OCMS_BOs.Entities.User", "AssignByUser")
+                        .WithMany()
+                        .HasForeignKey("AssignByUserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("OCMS_BOs.Entities.User", "Instructor")
                         .WithMany()
-                        .HasForeignKey("SubmittedBy")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasForeignKey("InstructorId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("OCMS_BOs.Entities.User", "Trainee")
+                    b.HasOne("OCMS_BOs.Entities.Subject", "Subject")
                         .WithMany()
-                        .HasForeignKey("TraineeId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Course");
+                    b.Navigation("AssignByUser");
 
                     b.Navigation("Instructor");
 
-                    b.Navigation("Trainee");
+                    b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.Notification", b =>
+                {
+                    b.HasOne("OCMS_BOs.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.PlanChangeRequest", b =>
+                {
+                    b.HasOne("OCMS_BOs.Entities.User", "ApprovedUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovedUserUserId");
+
+                    b.HasOne("OCMS_BOs.Entities.TrainingPlan", "Plan")
+                        .WithMany()
+                        .HasForeignKey("PlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OCMS_BOs.Entities.User", "RequestedUser")
+                        .WithMany()
+                        .HasForeignKey("RequestedUserUserId");
+
+                    b.Navigation("ApprovedUser");
+
+                    b.Navigation("Plan");
+
+                    b.Navigation("RequestedUser");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.Profile", b =>
+                {
+                    b.HasOne("OCMS_BOs.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId");
+
+                    b.HasOne("OCMS_BOs.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Department");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.Report", b =>
+                {
+                    b.HasOne("OCMS_BOs.Entities.User", "GenerateByUser")
+                        .WithMany()
+                        .HasForeignKey("GenerateByUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("GenerateByUser");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.Request", b =>
+                {
+                    b.HasOne("OCMS_BOs.Entities.User", "ApprovedUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovedUserUserId");
+
+                    b.HasOne("OCMS_BOs.Entities.User", "RequestUser")
+                        .WithMany()
+                        .HasForeignKey("RequestUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ApprovedUser");
+
+                    b.Navigation("RequestUser");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Subject", b =>
@@ -832,29 +1706,122 @@ namespace OCMS_BOs.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("OCMS_BOs.Entities.User", "CreateByUser")
+                        .WithMany()
+                        .HasForeignKey("CreateByUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("Course");
+
+                    b.Navigation("CreateByUser");
                 });
 
-            modelBuilder.Entity("OCMS_BOs.Entities.TraineeNotification", b =>
+            modelBuilder.Entity("OCMS_BOs.Entities.TraineeAssign", b =>
                 {
-                    b.HasOne("OCMS_BOs.Entities.User", "User")
+                    b.HasOne("OCMS_BOs.Entities.User", "ApproveByUser")
                         .WithMany()
-                        .HasForeignKey("UserId")
+                        .HasForeignKey("ApproveByUserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("OCMS_BOs.Entities.TraineeProfile", b =>
-                {
-                    b.HasOne("OCMS_BOs.Entities.User", "User")
+                    b.HasOne("OCMS_BOs.Entities.Course", "Course")
                         .WithMany()
-                        .HasForeignKey("UserId")
+                        .HasForeignKey("CourseId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("User");
+                    b.HasOne("OCMS_BOs.Entities.User", "Trainee")
+                        .WithMany()
+                        .HasForeignKey("TraineeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ApproveByUser");
+
+                    b.Navigation("Course");
+
+                    b.Navigation("Trainee");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.TrainingList", b =>
+                {
+                    b.HasOne("OCMS_BOs.Entities.User", "ApproveByUser")
+                        .WithMany()
+                        .HasForeignKey("ApproveByUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OCMS_BOs.Entities.User", "CreateByUser")
+                        .WithMany()
+                        .HasForeignKey("CreateByUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ApproveByUser");
+
+                    b.Navigation("CreateByUser");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.TrainingListDetail", b =>
+                {
+                    b.HasOne("OCMS_BOs.Entities.User", "Person")
+                        .WithMany()
+                        .HasForeignKey("PersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OCMS_BOs.Entities.TrainingList", "TrainingList")
+                        .WithMany()
+                        .HasForeignKey("TrainingListId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Person");
+
+                    b.Navigation("TrainingList");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.TrainingPlan", b =>
+                {
+                    b.HasOne("OCMS_BOs.Entities.User", "ApproveByUser")
+                        .WithMany()
+                        .HasForeignKey("ApproveByUserId");
+
+                    b.HasOne("OCMS_BOs.Entities.User", "CreateByUser")
+                        .WithMany()
+                        .HasForeignKey("CreateByUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ApproveByUser");
+
+                    b.Navigation("CreateByUser");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.TrainingSchedule", b =>
+                {
+                    b.HasOne("OCMS_BOs.Entities.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserUserId");
+
+                    b.HasOne("OCMS_BOs.Entities.User", "Instructor")
+                        .WithMany()
+                        .HasForeignKey("InstructorID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OCMS_BOs.Entities.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("Instructor");
+
+                    b.Navigation("Subject");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.User", b =>

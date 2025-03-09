@@ -12,6 +12,7 @@ namespace OCMS_BOs.Entities
     {
         [Key]
         public string CertificateId { get; set; }
+        public string CertificateCode { get; set; }
 
         [ForeignKey("User")]
         public string UserId { get; set; }
@@ -24,14 +25,31 @@ namespace OCMS_BOs.Entities
         [ForeignKey("CertificateTemplate")]
         public string CertificateTemplateId { get; set; }
         public CertificateTemplate CertificateTemplate { get; set; }
+        [ForeignKey("IssueUser")]
+        public string IssueByUserId { get; set; }
+        public User IssueByUser { get; set; }
 
         public DateTime IssueDate { get; set; }
-        public DateTime? ExpirationDate { get; set; }
+
+        [ForeignKey("ApproveUser")]
+        public string? ApprovebyUserId { get; set; }
+        public User? ApprovebyUser { get; set; }
+
+       
         public CertificateStatus Status { get; set; } // active, expired, revoked, returned
-        public string DigitalSignature { get; set; }
+        [ForeignKey("DigitalSignature")]
+        public string? DigitalSignatureId { get; set; }
+        public DigitalSignature DigitalSignature { get; set; }
+        public DateTime SignDate { get; set; } = DateTime.UtcNow;
+        public DateTime? ExpirationDate { get; set; }
+
+        public string CertificateURL { get; set; }
         public bool IsRevoked { get; set; }
         public string RevocationReason { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+       
+
+        public DateTime? RevocationDate { get; set; }
     }
 }
+
+
