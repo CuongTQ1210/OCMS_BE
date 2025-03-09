@@ -13,12 +13,22 @@ namespace OCMS_BOs.Entities
         [Key]
         public int ExternalCertificateId { get; set; }
 
-        [ForeignKey("User")]
-        public string UserId { get; set; } // Trainee
-        public User User { get; set; }
+        public string CertificateCode { get; set; }
+        public string CertificateName { get; set; }
+        public string IssuingOrganization { get; set; }
+        [ForeignKey("Candidate")]
+        public string PersonId { get; set; }
+        public Candidate Person { get; set; }
 
+
+        [ForeignKey("User")]
+        public string VerifyByUserId { get; set; } 
+        public User VerifyByUser { get; set; }
+        
+        public DateTime VerifyDate { get; set; }
+        public VerificationStatus VerificationStatus { get; set; }
         [Required]
-        public string CertificateFile { get; set; } // Path to uploaded file
+        public string CertificateFileURL { get; set; } // Path to uploaded file
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }

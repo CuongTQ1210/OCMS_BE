@@ -8,15 +8,17 @@ using System.Threading.Tasks;
 
 namespace OCMS_BOs.Entities
 {
-    public class TraineeNotification
+    public class Notification
     {
         [Key]
         public int NotificationId { get; set; }
 
         [ForeignKey("User")]
-        public string UserId { get; set; } // Trainee
+        public string UserId { get; set; } 
         public User User { get; set; }
 
+        [Required]
+        public string Title {  get; set; }
         [Required]
         public string Message { get; set; }
 

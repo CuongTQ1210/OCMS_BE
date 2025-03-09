@@ -22,7 +22,7 @@ namespace OCMS_BOs
 
         // Define DbSet properties for your entities
         public DbSet<User> Users { get; set; }
-        public DbSet<TraineeProfile> TraineeProfiles { get; set; }
+        public DbSet<Profile> Profiles { get; set; }
         public DbSet<Role> Roles { get; set; }
         public DbSet<Course> Courses { get; set; }
         public DbSet<Subject> Subjects { get; set; }
@@ -35,7 +35,7 @@ namespace OCMS_BOs
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<BackupLog> BackupLogs { get; set; }
         public DbSet<ApprovalLog> ApprovalLogs { get; set; }
-        public DbSet<TraineeNotification> TraineeNotifications { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -71,7 +71,7 @@ namespace OCMS_BOs
 
                 entity.Property(u => u.Status)
                       .IsRequired()
-                      .HasDefaultValue("active"); // Default status is active
+                      .HasDefaultValue(AccountStatus.Active); // Default status is active
 
                 entity.Property(u => u.IsDeleted)
                       .IsRequired()
@@ -144,7 +144,7 @@ namespace OCMS_BOs
                     PasswordHash = adminPassword,
                     RoleId = 1, // Admin role
                     CreatedAt = DateTime.UtcNow,
-                    Status = (AccountStatus)1
+                    Status = AccountStatus.Active
                 }
             );
         }

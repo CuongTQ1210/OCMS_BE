@@ -11,7 +11,7 @@ namespace OCMS_BOs.Entities
     public class CourseParticipant
     {
         [Key]
-        public string ParticipantId { get; set; }
+        public int ParticipantId { get; set; }
 
         [ForeignKey("Course")]
         public string CourseId { get; set; }
