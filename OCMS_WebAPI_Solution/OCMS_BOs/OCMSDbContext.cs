@@ -21,21 +21,35 @@ namespace OCMS_BOs
         }
 
         // Define DbSet properties for your entities
+        // Define DbSet properties for your entities
         public DbSet<User> Users { get; set; }
-        public DbSet<TraineeProfile> TraineeProfiles { get; set; }
+        public DbSet<Profile> Profiles { get; set; }
         public DbSet<Role> Roles { get; set; }
         public DbSet<Course> Courses { get; set; }
         public DbSet<Subject> Subjects { get; set; }
         public DbSet<Grade> Grades { get; set; }
         public DbSet<Certificate> Certificates { get; set; }
-        public DbSet<CertificateTemplate> CertificatesTemplate { get; set; }
+        public DbSet<CertificateTemplate> CertificateTemplates { get; set; }
         public DbSet<CourseParticipant> CourseParticipants { get; set; }
-        public DbSet<CourseChangeRequest> CourseChangeRequests { get; set; }
+        public DbSet<CourseResult> CourseResults { get; set; }
+        public DbSet<PlanChangeRequest> PlanChangeRequests { get; set; }
         public DbSet<ExternalCertificate> ExternalCertificates { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<BackupLog> BackupLogs { get; set; }
         public DbSet<ApprovalLog> ApprovalLogs { get; set; }
-        public DbSet<TraineeNotification> TraineeNotifications { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
+        public DbSet<Decision> Decisions { get; set; }
+        public DbSet<Department> Departments { get; set; }
+        public DbSet<DigitalSignature> DigitalSignatures { get; set; }
+        public DbSet<InstructorAssignment> InstructorAssignments { get; set; }
+        public DbSet<Report> Reports { get; set; }
+        public DbSet<Request> Requests { get; set; }
+        public DbSet<TraineeAssign> TraineeAssignments { get; set; }
+        public DbSet<TrainingList> TrainingLists { get; set; }
+        public DbSet<TrainingListDetail> TrainingListDetails { get; set; }
+        public DbSet<TrainingPlan> TrainingPlans { get; set; }
+        public DbSet<TrainingSchedule> TrainingSchedules { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -71,7 +85,7 @@ namespace OCMS_BOs
 
                 entity.Property(u => u.Status)
                       .IsRequired()
-                      .HasDefaultValue("active"); // Default status is active
+                      .HasDefaultValue(AccountStatus.Active); // Default status is active
 
                 entity.Property(u => u.IsDeleted)
                       .IsRequired()
@@ -111,15 +125,15 @@ namespace OCMS_BOs
             });
 
             modelBuilder.Entity<Grade>()
-                    .HasOne(g => g.Trainee)
+                    .HasOne(g => g.TraineeAssign)
                     .WithMany()
-                    .HasForeignKey(g => g.TraineeId)
+                    .HasForeignKey(g => g.TraineeAssignID)
                     .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Grade>()
-                .HasOne(g => g.Instructor)
+                .HasOne(g => g.GradedByInstructor)
                 .WithMany()
-                .HasForeignKey(g => g.SubmittedBy)
+                .HasForeignKey(g => g.GradedByInstructorId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             // Seed data for roles
@@ -130,7 +144,8 @@ namespace OCMS_BOs
                 new Role { RoleId = 4, RoleName = "HR" },
                 new Role { RoleId = 5, RoleName = "Instructor" },
                 new Role { RoleId = 6, RoleName = "Reviewer" },
-                new Role { RoleId = 7, RoleName = "Trainee" }
+                new Role { RoleId = 7, RoleName = "Trainee" },
+                new Role { RoleId = 8, RoleName = "AOC Manager" }
             );
 
             // Seed Admin User
@@ -144,7 +159,7 @@ namespace OCMS_BOs
                     PasswordHash = adminPassword,
                     RoleId = 1, // Admin role
                     CreatedAt = DateTime.UtcNow,
-                    Status = (AccountStatus)1
+                    Status = AccountStatus.Active
                 }
             );
         }

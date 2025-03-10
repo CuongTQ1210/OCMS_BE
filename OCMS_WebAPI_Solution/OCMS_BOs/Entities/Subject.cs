@@ -18,7 +18,13 @@ namespace OCMS_BOs.Entities
         public Course Course { get; set; }
 
         public string SubjectName { get; set; }
-        public string ScheduleFile { get; set; } // Path to CSV/Excel
+        public string Description { get; set; }
+        public int Credits { get; set; }
+        public double PassingScore { get; set; }
+        public string Schedule { get; set; }
+        [ForeignKey("CreateUser")]
+        public string CreateByUserId { get; set; }
+        public User CreateByUser { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }

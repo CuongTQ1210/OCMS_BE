@@ -16,13 +16,13 @@ namespace OCMS_BOs.Entities
         [Required]
         public string ActionType { get; set; } // course_create, course_update, course_delete
 
-        [ForeignKey("User")]
+        [ForeignKey("RequestUser")]
         public string RequestedBy { get; set; } // Education Officer
         public User RequestedUser { get; set; }
 
-        [ForeignKey("User")]
-        public string ApprovedBy { get; set; } // Director
-        public User ApprovedUser { get; set; }
+        [ForeignKey("ApproveUser")]
+        public string? ApprovedBy { get; set; } // Director
+        public User? ApprovedUser { get; set; }
 
         [Required]
         public RequestStatus Status { get; set; } // pending, approved, rejected

@@ -13,21 +13,26 @@ namespace OCMS_BOs.Entities
         [Key]
         public string GradeId { get; set; }
 
-        [ForeignKey("Course")]
-        public string CourseId { get; set; }
-        public Course Course { get; set; }
+        [ForeignKey("TraineeAssign")]
+        public string TraineeAssignID { get; set; }
+        public TraineeAssign TraineeAssign { get; set; }
+
+        [ForeignKey("Subject")]
+        public string SubjectId { get; set; }
+        public Subject Subject { get; set; }
+        
+        public double Score { get; set; }
+        public GradeStatus gradeStatus { get; set; }
+        public string Remarks { get; set; }
 
         
-        public string TraineeId { get; set; }
-        public User Trainee { get; set; }
+        [ForeignKey("GradeUser")]
+        public string GradedByInstructorId { get; set; }
+        public User GradedByInstructor { get; set; }
 
-        public int GradeValue { get; set; }
-        public DateTime EvaluationDate { get; set; }
+        public DateTime EvaluationDate { get; set; }= DateTime.Now;
 
-        public string SubmittedBy { get; set; }
-        public User Instructor { get; set; }
-
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdateDate { get; set; }=DateTime.Now;
+       
     }
 }
