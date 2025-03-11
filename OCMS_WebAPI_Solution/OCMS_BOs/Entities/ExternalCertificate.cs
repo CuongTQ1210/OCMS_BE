@@ -17,9 +17,11 @@ namespace OCMS_BOs.Entities
         public string CertificateName { get; set; }
         public string IssuingOrganization { get; set; }
         [ForeignKey("Candidate")]
-        public string PersonId { get; set; }
-        public Candidate Person { get; set; }
-
+        public string? CandidateId { get; set; }
+        public Candidate? Candidate { get; set; }
+        [ForeignKey("User")]
+        public string? UserId { get; set; }
+        public User? User { get; set; }
 
         [ForeignKey("VerifyUser")]
         public string VerifyByUserId { get; set; } 
