@@ -23,7 +23,6 @@ namespace OCMS_BOs
         // Define DbSet properties for your entities
         // Define DbSet properties for your entities
         public DbSet<User> Users { get; set; }
-        public DbSet<Profile> Profiles { get; set; }
         public DbSet<Role> Roles { get; set; }
         public DbSet<Course> Courses { get; set; }
         public DbSet<Subject> Subjects { get; set; }
@@ -32,11 +31,8 @@ namespace OCMS_BOs
         public DbSet<CertificateTemplate> CertificateTemplates { get; set; }
         public DbSet<CourseParticipant> CourseParticipants { get; set; }
         public DbSet<CourseResult> CourseResults { get; set; }
-        public DbSet<PlanChangeRequest> PlanChangeRequests { get; set; }
         public DbSet<ExternalCertificate> ExternalCertificates { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
-        public DbSet<BackupLog> BackupLogs { get; set; }
-        public DbSet<ApprovalLog> ApprovalLogs { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<Decision> Decisions { get; set; }
         public DbSet<Department> Departments { get; set; }
@@ -45,8 +41,7 @@ namespace OCMS_BOs
         public DbSet<Report> Reports { get; set; }
         public DbSet<Request> Requests { get; set; }
         public DbSet<TraineeAssign> TraineeAssignments { get; set; }
-        public DbSet<TrainingList> TrainingLists { get; set; }
-        public DbSet<TrainingListDetail> TrainingListDetails { get; set; }
+        
         public DbSet<TrainingPlan> TrainingPlans { get; set; }
         public DbSet<TrainingSchedule> TrainingSchedules { get; set; }
 
@@ -123,6 +118,11 @@ namespace OCMS_BOs
                 entity.Property(cp => cp.UpdatedAt)
                       .HasDefaultValueSql("CURRENT_TIMESTAMP");
             });
+            modelBuilder.Entity<User>()
+    .Property(u => u.Status)
+    .HasDefaultValue(AccountStatus.Active) // Ensure this matches your intended default
+    .HasConversion<int>() // Store enum as an integer
+    .Metadata.SetBeforeSaveBehavior(Microsoft.EntityFrameworkCore.Metadata.PropertySaveBehavior.Ignore);
 
             modelBuilder.Entity<Grade>()
                     .HasOne(g => g.TraineeAssign)
@@ -151,17 +151,24 @@ namespace OCMS_BOs
             // Seed Admin User
             string adminPassword = PasswordHasher.HashPassword("Admin@123");
             modelBuilder.Entity<User>().HasData(
-                new User
-                {
-                    UserId = "ADM-1",
-                    Username = "Admin",
-                    Email = "admin@gmail.com",
-                    PasswordHash = adminPassword,
-                    RoleId = 1, // Admin role
-                    CreatedAt = DateTime.UtcNow,
-                    Status = AccountStatus.Active
-                }
-            );
+    new User
+    {
+        UserId = "ADM-1",
+        Username = "Admin",
+        FullName = "Admin User",
+        Gender = "Other",
+        DateOfBirth = new DateTime(2000, 1, 1),
+        Address = "123 Admin Street", // Provide an address value
+        PhoneNumber = "1234567890",
+        Email = "admin@gmail.com",
+        PasswordHash = adminPassword,
+        RoleId = 1, // Admin role
+        CreatedAt = DateTime.UtcNow,
+        UpdatedAt = DateTime.UtcNow,
+        Status = AccountStatus.Active,
+        IsDeleted = false
+    }
+);
         }
     }
 

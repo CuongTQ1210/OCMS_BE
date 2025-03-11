@@ -21,9 +21,9 @@ namespace OCMS_BOs.Entities
         
         public DateTime AssignDate { get; set; }= DateTime.Now;
         [ForeignKey("ApproveUser")]
-        public string ApproveByUserId { get; set; }
-        public User ApproveByUser { get; set; }
-        public DateTime ApprovalDate {  get; set; }= DateTime.Now;
+        public string? ApproveByUserId { get; set; }
+        public User? ApproveByUser { get; set; }
+        public DateTime? ApprovalDate {  get; set; }= DateTime.Now;
 
         public string Notes;
 
