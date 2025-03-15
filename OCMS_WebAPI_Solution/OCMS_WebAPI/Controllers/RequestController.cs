@@ -5,6 +5,7 @@ using OCMS_BOs.Entities;
 using OCMS_BOs.RequestModel;
 using OCMS_Services.IService;
 using OCMS_Services.Service;
+using OCMS_WebAPI.AuthorizeSettings;
 using System.Security.Claims;
 
 namespace OCMS_WebAPI.Controllers
@@ -57,12 +58,9 @@ namespace OCMS_WebAPI.Controllers
         }
         // ✅ Get All Requests (Only for Admin & Director)
         [HttpGet]
-        [Authorize]
+        [CustomAuthorize("Admin", "Director")]
         public async Task<IActionResult> GetAllRequests()
         {
-            var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
-            if (userRole != "Admin" && userRole != "Director")
-                return Forbid("Only Admin and Director can view all requests");
 
             var requests = await _requestService.GetAllRequestsAsync();
             return Ok(requests);
@@ -70,12 +68,9 @@ namespace OCMS_WebAPI.Controllers
 
         // ✅ Delete Request (Only for Admin)
         [HttpDelete("{id}")]
-        [Authorize]
+        [CustomAuthorize("Admin")]
         public async Task<IActionResult> DeleteRequest(string id)
         {
-            var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
-            if (userRole != "Admin")
-                return Forbid("Only Admin can delete requests");
 
             var success = await _requestService.DeleteRequestAsync(id);
             if (!success)
@@ -86,14 +81,10 @@ namespace OCMS_WebAPI.Controllers
 
         // ✅ Approve Request (Only for Director)
         [HttpPut("{id}/approve")]
-        [Authorize]
+        [CustomAuthorize("Director")]
         public async Task<IActionResult> ApproveRequest(string id)
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
-
-            if (userRole != "Director")
-                return Forbid("Only Director can approve requests");
 
             var success = await _requestService.ApproveRequestAsync(id, userId);
             if (!success)
@@ -104,12 +95,9 @@ namespace OCMS_WebAPI.Controllers
 
         // ✅ Reject Request (Only for Director)
         [HttpPut("{id}/reject")]
-        [Authorize]
+        [CustomAuthorize("Director")]
         public async Task<IActionResult> RejectRequest(string id)
         {
-            var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
-            if (userRole != "Director")
-                return Forbid("Only Director can reject requests");
 
             var success = await _requestService.RejectRequestAsync(id);
             if (!success)
