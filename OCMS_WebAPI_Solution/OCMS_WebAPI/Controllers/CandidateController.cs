@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using OCMS_Services.IService;
+using OCMS_WebAPI.AuthorizeSettings;
 using System.Security.Claims;
 
 namespace OCMS_WebAPI.Controllers
@@ -17,6 +18,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Import Candidates
         [HttpPost("import")]
+        [CustomAuthorize("Admin", "HR")]
         public async Task<IActionResult> ImportUsers(IFormFile file)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -33,6 +35,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get All Candidates
         [HttpGet]
+        [CustomAuthorize("Admin", "HR", "Reviewer")]
         public async Task<IActionResult> GetAllCandidates()
         {
             try
@@ -49,6 +52,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get Candidate By Id
         [HttpGet("{id}")]
+        [CustomAuthorize("Admin", "HR", "Reviewer")]
         public async Task<IActionResult> GetCandidateById(string id)
         {
             try
