@@ -27,7 +27,9 @@ namespace OCMS_BOs.Entities
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         [ForeignKey("User")]
         public string ImportByUserID { get; set; }
+        [ForeignKey("Specialty")]
+        public string SpecialtyId { get; set; }
         public User ImportByUser {  get; set; }
-
+        public Specialties Specialty { get; set; }
     }
 }

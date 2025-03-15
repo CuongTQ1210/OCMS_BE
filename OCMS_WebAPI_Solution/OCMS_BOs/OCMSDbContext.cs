@@ -41,7 +41,7 @@ namespace OCMS_BOs
         public DbSet<Report> Reports { get; set; }
         public DbSet<Request> Requests { get; set; }
         public DbSet<TraineeAssign> TraineeAssignments { get; set; }
-        
+        public DbSet<Specialties> Specialties { get; set; }
         public DbSet<TrainingPlan> TrainingPlans { get; set; }
         public DbSet<TrainingSchedule> TrainingSchedules { get; set; }
 
@@ -101,9 +101,35 @@ namespace OCMS_BOs
                         .WithMany() // Since Role does not have a Users collection
                         .HasForeignKey(u => u.RoleId) // Explicitly define the foreign key
                         .OnDelete(DeleteBehavior.Restrict);
-
+                entity.HasOne(u => u.Specialty)
+                     .WithMany()
+                     .HasForeignKey(u => u.SpecialtyId)
+                     .OnDelete(DeleteBehavior.Restrict);
             });
 
+            modelBuilder.Entity<Specialties>(entity =>
+            {
+                entity.HasKey(s => s.SpecialtyId);
+                entity.Property(s => s.SpecialtyName)
+                      .IsRequired()
+                      .HasMaxLength(100);
+            });
+
+            modelBuilder.Entity<TrainingPlan>(entity =>
+            {
+                entity.HasOne(tp => tp.Specialty)
+                      .WithMany()
+                      .HasForeignKey(tp => tp.SpecialtyId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<Department>(entity =>
+            {
+                entity.HasOne(d => d.Specialty)
+                      .WithMany()
+                      .HasForeignKey(d => d.SpecialtyId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
 
             // Fluent API for CourseParticipants
             modelBuilder.Entity<CourseParticipant>(entity =>
@@ -148,6 +174,15 @@ namespace OCMS_BOs
                 new Role { RoleId = 8, RoleName = "AOC Manager" }
             );
 
+            modelBuilder.Entity<Specialties>().HasData(
+                new Specialties { 
+                    SpecialtyId = "SPEC-001", 
+                    SpecialtyName = "Admin Specialty",
+                    Description = "Admin Specialty Description",
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedByUserId = "ADM-1" }
+            );
+
             // Seed Admin User
             string adminPassword = PasswordHasher.HashPassword("Admin@123");
             modelBuilder.Entity<User>().HasData(
@@ -163,6 +198,7 @@ namespace OCMS_BOs
         Email = "admin@gmail.com",
         PasswordHash = adminPassword,
         RoleId = 1, // Admin role
+        SpecialtyId = "SPEC-001", // Giá trị hợp lệ từ Specialties
         CreatedAt = DateTime.UtcNow,
         UpdatedAt = DateTime.UtcNow,
         Status = AccountStatus.Active,

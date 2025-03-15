@@ -1,6 +1,7 @@
 ﻿using OCMS_BOs.Helper;
 using OCMS_BOs.ViewModel;
 using OCMS_BOs.ResponseModel;
+using OCMS_BOs.Entities;
 using OCMS_Repositories.IRepository;
 using System;
 using System.Collections.Generic;
@@ -8,44 +9,43 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using OCMS_Services.IService;
+using AutoMapper;
+using OCMS_Repositories;
+using System.IO;
+using System.Security.Cryptography;
+using OfficeOpenXml;
+using Microsoft.AspNetCore.Identity;
+using System.Text.RegularExpressions;
 
 namespace OCMS_Services.Service
 {
-    public class UserService:  IUserService
+    public class UserService : IUserService
     {
+        private readonly UnitOfWork _unitOfWork;
+        private readonly IMapper _mapper;
+        private readonly PasswordHasher<User> _passwordHasher;
 
-        private readonly IUserRepository _userRepository;
-        private readonly JWTTokenHelper _jwtTokenHelper;
-
-        public UserService(IUserRepository userRepository, JWTTokenHelper jwtTokenHelper)
+        public UserService(UnitOfWork unitOfWork, IMapper mapper)
         {
-            _userRepository = userRepository;
-            _jwtTokenHelper = jwtTokenHelper;
-        }
+            _unitOfWork = unitOfWork;
+            _mapper = mapper;
+            _passwordHasher = new PasswordHasher<User>();
+        }        
 
-        public async Task<LoginResModel> LoginAsync(LoginModel loginDto)
+        #region Get All Users
+        public async Task<IEnumerable<UserModel>> GetAllUsersAsync()
         {
-            // Find the user by their username and include the Role entity
-            var user = await _userRepository.GetUserByUsernameAsync(loginDto.Username);
-
-            // Check if the user exists and the password is correct
-            if (user == null || !PasswordHasher.VerifyPassword(loginDto.Password, user.PasswordHash))
-            {
-                throw new Exception("Invalid username or password.");
-            }
-
-            // Ensure that the user role is loaded, if it's not already, load it.
-            var roles = new List<string> { user.Role?.RoleName ?? "" }; // Default to "User" if no role is assigned
-
-            // Generate JWT token
-            var token = _jwtTokenHelper.GenerateToken(user, roles);
-
-            // Return the response DTO with the user details and token
-            return new LoginResModel
-            {
-                UserID = user.UserId,
-                Token = token
-            };
+            var users = await _unitOfWork.UserRepository.GetAllAsync();
+            return _mapper.Map<IEnumerable<UserModel>>(users);
         }
+        #endregion
+
+        #region Get User By Id
+        public async Task<UserModel> GetUserByIdAsync(string id)
+        {
+            var user = await _unitOfWork.UserRepository.GetByIdAsync(id);
+            return _mapper.Map<UserModel>(user);
+        }
+        #endregion        
     }
 }

@@ -10,13 +10,12 @@ using OCMS_BOs.Entities;
 using OCMS_Repositories.IRepository;
 namespace OCMS_Repositories.Repository
 {
-    public class UserRepository : IUserRepository
+    public class UserRepository : GenericRepository<User>, IUserRepository
     {
         private readonly OCMSDbContext _context;
 
-        public UserRepository(OCMSDbContext context)
+        public UserRepository(OCMSDbContext context) : base(context)
         {
-            _context = context;
         }
 
         public async Task<User> GetUserByUsernameAsync(string username)
