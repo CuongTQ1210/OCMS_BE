@@ -17,7 +17,9 @@ namespace OCMS_BOs.Helper
             CreateMap<UserModel, User>();
 
             CreateMap<Specialties, SpecialtyModel>();
-            CreateMap<SpecialtyModel, Specialties>();
+            CreateMap<SpecialtyModel, Specialties>()
+                .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
+                .ForMember(dest => dest.CreatedByUserId, opt => opt.Ignore());
         }
     }
 }

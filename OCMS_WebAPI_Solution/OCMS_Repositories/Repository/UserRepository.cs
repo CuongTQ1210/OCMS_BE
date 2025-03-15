@@ -16,6 +16,7 @@ namespace OCMS_Repositories.Repository
 
         public UserRepository(OCMSDbContext context) : base(context)
         {
+            _context = context;
         }
 
         public async Task<User> GetUserByUsernameAsync(string username)

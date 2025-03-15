@@ -22,54 +22,67 @@ namespace OCMS_Services.Service
             _mapper = mapper;
         }
 
-        public async Task<SpecialtyModel> AddSpecialtyAsync(Specialties specialty)
+        public async Task<SpecialtyModel> AddSpecialtyAsync(SpecialtyModel specialtyViewModel, string createdByUserId)
         {
+            var specialty = _mapper.Map<Specialties>(specialtyViewModel);
             var existingSpecialty = (await _unitOfWork.SpecialtyRepository.GetAllAsync()).FirstOrDefault(s => s.SpecialtyName == specialty.SpecialtyName);
             if (existingSpecialty != null)
             {
                 throw new ArgumentException("Specialty already exists.");
             }
 
+            specialty.CreatedByUserId = createdByUserId;
+            specialty.CreatedAt = DateTime.UtcNow;
+
             await _unitOfWork.SpecialtyRepository.AddAsync(specialty);
-            var specialtyDTO = _mapper.Map<SpecialtyModel>(specialty);
-            return specialtyDTO;
+            await _unitOfWork.SaveChangesAsync();
+            return _mapper.Map<SpecialtyModel>(specialty);
         }
 
         public async Task<bool> DeleteSpecialtyAsync(string id)
         {
-            var specialty = _unitOfWork.SpecialtyRepository.GetByIdAsync(id);
+            var specialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(id);
             if (string.IsNullOrEmpty(id))
             {
                 throw new ArgumentNullException(nameof(id));
-            } else if (specialty == null)
+            }
+            else if (specialty == null)
             {
                 throw new ArgumentException("Specialty not found.");
             }
 
-            await _unitOfWork.SpecialtyRepository.DeleteAsync(id);          
+            await _unitOfWork.SpecialtyRepository.DeleteAsync(id);
+            await _unitOfWork.SaveChangesAsync();
             return true;
         }
 
-        public async Task<IEnumerable<Specialties>> GetAllSpecialtiesAsync()
+        public async Task<IEnumerable<SpecialtyModel>> GetAllSpecialtiesAsync()
         {
-            return await _unitOfWork.SpecialtyRepository.GetAllAsync();
+            var specialties = await _unitOfWork.SpecialtyRepository.GetAllAsync();
+            return _mapper.Map<IEnumerable<SpecialtyModel>>(specialties);
         }
 
-        public async Task<Specialties> GetSpecialtyByIdAsync(string id)
-        {
-            return await _unitOfWork.SpecialtyRepository.GetByIdAsync(id);
-        }
-
-        public async Task<Specialties> UpdateSpecialtyAsync(string id)
+        public async Task<SpecialtyModel> GetSpecialtyByIdAsync(string id)
         {
             var specialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(id);
-            if (specialty == null)
+            return _mapper.Map<SpecialtyModel>(specialty);
+        }
+
+        public async Task<SpecialtyModel> UpdateSpecialtyAsync(string id, SpecialtyModel specialtyViewModel, string updatedByUserId)
+        {
+            var existingSpecialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(id);
+            if (existingSpecialty == null)
             {
-                throw new ArgumentNullException(nameof(specialty));
+                throw new ArgumentException("Specialty not found.");
             }
 
-            await _unitOfWork.SpecialtyRepository.UpdateAsync(specialty);
-            return specialty;
+            _mapper.Map(specialtyViewModel, existingSpecialty);
+            existingSpecialty.UpdatedByUserId = updatedByUserId;
+            existingSpecialty.UpdatedAt = DateTime.UtcNow;
+
+            await _unitOfWork.SpecialtyRepository.UpdateAsync(existingSpecialty);
+            await _unitOfWork.SaveChangesAsync();
+            return _mapper.Map<SpecialtyModel>(existingSpecialty);
         }
     }
 }
