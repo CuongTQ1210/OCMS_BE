@@ -1,4 +1,5 @@
 ﻿using OCMS_BOs.Entities;
+using OCMS_BOs.ViewModel;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,8 +12,8 @@ namespace OCMS_Services.IService
     {
         Task<IEnumerable<Specialties>> GetAllSpecialtiesAsync();
         Task<Specialties> GetSpecialtyByIdAsync(string id);
-        Task<Specialties> AddSpecialtyAsync(Specialties specialty);
-        Task<Specialties> UpdateSpecialtyAsync(Specialties specialty);
+        Task<SpecialtyModel> AddSpecialtyAsync(Specialties specialty);
+        Task<Specialties> UpdateSpecialtyAsync(string id);
         Task<bool> DeleteSpecialtyAsync(string id);
     }
 }

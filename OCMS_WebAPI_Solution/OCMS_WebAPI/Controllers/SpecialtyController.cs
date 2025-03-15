@@ -79,7 +79,7 @@ namespace OCMS_WebAPI.Controllers
         #endregion
 
         #region Update Specialty
-        [HttpPost]
+        [HttpPut]
         public async Task<IActionResult> UpdateSpecialty(string id)
         {
             try

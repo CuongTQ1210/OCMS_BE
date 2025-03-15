@@ -813,6 +813,9 @@ namespace OCMS_BOs.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
 
@@ -931,12 +934,12 @@ namespace OCMS_BOs.Migrations
                         new
                         {
                             SpecialtyId = "SPEC-001",
-                            CreatedAt = new DateTime(2025, 3, 14, 18, 43, 46, 246, DateTimeKind.Utc).AddTicks(9115),
+                            CreatedAt = new DateTime(2025, 3, 15, 10, 24, 32, 831, DateTimeKind.Utc).AddTicks(674),
                             CreatedByUserId = "ADM-1",
                             Description = "Admin Specialty Description",
                             SpecialtyName = "Admin Specialty",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 3, 15, 1, 43, 46, 246, DateTimeKind.Local).AddTicks(9115)
+                            UpdatedAt = new DateTime(2025, 3, 15, 17, 24, 32, 831, DateTimeKind.Local).AddTicks(671)
                         });
                 });
 
@@ -1224,18 +1227,18 @@ namespace OCMS_BOs.Migrations
                         {
                             UserId = "ADM-1",
                             Address = "123 Admin Street",
-                            CreatedAt = new DateTime(2025, 3, 14, 18, 43, 46, 371, DateTimeKind.Utc).AddTicks(4468),
+                            CreatedAt = new DateTime(2025, 3, 15, 10, 24, 33, 28, DateTimeKind.Utc).AddTicks(9476),
                             DateOfBirth = new DateTime(2000, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "admin@gmail.com",
                             FullName = "Admin User",
                             Gender = "Other",
                             IsDeleted = false,
-                            PasswordHash = "$2a$11$0LHlJnSpv3ZqhXKDwgv1peGJnnmFEK686KbT2KQEDsb1xf6zFvOaS",
+                            PasswordHash = "$2a$11$xVxE2k8CxoOCp1L7yWS7IeeoF/exGGFhuknwpXnwZGL6BXiE4CSH.",
                             PhoneNumber = "1234567890",
                             RoleId = 1,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 3, 14, 18, 43, 46, 371, DateTimeKind.Utc).AddTicks(4469),
+                            UpdatedAt = new DateTime(2025, 3, 15, 10, 24, 33, 28, DateTimeKind.Utc).AddTicks(9476),
                             Username = "Admin"
                         });
                 });
