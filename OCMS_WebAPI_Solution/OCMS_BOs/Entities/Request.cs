@@ -22,9 +22,11 @@ namespace OCMS_BOs.Entities
         public string Description { get; set; }
         public string Notes { get; set; }
 
+        public RequestStatus Status { get; set; }
+
         [ForeignKey("ApproveUser")]
         public string? ApprovedBy { get; set; } // Nullable, only set if approved
-        public User ApprovedUser { get; set; }
+        public User? ApprovedUser { get; set; }
         public DateTime? ApprovedDate { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
