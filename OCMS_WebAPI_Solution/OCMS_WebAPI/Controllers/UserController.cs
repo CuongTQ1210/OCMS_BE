@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using OCMS_Services.IService;
+using OCMS_WebAPI.AuthorizeSettings;
 
 namespace OCMS_WebAPI.Controllers
 {
@@ -16,6 +17,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get All Users
         [HttpGet]
+        [CustomAuthorize]
         public async Task<IActionResult> GetAllUsers()
         {
             try
@@ -32,6 +34,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get User By Id
         [HttpGet("{id}")]
+        [CustomAuthorize]
         public async Task<IActionResult> GetUserById(string id)
         {
             try
