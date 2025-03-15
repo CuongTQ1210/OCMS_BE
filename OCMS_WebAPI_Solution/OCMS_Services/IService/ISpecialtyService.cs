@@ -10,10 +10,10 @@ namespace OCMS_Services.IService
 {
     public interface ISpecialtyService
     {
-        Task<IEnumerable<Specialties>> GetAllSpecialtiesAsync();
-        Task<Specialties> GetSpecialtyByIdAsync(string id);
-        Task<SpecialtyModel> AddSpecialtyAsync(Specialties specialty);
-        Task<Specialties> UpdateSpecialtyAsync(string id);
+        Task<IEnumerable<SpecialtyModel>> GetAllSpecialtiesAsync();
+        Task<SpecialtyModel> GetSpecialtyByIdAsync(string id);
+        Task<SpecialtyModel> AddSpecialtyAsync(SpecialtyModel specialty, string createdByUserId);
+        Task<SpecialtyModel> UpdateSpecialtyAsync(string id, SpecialtyModel specialty, string updatedByUserId);
         Task<bool> DeleteSpecialtyAsync(string id);
     }
 }

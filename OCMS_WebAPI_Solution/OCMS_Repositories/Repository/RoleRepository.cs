@@ -14,6 +14,7 @@ namespace OCMS_Repositories.Repository
         private readonly OCMSDbContext _context;
         public RoleRepository(OCMSDbContext context) : base(context)
         {
+            _context = context;
         }
     }
 }

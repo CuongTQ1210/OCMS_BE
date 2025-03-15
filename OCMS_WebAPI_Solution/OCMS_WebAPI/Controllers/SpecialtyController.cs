@@ -1,6 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using OCMS_BOs.Entities;
+using OCMS_BOs.ViewModel;
 using OCMS_Services.IService;
+using OCMS_WebAPI.AuthorizeSettings;
+using System.Security.Claims;
 
 namespace OCMS_WebAPI.Controllers
 {
@@ -16,6 +19,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get All Specialties
         [HttpGet]
+        [CustomAuthorize]
         public async Task<IActionResult> GetAllSpecialties()
         {
             try
@@ -32,6 +36,8 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get Specialty By Id
         [HttpGet("{id}")]
+        [CustomAuthorize]
+
         public async Task<IActionResult> GetSpecialtyById(string id)
         {
             try
@@ -48,11 +54,14 @@ namespace OCMS_WebAPI.Controllers
 
         #region Add Specialty
         [HttpPost]
-        public async Task<IActionResult> AddSpecialty([FromBody]Specialties specialty)
+        [CustomAuthorize("Admin", "Training staff", "AOC Manager")]
+
+        public async Task<IActionResult> AddSpecialty([FromBody] SpecialtyModel specialty)
         {
+            var createdByUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             try
             {
-                var result = await _specialtyService.AddSpecialtyAsync(specialty);
+                var result = await _specialtyService.AddSpecialtyAsync(specialty, createdByUserId);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -64,6 +73,8 @@ namespace OCMS_WebAPI.Controllers
 
         #region Delete Specialty
         [HttpDelete("{id}")]
+        [CustomAuthorize("Admin", "Training staff")]
+
         public async Task<IActionResult> DeleteSpecialty(string id)
         {
             try
@@ -79,12 +90,15 @@ namespace OCMS_WebAPI.Controllers
         #endregion
 
         #region Update Specialty
-        [HttpPut]
-        public async Task<IActionResult> UpdateSpecialty(string id)
+        [HttpPost("{id}")]
+        [CustomAuthorize("Admin", "Training staff")]
+
+        public async Task<IActionResult> UpdateSpecialty(string id, [FromBody] SpecialtyModel specialty)
         {
+            var updatedByUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             try
             {
-                var result = await _specialtyService.UpdateSpecialtyAsync(id);
+                var result = await _specialtyService.UpdateSpecialtyAsync(id, specialty, updatedByUserId);
                 return Ok(result);
             }
             catch (Exception ex)

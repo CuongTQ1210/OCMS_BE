@@ -17,7 +17,9 @@ namespace OCMS_BOs.Helper
             CreateMap<UserModel, User>();
 
             CreateMap<Specialties, SpecialtyModel>();
-            CreateMap<SpecialtyModel, Specialties>();
+            CreateMap<SpecialtyModel, Specialties>()
+                .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
+                .ForMember(dest => dest.CreatedByUserId, opt => opt.Ignore());
 
             CreateMap<Request, ViewModel.RequestModel>()
             .ForMember(dest => dest.RequestById, opt => opt.MapFrom(src => src.RequestUserId))
@@ -30,6 +32,7 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.ApprovedBy, opt => opt.MapFrom(src => src.ApprovedById))
                 .ForMember(dest => dest.RequestType, opt => opt.MapFrom(src => Enum.Parse<RequestType>(src.RequestType))) // Convert String to Enum
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => Enum.Parse<RequestStatus>(src.Status))); // Convert String to Enum
+            
         }
     }
 }

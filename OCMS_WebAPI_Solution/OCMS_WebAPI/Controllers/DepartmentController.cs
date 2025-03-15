@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using OCMS_Services.IService;
+using OCMS_WebAPI.AuthorizeSettings;
 
 namespace OCMS_WebAPI.Controllers
 {
@@ -15,6 +16,7 @@ namespace OCMS_WebAPI.Controllers
         }
 
         [HttpGet]
+        [CustomAuthorize]
         public async Task<IActionResult> GetAllDepartments()
         {
             try

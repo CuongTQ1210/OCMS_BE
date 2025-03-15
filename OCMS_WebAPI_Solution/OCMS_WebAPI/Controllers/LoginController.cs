@@ -5,7 +5,7 @@ using OCMS_Repositories.IRepository;
 using OCMS_Services.IService;
 using OCMS_Services.Service;
 using OCMS_WebAPI;
-
+using OCMS_WebAPI.AuthorizeSettings;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -48,6 +48,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Logout /(Not implemented yet)/
         [HttpPost("logout")]
+        [CustomAuthorize]
         public async Task<IActionResult> Logout()
         {
             return Ok();
