@@ -29,12 +29,12 @@ namespace OCMS_BOs.Entities
 
         [ForeignKey("Role")]
         public int RoleId { get; set; }
-        public Role Role { get; set; }
+
+        [ForeignKey("Specialty")]
+        public string SpecialtyId { get; set; }
 
         [ForeignKey("Department")]
         public string? DepartmentId { get; set; }
-        public Department? Department { get; set; }
-
         public bool IsDeleted { get; set; }
 
         public AccountStatus Status { get; set; } = AccountStatus.Active;
@@ -42,5 +42,9 @@ namespace OCMS_BOs.Entities
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? LastLogin { get; set; }
+
+        public Role Role { get; set; }
+        public Department? Department { get; set; }
+        public Specialties? Specialty { get; set; }
     }
 }

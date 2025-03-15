@@ -10,6 +10,7 @@ namespace OCMS_Services.IService
 {
     public interface IUserService
     {
-        Task<LoginResModel> LoginAsync(LoginModel loginDto);
+        Task<UserModel> GetUserByIdAsync(string id);
+        Task<IEnumerable<UserModel>> GetAllUsersAsync();        
     }
 }

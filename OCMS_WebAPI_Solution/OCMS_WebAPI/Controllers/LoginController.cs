@@ -16,13 +16,14 @@ namespace OCMS_WebAPI.Controllers
     [Route("api/[controller]")]
     public class LoginController : ControllerBase
     {
-        private readonly IUserService _userService;
+        private readonly IAuthenticationService _authenticationService;
 
-        public LoginController(IUserService userService) 
+        public LoginController(IAuthenticationService authenticationService) 
         {
-            _userService = userService;
+            _authenticationService = authenticationService;
         }
 
+        #region Login
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginModel loginModel)
         {
@@ -34,7 +35,7 @@ namespace OCMS_WebAPI.Controllers
                     return BadRequest("Username and password are required.");
                 }
 
-                var result = await _userService.LoginAsync(loginModel);
+                var result = await _authenticationService.LoginAsync(loginModel);
 
                 return Ok(result);
             }
@@ -43,5 +44,14 @@ namespace OCMS_WebAPI.Controllers
                 return Unauthorized(new { message = ex.Message });
             }
         }
+        #endregion
+
+        #region Logout /(Not implemented yet)/
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout()
+        {
+            return Ok();
+        }
+        #endregion
     }
 }

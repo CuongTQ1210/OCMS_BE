@@ -27,7 +27,11 @@ namespace OCMS_BOs.Entities
 
         [ForeignKey("ApproveUser")]
         public string? ApproveByUserId { get; set; }
+        [ForeignKey("Specialty")]
+        public string SpecialtyId { get; set; }
+
         public User? ApproveByUser { get; set; }
+        public virtual Specialties Specialty { get; set; }
         public DateTime? ApproveDate { get; set; } = DateTime.UtcNow;
 
         public TrainingPlanStatus TrainingPlanStatus { get; set; }
