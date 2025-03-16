@@ -26,6 +26,8 @@ namespace OCMS_Services.Service
             _notificationService = notificationService;
             _userRepository = userRepository;
         }
+
+        #region Create Request
         public async Task<Request> CreateRequestAsync(RequestDTO requestDto, string userId)
         {
             if (requestDto == null)
@@ -81,7 +83,9 @@ namespace OCMS_Services.Service
 
             return newRequest;
         }
+        #endregion
 
+        #region Get All Requests
         public async Task<IEnumerable<RequestModel>> GetAllRequestsAsync()
         {
             var requests = await _unitOfWork.RequestRepository.GetAllAsync(); // Remove includeProperties
@@ -89,7 +93,9 @@ namespace OCMS_Services.Service
 
             return _mapper.Map<IEnumerable<RequestModel>>(requests);
         }
+        #endregion
 
+        #region Get Request By Id
         public async Task<RequestModel> GetRequestByIdAsync(string requestId)
         {
             var request = await _unitOfWork.RequestRepository.GetByIdAsync(requestId); // Remove includeProperties
@@ -123,6 +129,9 @@ namespace OCMS_Services.Service
                     return false; // Invalid type
             }
         }
+        #endregion
+
+        #region Delete Request
         public async Task<bool> DeleteRequestAsync(string requestId)
         {
             var request = await _unitOfWork.RequestRepository.GetByIdAsync(requestId);
@@ -133,7 +142,9 @@ namespace OCMS_Services.Service
             await _unitOfWork.SaveChangesAsync();
             return true;
         }
+        #endregion
 
+        #region Approve Request
         public async Task<bool> ApproveRequestAsync(string requestId, string approvedByUserId)
         {
             var request = await _unitOfWork.RequestRepository.GetByIdAsync(requestId);
@@ -155,7 +166,9 @@ namespace OCMS_Services.Service
                 );
             return true; 
         }
+        #endregion
 
+        #region Reject Request
         public async Task<bool> RejectRequestAsync(string requestId)
         {
             var request = await _unitOfWork.RequestRepository.GetByIdAsync(requestId);
@@ -177,8 +190,7 @@ namespace OCMS_Services.Service
                 "Request"
             );
             return true;
-
-
         }
+        #endregion
     }
 }

@@ -25,6 +25,7 @@ namespace OCMS_Services.Service
             _notificationRepository = notificationRepository;
         }
 
+        #region Send Notification
         public async Task SendNotificationAsync(string userId, string title, string message, string type)
         {
             var notification = new Notification
@@ -39,16 +40,21 @@ namespace OCMS_Services.Service
             await _unitOfWork.NotificationRepository.AddAsync(notification);
             await _unitOfWork.SaveChangesAsync();
         }
+        #endregion
 
+        #region Get User Notifications
         public async Task<IEnumerable<NotificationModel>> GetUserNotificationsAsync(string userId)
         {
             var notifications = await _notificationRepository.GetUserNotificationsAsync(userId);
             return _mapper.Map<IEnumerable<NotificationModel>>(notifications);
         }
+        #endregion
 
+        #region Mark Notification as Read
         public async Task MarkNotificationAsReadAsync(int notificationId)
         {
             await _notificationRepository.MarkAsReadAsync(notificationId);
         }
+        #endregion
     }
 }

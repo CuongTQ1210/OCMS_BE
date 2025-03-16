@@ -18,9 +18,11 @@ namespace OCMS_Services.Service
             _unitOfWork = unitOfWork;
         }
 
+        #region Get all departments
         public async Task<IEnumerable<Department>> GetAllDepartmentsAsync()
         {
             return await _unitOfWork.DepartmentRepository.GetAllAsync();
         }
+        #endregion
     }
 }

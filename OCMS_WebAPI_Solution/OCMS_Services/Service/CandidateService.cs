@@ -26,10 +26,12 @@ namespace OCMS_Services.Service
             _mapper = mapper;
         }
 
+        #region Get All Candidates
         public async Task<IEnumerable<Candidate>> GetAllCandidates()
         {
             return await _unitOfWork.CandidateRepository.GetAllAsync();
         }
+        #endregion
 
         #region Get Candidate By Id
         public async Task<Candidate> GetCandidateByIdAsync(string id)

@@ -17,6 +17,7 @@ namespace OCMS_Services.Service
             _blobServiceClient = blobServiceClient;
         }
 
+        #region UploadFileAsync
         public async Task<string> UploadFileAsync(string containerName, string blobName, Stream fileStream)
         {
             var containerClient = _blobServiceClient.GetBlobContainerClient(containerName);
@@ -25,5 +26,6 @@ namespace OCMS_Services.Service
             await blobClient.UploadAsync(fileStream, true);
             return blobClient.Uri.ToString();
         }
+        #endregion
     }
 }
