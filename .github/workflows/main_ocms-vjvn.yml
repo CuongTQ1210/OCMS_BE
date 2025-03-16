@@ -30,10 +30,10 @@ jobs:
           restore-keys: ${{ runner.os }}-nuget-
       
       - name: Restore dependencies
-        run: dotnet restore ./OCMS_WebAPI_Solution/OCMS_WebAPI.sln
+        run: dotnet restore ./OCMS_WebAPI_Solution/OCMS_WebAPI_Solution.sln
       
       - name: Run tests
-        run: dotnet test ./OCMS_WebAPI_Solution/OCMS_WebAPI.sln --no-restore --verbosity normal
+        run: dotnet test ./OCMS_WebAPI_Solution/OCMS_WebAPI_Solution.sln --no-restore --verbosity normal
       
       - name: Security scan with CodeQL
         uses: github/codeql-action/init@v2
@@ -41,13 +41,13 @@ jobs:
           languages: csharp
       
       - name: Build with dotnet
-        run: dotnet build ./OCMS_WebAPI_Solution/OCMS_WebAPI.sln --configuration Release --no-restore
+        run: dotnet build ./OCMS_WebAPI_Solution/OCMS_WebAPI_Solution.sln --configuration Release --no-restore
       
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v2
       
       - name: dotnet publish
-        run: dotnet publish ./OCMS_WebAPI_Solution/OCMS_WebAPI.sln -c Release -o "${{env.DOTNET_ROOT}}/myapp" /p:DebugSymbols=false /p:DebugType=None
+        run: dotnet publish ./OCMS_WebAPI_Solution/OCMS_WebAPI_Solution.sln -c Release -o "${{env.DOTNET_ROOT}}/myapp" /p:DebugSymbols=false /p:DebugType=None
       
       - name: Remove unnecessary files
         run: |
