@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Azure;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using OCMS_BOs;
@@ -9,7 +10,6 @@ using OCMS_Repositories.IRepository;
 using OCMS_Repositories.Repository;
 using OCMS_Services.IService;
 using OCMS_Services.Service;
-using System.Reflection;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,6 +18,10 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 builder.Services.AddDbContext<OCMSDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Add Azure Clients
+builder.Services.AddAzureClients(azureBuilder =>
+    azureBuilder.AddBlobServiceClient(builder.Configuration.GetConnectionString("AzureBlobStorage")));
 
 builder.Services.AddScoped<JWTTokenHelper>();
 builder.Services.AddAutoMapper(typeof(MappingHelper));
@@ -37,6 +41,7 @@ builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 builder.Services.AddScoped<ISpecialtyService, SpecialtyService>();
 builder.Services.AddScoped<ICandidateService, CandidateService>();
+builder.Services.AddScoped<IBlobService, BlobService>();
 
 
 builder.Services.AddAuthentication(options =>

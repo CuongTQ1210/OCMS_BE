@@ -1,9 +1,12 @@
 ﻿using AutoMapper;
+using Azure.Storage.Blobs;
+using Microsoft.Extensions.Configuration;
 using OCMS_BOs.Entities;
 using OCMS_BOs.ResponseModel;
 using OCMS_Repositories;
 using OCMS_Services.IService;
 using OfficeOpenXml;
+using OfficeOpenXml.Drawing;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -33,10 +36,10 @@ namespace OCMS_Services.Service
         {
             return await _unitOfWork.CandidateRepository.GetByIdAsync(id);
         }
-        #endregion
+        #endregion       
 
-        #region Import Candidates
-        public async Task<ImportResult> ImportCandidatesFromExcelAsync(Stream fileStream, string importedByUserId)
+        #region Import Candidates new
+        public async Task<ImportResult> ImportCandidatesFromExcelAsync(Stream fileStream, string importedByUserId, IBlobService blobService)
         {
             var result = new ImportResult
             {
@@ -51,139 +54,179 @@ namespace OCMS_Services.Service
                 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
                 using (var package = new ExcelPackage(fileStream))
                 {
-                    var worksheet = package.Workbook.Worksheets[0]; // First worksheet
-                    int rowCount = worksheet.Dimension.Rows;
+                    var candidateSheet = package.Workbook.Worksheets["Candidate"];
+                    var certificateSheet = package.Workbook.Worksheets["ExternalCertificate"];
 
-                    result.TotalRecords = rowCount - 1; // Exclude header row
-                    var candidates = new List<Candidate>();
+                    if (candidateSheet == null || certificateSheet == null)
+                    {
+                        result.Errors.Add("File Excel phải chứa cả 2 sheet: 'Candidate' và 'ExternalCertificate'");
+                        return result;
+                    }
 
-                    // Get all specialties for validation and mapping
+                    // Lấy danh sách specialties để mapping
                     var specialties = await _unitOfWork.SpecialtyRepository.GetAllAsync();
-                    var specialtyDict = specialties.ToDictionary(s => s.SpecialtyName.ToLower(), s => s);
+                    var specialtyDict = specialties.ToDictionary(s => s.SpecialtyName.ToLower(), s => s.SpecialtyId);
 
-                    // Get existing candidates for ID generation
+                    // Lấy CandidateId cuối cùng để sinh ID mới
                     var lastCandidate = await GetLastCandidateIdAsync();
                     int lastIdNumber = 0;
-
                     if (!string.IsNullOrEmpty(lastCandidate))
                     {
-                        // Extract the numeric part of the candidate ID
-                        // Assuming format is like "C0001", "C0002", etc.
                         string numericPart = new string(lastCandidate.Where(char.IsDigit).ToArray());
                         int.TryParse(numericPart, out lastIdNumber);
                     }
 
-                    // Start from row 2 (after header)
-                    for (int row = 2; row <= rowCount; row++)
+                    // Dictionary để mapping PersonalID sang CandidateId
+                    var personalIdToCandidateId = new Dictionary<string, string>();
+                    var personalIds = new HashSet<string>(); // Kiểm tra PersonalID trùng lặp
+                    var candidates = new List<Candidate>();
+                    var externalCertificates = new List<ExternalCertificate>();
+
+                    // **Xử lý sheet Candidate**
+                    int candidateRowCount = candidateSheet.Dimension.Rows;
+                    result.TotalRecords = candidateRowCount - 1;
+
+                    for (int row = 2; row <= candidateRowCount; row++)
                     {
-                        try
-                        {
-                            // Handle empty rows
-                            if (IsRowEmpty(worksheet, row))
-                            {
-                                continue;
-                            }
+                        if (IsRowEmpty(candidateSheet, row)) continue;
 
-                            // Handle date properly from Excel
-                            DateTime dateOfBirth;
-                            var dobCell = worksheet.Cells[row, 3];
-
-                            // Try different methods to parse the date
-                            if (dobCell.Value == null)
-                            {
-                                result.FailedCount++;
-                                result.Errors.Add($"Error at row {row}: Date of Birth is required");
-                                continue;
-                            }
-                            else if (dobCell.Value is DateTime dateValue)
-                            {
-                                dateOfBirth = dateValue;
-                            }
-                            else if (dobCell.Value is double numericDate)
-                            {
-                                // Excel stores dates as serial numbers
-                                dateOfBirth = DateTime.FromOADate(numericDate);
-                            }
-                            else
-                            {
-                                // Try to parse as string if not a numeric date
-                                if (!DateTime.TryParse(dobCell.Value.ToString(), out dateOfBirth))
-                                {
-                                    result.FailedCount++;
-                                    result.Errors.Add($"Error at row {row}: Invalid date format: {dobCell.Value}");
-                                    continue;
-                                }
-                            }
-
-                            // Get specialty ID by name
-                            string specialtyName = worksheet.Cells[row, 9].GetValue<string>();
-
-                            // Validate specialty exists
-                            if (string.IsNullOrEmpty(specialtyName))
-                            {
-                                result.FailedCount++;
-                                result.Errors.Add($"Error at row {row}: Specialty name is required");
-                                continue;
-                            }
-
-                            string specialtyId = null;
-                            if (specialtyDict.TryGetValue(specialtyName.ToLower(), out var specialty))
-                            {
-                                specialtyId = specialty.SpecialtyId;
-                            }
-                            else
-                            {
-                                result.FailedCount++;
-                                result.Errors.Add($"Error at row {row}: Specialty '{specialtyName}' not found");
-                                continue;
-                            }
-
-                            // Generate new candidate ID
-                            lastIdNumber++;
-                            string candidateId = $"CAN{lastIdNumber:D5}"; // Format: CAN00001, CAN00002, etc.
-
-                            var candidate = new Candidate
-                            {
-                                CandidateId = candidateId,
-                                FullName = worksheet.Cells[row, 1].GetValue<string>(),
-                                Gender = worksheet.Cells[row, 2].GetValue<string>(),
-                                DateOfBirth = dateOfBirth,
-                                Address = worksheet.Cells[row, 4].GetValue<string>(),
-                                Email = worksheet.Cells[row, 5].GetValue<string>(),
-                                PhoneNumber = worksheet.Cells[row, 6].GetValue<string>(),
-                                PersonalID = worksheet.Cells[row, 7].GetValue<string>(),
-                                ExternalCertificate = worksheet.Cells[row, 8].GetValue<string>(),
-                                SpecialtyId = specialtyId,
-                                Note = worksheet.Cells[row, 10].GetValue<string>(),
-                                CandidateStatus = CandidateStatus.Pending,
-                                ImportByUserID = importedByUserId,
-                                CreatedAt = DateTime.UtcNow,
-                                UpdatedAt = DateTime.UtcNow
-                            };
-
-                            // Validate candidate data
-                            if (ValidateCandidate(candidate, result, row))
-                            {
-                                candidates.Add(candidate);
-                                result.SuccessCount++;
-                            }
-                            else
-                            {
-                                result.FailedCount++;
-                            }
-                        }
-                        catch (Exception ex)
+                        // Đọc và parse DateOfBirth
+                        DateTime dateOfBirth;
+                        var dobCell = candidateSheet.Cells[row, 3];
+                        if (dobCell.Value == null || !TryParseDate(dobCell.Value, out dateOfBirth))
                         {
                             result.FailedCount++;
-                            result.Errors.Add($"Error at row {row}: {ex.Message}");
+                            result.Errors.Add($"Error at row {row} (Candidate): Invalid Date of Birth");
+                            continue;
+                        }
+
+                        // Đọc SpecialtyName và lấy SpecialtyId
+                        string specialtyName = candidateSheet.Cells[row, 8].GetValue<string>();
+                        if (string.IsNullOrEmpty(specialtyName) || !specialtyDict.TryGetValue(specialtyName.ToLower(), out string specialtyId))
+                        {
+                            result.FailedCount++;
+                            result.Errors.Add($"Error at row {row} (Candidate): Invalid Specialty '{specialtyName}'");
+                            continue;
+                        }
+
+                        // Đọc PersonalID và kiểm tra trùng lặp
+                        string personalId = candidateSheet.Cells[row, 7].GetValue<string>();
+                        if (string.IsNullOrEmpty(personalId))
+                        {
+                            result.FailedCount++;
+                            result.Errors.Add($"Error at row {row} (Candidate): PersonalID is required");
+                            continue;
+                        }
+                        if (!personalIds.Add(personalId))
+                        {
+                            result.FailedCount++;
+                            result.Errors.Add($"Error at row {row} (Candidate): Duplicate PersonalID '{personalId}'");
+                            continue;
+                        }
+
+                        // Sinh CandidateId mới
+                        lastIdNumber++;
+                        string candidateId = $"CAN{lastIdNumber:D5}";
+
+                        var candidate = new Candidate
+                        {
+                            CandidateId = candidateId,
+                            FullName = candidateSheet.Cells[row, 1].GetValue<string>(),
+                            Gender = candidateSheet.Cells[row, 2].GetValue<string>(),
+                            DateOfBirth = dateOfBirth,
+                            Address = candidateSheet.Cells[row, 4].GetValue<string>(),
+                            Email = candidateSheet.Cells[row, 5].GetValue<string>(),
+                            PhoneNumber = candidateSheet.Cells[row, 6].GetValue<string>(),
+                            PersonalID = personalId,
+                            SpecialtyId = specialtyId,
+                            Note = candidateSheet.Cells[row, 9].GetValue<string>(),
+                            CandidateStatus = CandidateStatus.Pending,
+                            ImportByUserID = importedByUserId,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        };
+
+                        // Validate candidate
+                        if (ValidateCandidate(candidate, result, row))
+                        {
+                            candidates.Add(candidate);
+                            personalIdToCandidateId[personalId] = candidateId; // Lưu mapping
+                            result.SuccessCount++;
+                        }
+                        else
+                        {
+                            result.FailedCount++;
                         }
                     }
 
-                    // Save all valid candidates
-                    if (candidates.Any())
+                    // **Xử lý sheet ExternalCertificate**
+                    int certificateRowCount = certificateSheet.Dimension.Rows;
+                    var drawings = certificateSheet.Drawings;
+
+                    for (int row = 2; row <= certificateRowCount; row++)
+                    {
+                        if (IsRowEmpty(certificateSheet, row)) continue;
+
+                        // Đọc PersonalID và tìm CandidateId tương ứng
+                        string personalId = certificateSheet.Cells[row, 1].GetValue<string>();
+                        if (string.IsNullOrEmpty(personalId) || !personalIdToCandidateId.TryGetValue(personalId, out string candidateId))
+                        {
+                            result.Errors.Add($"Error at row {row} (ExternalCertificate): Invalid PersonalID '{personalId}'");
+                            continue;
+                        }
+
+                        // Đọc thông tin certificate
+                        string certificateCode = certificateSheet.Cells[row, 2].GetValue<string>();
+                        string certificateName = certificateSheet.Cells[row, 3].GetValue<string>();
+                        string issuingOrganization = certificateSheet.Cells[row, 4].GetValue<string>();
+
+                        // Trích xuất và upload ảnh bằng IBlobService
+                        string certificateFileURL = null;
+                        var drawing = drawings.FirstOrDefault(d => d.From.Row + 1 == row && d.From.Column + 1 == 5); // Cột 5 là ảnh
+                        if (drawing != null && drawing is ExcelPicture picture)
+                        {
+                            string blobName = $"{candidateId}_{certificateCode}_{DateTime.UtcNow.Ticks}.jpg";
+                            using (var stream = new MemoryStream(picture.Image.ImageBytes))
+                            {
+                                certificateFileURL = await blobService.UploadFileAsync("externalcertificate", blobName, stream);
+                            }
+                        }
+                        else
+                        {
+                            result.Errors.Add($"Error at row {row} (ExternalCertificate): No image found for certificate");
+                            continue;
+                        }
+
+                        var certificate = new ExternalCertificate
+                        {
+                            CandidateId = candidateId,
+                            CertificateCode = certificateCode,
+                            CertificateName = certificateName,
+                            IssuingOrganization = issuingOrganization,
+                            CertificateFileURL = certificateFileURL,
+                            VerifyByUserId = importedByUserId,
+                            VerifyDate = DateTime.UtcNow,
+                            VerificationStatus = VerificationStatus.Pending,
+                            CreatedAt = DateTime.UtcNow
+                        };
+
+                        externalCertificates.Add(certificate);
+                    }
+
+                    // **Lưu dữ liệu vào database**
+                    await _unitOfWork.BeginTransactionAsync();
+                    try
                     {
                         await _unitOfWork.CandidateRepository.AddRangeAsync(candidates);
+                        await _unitOfWork.ExternalCertificateRepository.AddRangeAsync(externalCertificates);
                         await _unitOfWork.SaveChangesAsync();
+                        await _unitOfWork.CommitTransactionAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        await _unitOfWork.RollbackTransactionAsync();
+                        result.Errors.Add($"Error saving data: {ex.Message}");
+                        throw;
                     }
                 }
             }
@@ -199,6 +242,19 @@ namespace OCMS_Services.Service
         #endregion
 
         #region Helper Methods
+        private bool IsRowEmpty(ExcelWorksheet worksheet, int row)
+        {
+            int totalColumns = worksheet.Dimension.Columns;
+            for (int col = 1; col <= totalColumns; col++)
+            {
+                if (!string.IsNullOrWhiteSpace(worksheet.Cells[row, col].GetValue<string>()))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         private async Task<string> GetLastCandidateIdAsync()
         {
             var candidates = await _unitOfWork.CandidateRepository.GetAllAsync();
@@ -217,19 +273,7 @@ namespace OCMS_Services.Service
                     return 0;
                 })
                 .FirstOrDefault();
-        }
-
-        private bool IsRowEmpty(ExcelWorksheet worksheet, int row)
-        {
-            for (int col = 1; col <= 10; col++)
-            {
-                if (!string.IsNullOrWhiteSpace(worksheet.Cells[row, col].GetValue<string>()))
-                {
-                    return false;
-                }
-            }
-            return true;
-        }
+        }        
 
         private bool ValidateCandidate(Candidate candidate, ImportResult result, int row)
         {
@@ -285,6 +329,22 @@ namespace OCMS_Services.Service
             {
                 return false;
             }
+        }
+
+        private bool TryParseDate(object value, out DateTime date)
+        {
+            date = DateTime.MinValue;
+            if (value is DateTime dateValue)
+            {
+                date = dateValue;
+                return true;
+            }
+            if (value is double numericDate)
+            {
+                date = DateTime.FromOADate(numericDate);
+                return true;
+            }
+            return DateTime.TryParse(value?.ToString(), out date);
         }
         #endregion
     }

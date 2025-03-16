@@ -74,9 +74,6 @@ namespace OCMS_BOs.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("ExternalCertificate")
-                        .HasColumnType("text");
-
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasColumnType("text");
@@ -931,12 +928,12 @@ namespace OCMS_BOs.Migrations
                         new
                         {
                             SpecialtyId = "SPEC-001",
-                            CreatedAt = new DateTime(2025, 3, 14, 18, 43, 46, 246, DateTimeKind.Utc).AddTicks(9115),
+                            CreatedAt = new DateTime(2025, 3, 16, 10, 44, 8, 162, DateTimeKind.Utc).AddTicks(9436),
                             CreatedByUserId = "ADM-1",
                             Description = "Admin Specialty Description",
                             SpecialtyName = "Admin Specialty",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 3, 15, 1, 43, 46, 246, DateTimeKind.Local).AddTicks(9115)
+                            UpdatedAt = new DateTime(2025, 3, 16, 17, 44, 8, 162, DateTimeKind.Local).AddTicks(9435)
                         });
                 });
 
@@ -1224,18 +1221,18 @@ namespace OCMS_BOs.Migrations
                         {
                             UserId = "ADM-1",
                             Address = "123 Admin Street",
-                            CreatedAt = new DateTime(2025, 3, 14, 18, 43, 46, 371, DateTimeKind.Utc).AddTicks(4468),
+                            CreatedAt = new DateTime(2025, 3, 16, 10, 44, 8, 287, DateTimeKind.Utc).AddTicks(8053),
                             DateOfBirth = new DateTime(2000, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "admin@gmail.com",
                             FullName = "Admin User",
                             Gender = "Other",
                             IsDeleted = false,
-                            PasswordHash = "$2a$11$0LHlJnSpv3ZqhXKDwgv1peGJnnmFEK686KbT2KQEDsb1xf6zFvOaS",
+                            PasswordHash = "$2a$11$0YLDR4NFLfrCK5.hhNE9b.7ko5qal.t3MNB2n4Dz8ujjYxaaBrY3C",
                             PhoneNumber = "1234567890",
                             RoleId = 1,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 3, 14, 18, 43, 46, 371, DateTimeKind.Utc).AddTicks(4469),
+                            UpdatedAt = new DateTime(2025, 3, 16, 10, 44, 8, 287, DateTimeKind.Utc).AddTicks(8054),
                             Username = "Admin"
                         });
                 });
@@ -1484,7 +1481,7 @@ namespace OCMS_BOs.Migrations
             modelBuilder.Entity("OCMS_BOs.Entities.ExternalCertificate", b =>
                 {
                     b.HasOne("OCMS_BOs.Entities.Candidate", "Candidate")
-                        .WithMany()
+                        .WithMany("ExternalCertificate")
                         .HasForeignKey("CandidateId");
 
                     b.HasOne("OCMS_BOs.Entities.User", "User")
@@ -1735,6 +1732,11 @@ namespace OCMS_BOs.Migrations
                     b.Navigation("Role");
 
                     b.Navigation("Specialty");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.Candidate", b =>
+                {
+                    b.Navigation("ExternalCertificate");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Department", b =>
