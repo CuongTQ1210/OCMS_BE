@@ -21,6 +21,7 @@ namespace OCMS_Repositories
         private GenericRepository<Request> _requestRepository;
         private GenericRepository<TrainingSchedule> _trainingScheduleRepository;
         private GenericRepository<CourseParticipant> _courseParticipantRepository;
+        private GenericRepository<Notification> _notificationRepository;
         public UnitOfWork(OCMSDbContext context)
         {
             _context = context;
@@ -67,6 +68,11 @@ namespace OCMS_Repositories
         {
             get => _requestRepository ??= new GenericRepository<Request>(_context);
         }
+        public GenericRepository<Notification> NotificationRepository
+        {
+            get => _notificationRepository ??= new GenericRepository<Notification>(_context);
+        }
+
 
 
         public async Task<int> SaveChangesAsync()

@@ -32,7 +32,21 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.ApprovedBy, opt => opt.MapFrom(src => src.ApprovedById))
                 .ForMember(dest => dest.RequestType, opt => opt.MapFrom(src => Enum.Parse<RequestType>(src.RequestType))) // Convert String to Enum
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => Enum.Parse<RequestStatus>(src.Status))); // Convert String to Enum
-            
+                                                                                                                   // Notification Mapping
+            CreateMap<Notification, NotificationModel>()
+           .ForMember(dest => dest.Title, opt => opt.MapFrom(src => src.Title))
+           .ForMember(dest => dest.Message, opt => opt.MapFrom(src => src.Message))
+           .ForMember(dest => dest.NotificationType, opt => opt.MapFrom(src => src.NotificationType))
+           .ForMember(dest => dest.UserId, opt => opt.MapFrom(src => src.UserId))
+           .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
+           .ForMember(dest => dest.IsRead, opt => opt.MapFrom(src => src.IsRead));
+
+            CreateMap<NotificationModel, Notification>()
+                .ForMember(dest => dest.Title, opt => opt.MapFrom(src => src.Title))
+                .ForMember(dest => dest.Message, opt => opt.MapFrom(src => src.Message))
+                .ForMember(dest => dest.NotificationType, opt => opt.MapFrom(src => src.NotificationType))
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
+                .ForMember(dest => dest.IsRead, opt => opt.MapFrom(src => false));
         }
     }
 }

@@ -58,7 +58,7 @@ namespace OCMS_WebAPI.Controllers
         }
         // ✅ Get All Requests (Only for Admin & Director)
         [HttpGet]
-        [CustomAuthorize("Admin", "Director")]
+        [CustomAuthorize("Admin", "HeadMaster")]
         public async Task<IActionResult> GetAllRequests()
         {
 
@@ -81,7 +81,7 @@ namespace OCMS_WebAPI.Controllers
 
         // ✅ Approve Request (Only for Director)
         [HttpPut("{id}/approve")]
-        [CustomAuthorize("Director")]
+        [CustomAuthorize("HeadMaster")]
         public async Task<IActionResult> ApproveRequest(string id)
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -95,7 +95,7 @@ namespace OCMS_WebAPI.Controllers
 
         // ✅ Reject Request (Only for Director)
         [HttpPut("{id}/reject")]
-        [CustomAuthorize("Director")]
+        [CustomAuthorize("HeadMaster")]
         public async Task<IActionResult> RejectRequest(string id)
         {
 

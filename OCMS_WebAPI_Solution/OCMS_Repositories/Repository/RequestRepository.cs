@@ -14,6 +14,7 @@ namespace OCMS_Repositories.Repository
         private readonly OCMSDbContext _context;
         public RequestRepository(OCMSDbContext context) : base(context)
         {
+            _context = context;
         }
 
     }

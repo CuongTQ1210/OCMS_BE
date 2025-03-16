@@ -9,6 +9,7 @@ namespace OCMS_Repositories.IRepository
     public interface IUserRepository
     {
         Task<User> GetUserByUsernameAsync(string username);
+        Task<IEnumerable<User>> GetUsersByRoleAsync(string roleName);
     }
 
 }

@@ -26,6 +26,11 @@ namespace OCMS_Repositories.Repository
                                  .Where(u => u.Username == username)
                                  .FirstOrDefaultAsync();
         }
-
+        public async Task<IEnumerable<User>> GetUsersByRoleAsync(string roleName)
+        {
+            return await _context.Users
+                .Where(u => u.Role.RoleName == roleName) 
+                .ToListAsync();
+        }
     }
 }

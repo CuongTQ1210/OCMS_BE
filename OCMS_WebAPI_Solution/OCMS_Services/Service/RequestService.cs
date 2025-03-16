@@ -3,6 +3,7 @@ using OCMS_BOs.Entities;
 using OCMS_BOs.RequestModel;
 using OCMS_BOs.ViewModel;
 using OCMS_Repositories;
+using OCMS_Repositories.IRepository;
 using OCMS_Services.IService;
 using System;
 using System.Collections.Generic;
@@ -16,11 +17,14 @@ namespace OCMS_Services.Service
     {
         private readonly UnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
-
-        public RequestService(UnitOfWork unitOfWork, IMapper mapper)
+        private readonly INotificationService _notificationService;
+        private readonly IUserRepository _userRepository;
+        public RequestService(UnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService, IUserRepository userRepository)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _notificationService = notificationService;
+            _userRepository = userRepository;
         }
         public async Task<Request> CreateRequestAsync(RequestDTO requestDto, string userId)
         {
@@ -57,6 +61,23 @@ namespace OCMS_Services.Service
 
             await _unitOfWork.RequestRepository.AddAsync(newRequest);
             await _unitOfWork.SaveChangesAsync();
+
+            // 🚀 Send notification to the director if NewPlan, RecurrentPlan, RelearnPlan
+            if (newRequest.RequestType == RequestType.NewPlan ||
+                newRequest.RequestType == RequestType.RecurrentPlan ||
+                newRequest.RequestType == RequestType.RelearnPlan)
+            {
+                var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
+                foreach (var director in directors)
+                {
+                    await _notificationService.SendNotificationAsync(
+                        director.UserId,
+                        "New Request Submitted",
+                        $"A new {newRequest.RequestType} request has been submitted for review.",
+                        "Request"
+                    );
+                }
+            }
 
             return newRequest;
         }
@@ -126,7 +147,13 @@ namespace OCMS_Services.Service
 
             _unitOfWork.RequestRepository.UpdateAsync(request);
             await _unitOfWork.SaveChangesAsync();
-            return true;
+            await _notificationService.SendNotificationAsync(
+            request.RequestUserId,
+                "Request Approved",
+                $"Your request ({request.RequestType}) has been approved.",
+                "Request"
+                );
+            return true; 
         }
 
         public async Task<bool> RejectRequestAsync(string requestId)
@@ -140,7 +167,18 @@ namespace OCMS_Services.Service
 
             _unitOfWork.RequestRepository.UpdateAsync(request);
             await _unitOfWork.SaveChangesAsync();
+
+
+            // 🚀 Send notification to request creator
+            await _notificationService.SendNotificationAsync(
+                request.RequestUserId,
+                "Request Rejected",
+                $"Your request ({request.RequestType}) has been rejected.",
+                "Request"
+            );
             return true;
+
+
         }
     }
 }
