@@ -16,6 +16,7 @@ using System.Security.Cryptography;
 using OfficeOpenXml;
 using Microsoft.AspNetCore.Identity;
 using System.Text.RegularExpressions;
+using System.Globalization;
 
 namespace OCMS_Services.Service
 {
@@ -58,15 +59,16 @@ namespace OCMS_Services.Service
 
             // Lấy Specialty
             var specialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(candidate.SpecialtyId);
-            string specialtyInitial = specialty.SpecialtyName.Substring(0, 1).ToUpper();
+            string specialtyInitial = specialty.SpecialtyId;
 
-            // Sinh userId
+            // Tạo userId
             string lastUserId = await GetLastUserIdAsync();
             int nextNumber = lastUserId != null ? int.Parse(lastUserId.Substring(1)) + 1 : 1;
             string userId = $"{specialtyInitial}{nextNumber:D6}";
 
             // Tạo userName
-            string lastName = candidate.FullName.Split(' ').Last().ToLower();
+            string fullNameWithoutDiacritics = RemoveDiacritics(candidate.FullName);
+            string lastName = fullNameWithoutDiacritics.Split(' ').Last().ToLower();
             string userName = $"{lastName}_{userId.ToLower()}";
 
             // Tạo password ngẫu nhiên
@@ -93,6 +95,27 @@ namespace OCMS_Services.Service
             await SendWelcomeEmailAsync(candidate.Email, userName, password);
 
             return user;
+        }        
+        #endregion
+
+        #region Helper Methods
+        private async Task SendWelcomeEmailAsync(string email, string username, string password)
+        {
+            var subject = "Chào mừng bạn đến với hệ thống!";
+            var body = $@"Chào mừng bạn đến với hệ thống OCMS!
+
+                        Tài khoản của bạn đã được tạo thành công.
+
+Thông tin đăng nhập:
+- Username: {username}
+- Password: {password}
+
+Vui lòng đăng nhập và reset mật khẩu của bạn ngay sau khi nhận được email này.
+
+Trân trọng,
+Đội ngũ hỗ trợ";
+
+            await _emailService.SendEmailAsync(email, subject, body);
         }
 
         private async Task<string> GetLastUserIdAsync()
@@ -113,23 +136,21 @@ namespace OCMS_Services.Service
                 .Select(s => s[random.Next(s.Length)]).ToArray());
         }
 
-        public async Task SendWelcomeEmailAsync(string email, string username, string password)
+        private string RemoveDiacritics(string text)
         {
-            var subject = "Chào mừng bạn đến với hệ thống!";
-            var body = $@"Chào mừng bạn đến với hệ thống OCMS!
+            var normalizedString = text.Normalize(NormalizationForm.FormD);
+            var stringBuilder = new StringBuilder();
 
-                        Tài khoản của bạn đã được tạo thành công.
+            foreach (var c in normalizedString)
+            {
+                var unicodeCategory = CharUnicodeInfo.GetUnicodeCategory(c);
+                if (unicodeCategory != UnicodeCategory.NonSpacingMark)
+                {
+                    stringBuilder.Append(c);
+                }
+            }
 
-Thông tin đăng nhập:
-- Username: {username}
-- Password: {password}
-
-Vui lòng đăng nhập và reset mật khẩu của bạn ngay sau khi nhận được email này.
-
-Trân trọng,
-Đội ngũ hỗ trợ";
-
-            await _emailService.SendEmailAsync(email, subject, body);
+            return stringBuilder.ToString().Normalize(NormalizationForm.FormC);
         }
         #endregion
     }
