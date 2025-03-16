@@ -23,9 +23,18 @@ builder.Services.AddDbContext<OCMSDbContext>(options =>
 builder.Services.AddAzureClients(azureBuilder =>
     azureBuilder.AddBlobServiceClient(builder.Configuration.GetConnectionString("AzureBlobStorage")));
 
+// Add Email Service
+builder.Services.AddTransient<IEmailService>(provider =>
+{
+    var smtpServer = builder.Configuration["Email:SmtpServer"];
+    var smtpPort = int.Parse(builder.Configuration["Email:SmtpPort"]);
+    var smtpUser = builder.Configuration["Email:SmtpUser"];
+    var smtpPass = builder.Configuration["Email:SmtpPass"];
+    return new EmailService(smtpServer, smtpPort, smtpUser, smtpPass);
+});
+
 builder.Services.AddScoped<JWTTokenHelper>();
 builder.Services.AddAutoMapper(typeof(MappingHelper));
-
 builder.Services.AddScoped<UnitOfWork>();
 
 // Add repositories

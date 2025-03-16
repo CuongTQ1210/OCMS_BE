@@ -96,10 +96,10 @@ namespace OCMS_WebAPI.Controllers
         // ✅ Reject Request (Only for Director)
         [HttpPut("{id}/reject")]
         [CustomAuthorize("HeadMaster")]
-        public async Task<IActionResult> RejectRequest(string id)
+        public async Task<IActionResult> RejectRequest(string id, [FromBody]string rejectionReason)
         {
 
-            var success = await _requestService.RejectRequestAsync(id);
+            var success = await _requestService.RejectRequestAsync(id, rejectionReason);
             if (!success)
                 return NotFound("Request not found");
 

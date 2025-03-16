@@ -81,6 +81,19 @@ namespace OCMS_Services.Service
                 }
             }
 
+            if (newRequest.RequestType == RequestType.CandidateImport)
+            {
+                var admins = await _userRepository.GetUsersByRoleAsync("HeadMaster");
+                foreach (var admin in admins)
+                {
+                    await _notificationService.SendNotificationAsync(
+                        admin.UserId,
+                        "New Candidate Import Request",
+                        "A new candidate import request has been submitted for review.",
+                        "CandidateImport"
+                    );
+                }
+            }
             return newRequest;
         }
         #endregion
@@ -164,12 +177,26 @@ namespace OCMS_Services.Service
                 $"Your request ({request.RequestType}) has been approved.",
                 "Request"
                 );
+
+            if (request.RequestType == RequestType.CandidateImport)
+            {
+                var admins = await _userRepository.GetUsersByRoleAsync("Admin");
+                foreach (var admin in admins)
+                {
+                    await _notificationService.SendNotificationAsync(
+                        admin.UserId,
+                        "Candidate Import Approved",
+                        "The candidate import request has been approved. Please create user accounts for the new candidates.",
+                        "CandidateImport"
+                    );
+                }
+            }
             return true; 
         }
         #endregion
 
         #region Reject Request
-        public async Task<bool> RejectRequestAsync(string requestId)
+        public async Task<bool> RejectRequestAsync(string requestId, string rejectionReason)
         {
             var request = await _unitOfWork.RequestRepository.GetByIdAsync(requestId);
             if (request == null || request.Status != RequestStatus.Pending)
@@ -186,9 +213,23 @@ namespace OCMS_Services.Service
             await _notificationService.SendNotificationAsync(
                 request.RequestUserId,
                 "Request Rejected",
-                $"Your request ({request.RequestType}) has been rejected.",
+                $"Your request ({request.RequestType}) has been rejected. Reason: {rejectionReason}",
                 "Request"
             );
+
+            if (request.RequestType == RequestType.CandidateImport)
+            {
+                var hrs = await _userRepository.GetUsersByRoleAsync("HR");
+                foreach (var hr in hrs)
+                {
+                    await _notificationService.SendNotificationAsync(
+                        hr.UserId,
+                        "Candidate Import Rejected",
+                        $"The candidate import request has been rejected. Reason: {rejectionReason}",
+                        "CandidateImport"
+                    );
+                }
+            }
             return true;
         }
         #endregion

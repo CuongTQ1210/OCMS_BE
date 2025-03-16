@@ -17,12 +17,14 @@ namespace OCMS_Services.Service
         private readonly UnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly INotificationRepository _notificationRepository;
+        private readonly IUserRepository _userRepository;
 
-        public NotificationService(UnitOfWork unitOfWork, IMapper mapper, INotificationRepository notificationRepository)
+        public NotificationService(UnitOfWork unitOfWork, IMapper mapper, INotificationRepository notificationRepository, IUserRepository userRepository)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _notificationRepository = notificationRepository;
+            _userRepository = userRepository;
         }
 
         #region Send Notification
@@ -54,6 +56,22 @@ namespace OCMS_Services.Service
         public async Task MarkNotificationAsReadAsync(int notificationId)
         {
             await _notificationRepository.MarkAsReadAsync(notificationId);
+        }
+        #endregion
+
+        #region Send Notification after Import Candidate successfully
+        public async Task SendCandidateImportNotificationToDirectorsAsync(int successCount)
+        {
+            var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
+            foreach (var director in directors)
+            {
+                await SendNotificationAsync(
+                    director.UserId,
+                    "New Candidates Imported",
+                    $"{successCount} candidates have been imported and are pending approval.",
+                    "CandidateImport"
+                );
+            }
         }
         #endregion
     }

@@ -2,8 +2,10 @@
 using Azure.Storage.Blobs;
 using Microsoft.Extensions.Configuration;
 using OCMS_BOs.Entities;
+using OCMS_BOs.RequestModel;
 using OCMS_BOs.ResponseModel;
 using OCMS_Repositories;
+using OCMS_Repositories.IRepository;
 using OCMS_Services.IService;
 using OfficeOpenXml;
 using OfficeOpenXml.Drawing;
@@ -19,11 +21,15 @@ namespace OCMS_Services.Service
     {
         private readonly UnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly INotificationService _notificationService;
+        private readonly IUserRepository _userRepository;
 
-        public CandidateService(UnitOfWork unitOfWork, IMapper mapper)
+        public CandidateService(UnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService, IUserRepository userRepository)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _notificationService = notificationService;
+            _userRepository = userRepository;
         }
 
         #region Get All Candidates
@@ -40,7 +46,7 @@ namespace OCMS_Services.Service
         }
         #endregion       
 
-        #region Import Candidates new
+        #region Import Candidates
         public async Task<ImportResult> ImportCandidatesFromExcelAsync(Stream fileStream, string importedByUserId, IBlobService blobService)
         {
             var result = new ImportResult
@@ -223,6 +229,19 @@ namespace OCMS_Services.Service
                         await _unitOfWork.ExternalCertificateRepository.AddRangeAsync(externalCertificates);
                         await _unitOfWork.SaveChangesAsync();
                         await _unitOfWork.CommitTransactionAsync();
+
+                        if (result.SuccessCount > 0)
+                        {
+                            var requestService = new RequestService(_unitOfWork, _mapper, _notificationService, _userRepository);
+                            var requestDto = new RequestDTO
+                            {
+                                RequestType = RequestType.CandidateImport,
+                                Description = $"Yêu cầu xác nhận danh sách {result.SuccessCount} ứng viên vừa được import",
+                                Notes = "Danh sách ứng viên cần phê duyệt"
+                            };
+
+                            await requestService.CreateRequestAsync(requestDto, importedByUserId);
+                        }
                     }
                     catch (Exception ex)
                     {
