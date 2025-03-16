@@ -12,7 +12,6 @@ namespace OCMS_BOs.Entities
     {
         [Key]
         public string CandidateId { get; set; }
-
         public string FullName { get; set; }
         public string Gender { get; set; }
         public DateTime DateOfBirth { get; set; }
@@ -20,7 +19,7 @@ namespace OCMS_BOs.Entities
         public string Email { get; set; }
         public string PhoneNumber { get; set; }
         public string PersonalID { get; set; }
-        public string? ExternalCertificate { get; set; } // Path to uploaded certificate
+        public List<ExternalCertificate> ExternalCertificate { get; set; } // Path to uploaded certificate
         public CandidateStatus CandidateStatus { get; set; }
         public string? Note { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

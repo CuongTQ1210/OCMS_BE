@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Azure;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using OCMS_BOs;
@@ -9,7 +10,6 @@ using OCMS_Repositories.IRepository;
 using OCMS_Repositories.Repository;
 using OCMS_Services.IService;
 using OCMS_Services.Service;
-using System.Reflection;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,9 +19,22 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 builder.Services.AddDbContext<OCMSDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Add Azure Clients
+builder.Services.AddAzureClients(azureBuilder =>
+    azureBuilder.AddBlobServiceClient(builder.Configuration.GetConnectionString("AzureBlobStorage")));
+
+// Add Email Service
+builder.Services.AddTransient<IEmailService>(provider =>
+{
+    var smtpServer = builder.Configuration["Email:SmtpServer"];
+    var smtpPort = int.Parse(builder.Configuration["Email:SmtpPort"]);
+    var smtpUser = builder.Configuration["Email:SmtpUser"];
+    var smtpPass = builder.Configuration["Email:SmtpPass"];
+    return new EmailService(smtpServer, smtpPort, smtpUser, smtpPass);
+});
+
 builder.Services.AddScoped<JWTTokenHelper>();
 builder.Services.AddAutoMapper(typeof(MappingHelper));
-
 builder.Services.AddScoped<UnitOfWork>();
 
 // Add repositories
@@ -41,6 +54,7 @@ builder.Services.AddScoped<IRequestService, RequestService>();
 builder.Services.AddScoped<ISpecialtyService, SpecialtyService>();
 builder.Services.AddScoped<ICandidateService, CandidateService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IBlobService, BlobService>();
 
 
 builder.Services.AddAuthentication(options =>
