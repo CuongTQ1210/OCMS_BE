@@ -78,6 +78,21 @@ namespace OCMS_Services.Service
                     );
                 }
             }
+            else if(newRequest.RequestType == RequestType.CreateNew ||
+                newRequest.RequestType == RequestType.CreateRecurrent ||
+                newRequest.RequestType == RequestType.CreateRelearn)
+            {
+                var directors = await _userRepository.GetUsersByRoleAsync("Training staff");
+                foreach (var director in directors)
+                {
+                    await _notificationService.SendNotificationAsync(
+                        director.UserId,
+                        "New Request Submitted",
+                        $"A new {newRequest.RequestType} request has been submitted for review.",
+                        "Request"
+                    );
+                }
+            }
 
             return newRequest;
         }
