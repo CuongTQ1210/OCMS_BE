@@ -36,7 +36,7 @@ jobs:
         run: dotnet test ./OCMS_WebAPI_Solution/OCMS_WebAPI_Solution.sln --no-restore --verbosity normal
       
       - name: Security scan with CodeQL
-        uses: github/codeql-action/init@v2
+        uses: github/codeql-action/init@v3
         with:
           languages: csharp
       
@@ -44,7 +44,7 @@ jobs:
         run: dotnet build ./OCMS_WebAPI_Solution/OCMS_WebAPI_Solution.sln --configuration Release --no-restore
       
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+        uses: github/codeql-action/analyze@v3
       
       - name: dotnet publish
         run: dotnet publish ./OCMS_WebAPI_Solution/OCMS_WebAPI_Solution.sln -c Release -o "${{env.DOTNET_ROOT}}/myapp" /p:DebugSymbols=false /p:DebugType=None
@@ -60,66 +60,7 @@ jobs:
           name: .net-app
           path: ${{env.DOTNET_ROOT}}/myapp
           retention-days: 5
-
-  deploy-staging:
-    runs-on: windows-latest
-    needs: build
-    timeout-minutes: 10
-    environment:
-      name: 'Staging'
-      url: ${{ steps.deploy-to-webapp-staging.outputs.webapp-url }}
-    permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
-    steps:
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v4
-        with:
-          name: .net-app
-          path: .net-app
-      
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_732105261D164349B2E0977D88C3FD5D }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_D06877F8E0E841BBB49ADAE59F6AFC3F }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_5B05FF6D6C474567A76EEF82FEB59479 }}
-      
-      - name: Deploy to Azure Web App (Staging)
-        id: deploy-to-webapp-staging
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'ocms-vjvn'
-          slot-name: 'staging'
-          package: .net-app
-      
-      - name: Health check staging
-        run: |
-          $maxRetries = 5
-          $retryCount = 0
-          $success = $false
-          
-          do {
-            try {
-              $response = Invoke-WebRequest -Uri ${{ steps.deploy-to-webapp-staging.outputs.webapp-url }} -UseBasicParsing
-              if ($response.StatusCode -eq 200) {
-                $success = $true
-                Write-Host "Health check passed!"
-                break
-              }
-            }
-            catch {
-              $retryCount++
-              Write-Host "Health check failed. Retrying in 10 seconds... ($retryCount/$maxRetries)"
-              Start-Sleep -Seconds 10
-            }
-          } while ($retryCount -lt $maxRetries -and -not $success)
-          
-          if (-not $success) {
-            Write-Host "Health check failed after $maxRetries attempts. Deployment may have issues."
-            exit 1
-          }
-
+  
   deploy-production:
     runs-on: windows-latest
     needs: deploy-staging
