@@ -173,38 +173,167 @@ namespace OCMS_BOs
                 new Role { RoleId = 7, RoleName = "Trainee" },
                 new Role { RoleId = 8, RoleName = "AOC Manager" }
             );
-
             modelBuilder.Entity<Specialties>().HasData(
-                new Specialties { 
-                    SpecialtyId = "SPEC-001", 
-                    SpecialtyName = "Admin Specialty",
-                    Description = "Admin Specialty Description",
-                    CreatedAt = DateTime.UtcNow,
-                    CreatedByUserId = "ADM-1" }
-            );
-
-            // Seed Admin User
-            string adminPassword = PasswordHasher.HashPassword("Admin@123");
-            modelBuilder.Entity<User>().HasData(
-    new User
+    new Specialties
     {
-        UserId = "ADM-1",
-        Username = "Admin",
-        FullName = "Admin User",
-        Gender = "Other",
-        DateOfBirth = new DateTime(2000, 1, 1),
-        Address = "123 Admin Street", // Provide an address value
-        PhoneNumber = "1234567890",
-        Email = "admin@gmail.com",
-        PasswordHash = adminPassword,
-        RoleId = 1, // Admin role
-        SpecialtyId = "SPEC-001", // Giá trị hợp lệ từ Specialties
+        SpecialtyId = "SPEC-001",
+        SpecialtyName = "Admin Specialty",
+        Description = "Admin Specialty Description",
         CreatedAt = DateTime.UtcNow,
-        UpdatedAt = DateTime.UtcNow,
-        Status = AccountStatus.Active,
-        IsDeleted = false
+        CreatedByUserId = "ADM-1"
     }
 );
+
+            // Seed Test Users for Each Role
+            string adminPassword = PasswordHasher.HashPassword("Admin@123");
+            string userPassword = PasswordHasher.HashPassword("User@123");
+
+            modelBuilder.Entity<User>().HasData(
+                new User
+                {
+                    UserId = "ADM-1",
+                    Username = "Admin",
+                    FullName = "Admin User",
+                    Gender = "Other",
+                    DateOfBirth = new DateTime(2000, 1, 1),
+                    Address = "123 Admin Street",
+                    PhoneNumber = "1234567890",
+                    Email = "admin@gmail.com",
+                    PasswordHash = adminPassword,
+                    RoleId = 1, // Admin
+                    SpecialtyId = "SPEC-001",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    Status = AccountStatus.Active,
+                    IsDeleted = false
+                },
+                new User
+                {
+                    UserId = "HM-1",
+                    Username = "HeadMaster",
+                    FullName = "Head Master User",
+                    Gender = "Male",
+                    DateOfBirth = new DateTime(1980, 5, 20),
+                    Address = "456 Headmaster Street",
+                    PhoneNumber = "0987654321",
+                    Email = "headmaster@gmail.com",
+                    PasswordHash = userPassword,
+                    RoleId = 2, // HeadMaster
+                    SpecialtyId = "SPEC-001",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    Status = AccountStatus.Active,
+                    IsDeleted = false
+                },
+                new User
+                {
+                    UserId = "TS-1",
+                    Username = "TrainingStaff",
+                    FullName = "Training Staff User",
+                    Gender = "Female",
+                    DateOfBirth = new DateTime(1992, 7, 10),
+                    Address = "789 Training Staff Lane",
+                    PhoneNumber = "1122334455",
+                    Email = "trainingstaff@gmail.com",
+                    PasswordHash = userPassword,
+                    RoleId = 3, // Training Staff
+                    SpecialtyId = "SPEC-001",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    Status = AccountStatus.Active,
+                    IsDeleted = false
+                },
+                new User
+                {
+                    UserId = "HR-1",
+                    Username = "HRManager",
+                    FullName = "HR Manager",
+                    Gender = "Male",
+                    DateOfBirth = new DateTime(1985, 3, 15),
+                    Address = "101 HR Street",
+                    PhoneNumber = "2233445566",
+                    Email = "hrmanager@gmail.com",
+                    PasswordHash = userPassword,
+                    RoleId = 4, // HR
+                    SpecialtyId = "SPEC-001",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    Status = AccountStatus.Active,
+                    IsDeleted = false
+                },
+                new User
+                {
+                    UserId = "INST-1",
+                    Username = "Instructor",
+                    FullName = "Instructor User",
+                    Gender = "Female",
+                    DateOfBirth = new DateTime(1990, 9, 25),
+                    Address = "202 Instructor Avenue",
+                    PhoneNumber = "3344556677",
+                    Email = "instructor@gmail.com",
+                    PasswordHash = userPassword,
+                    RoleId = 5, // Instructor
+                    SpecialtyId = "SPEC-001",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    Status = AccountStatus.Active,
+                    IsDeleted = false
+                },
+                new User
+                {
+                    UserId = "REV-1",
+                    Username = "Reviewer",
+                    FullName = "Reviewer User",
+                    Gender = "Male",
+                    DateOfBirth = new DateTime(1993, 12, 5),
+                    Address = "303 Reviewer Blvd",
+                    PhoneNumber = "4455667788",
+                    Email = "reviewer@gmail.com",
+                    PasswordHash = userPassword,
+                    RoleId = 6, // Reviewer
+                    SpecialtyId = "SPEC-001",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    Status = AccountStatus.Active,
+                    IsDeleted = false
+                },
+                new User
+                {
+                    UserId = "TR-1",
+                    Username = "Trainee",
+                    FullName = "Trainee User",
+                    Gender = "Female",
+                    DateOfBirth = new DateTime(2002, 8, 18),
+                    Address = "404 Trainee Lane",
+                    PhoneNumber = "5566778899",
+                    Email = "trainee@gmail.com",
+                    PasswordHash = userPassword,
+                    RoleId = 7, // Trainee
+                    SpecialtyId = "SPEC-001",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    Status = AccountStatus.Active,
+                    IsDeleted = false
+                },
+                new User
+                {
+                    UserId = "AOC-1",
+                    Username = "AOCManager",
+                    FullName = "AOC Manager User",
+                    Gender = "Male",
+                    DateOfBirth = new DateTime(1975, 11, 30),
+                    Address = "505 AOC Street",
+                    PhoneNumber = "6677889900",
+                    Email = "aocmanager@gmail.com",
+                    PasswordHash = userPassword,
+                    RoleId = 8, // AOC Manager
+                    SpecialtyId = "SPEC-001",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    Status = AccountStatus.Active,
+                    IsDeleted = false
+                }
+            );
         }
     }
 

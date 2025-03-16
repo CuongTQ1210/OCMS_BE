@@ -1,4 +1,5 @@
-﻿using OCMS_BOs.Helper;
+﻿using OCMS_BOs.Entities;
+using OCMS_BOs.Helper;
 using OCMS_BOs.ResponseModel;
 using OCMS_BOs.ViewModel;
 using OCMS_Repositories.IRepository;
@@ -34,8 +35,7 @@ namespace OCMS_Services.Service
             }
 
             // Ensure that the user role is loaded, if it's not already, load it.
-            var roles = new List<string> { user.Role?.RoleName ?? "" }; // Default to "User" if no role is assigned
-
+            var roles = new List<string> { user.Role?.RoleName ?? "User" };
             // Generate JWT token
             var token = _jwtTokenHelper.GenerateToken(user, roles);
 
@@ -43,6 +43,7 @@ namespace OCMS_Services.Service
             return new LoginResModel
             {
                 UserID = user.UserId,
+                Roles = roles,  // Change this to a list
                 Token = token
             };
         }
