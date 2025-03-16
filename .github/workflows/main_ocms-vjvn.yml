@@ -12,8 +12,8 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 15
     permissions:
-      contents: read #This is required for actions/checkout
-      security-events: write #This is required for security scans
+      contents: read # This is required for actions/checkout
+      security-events: write # This is required for security scans
     steps:
       - uses: actions/checkout@v4
       
@@ -60,17 +60,17 @@ jobs:
           name: .net-app
           path: ${{env.DOTNET_ROOT}}/myapp
           retention-days: 5
-  
+
   deploy-production:
     runs-on: windows-latest
-    needs: deploy-staging
+    needs: build
     timeout-minutes: 10
     environment:
       name: 'Production'
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
     permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
+      id-token: write # This is required for requesting the JWT
+      contents: read # This is required for actions/checkout
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
@@ -85,16 +85,11 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_D06877F8E0E841BBB49ADAE59F6AFC3F }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_5B05FF6D6C474567A76EEF82FEB59479 }}
       
-      - name: Create backup before deployment
-        run: |
-          az webapp deployment slot swap --resource-group $(az webapp show --name ocms-vjvn --query resourceGroup --output tsv) --name ocms-vjvn --slot staging --target-slot production --action prepare
-      
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'ocms-vjvn'
-          slot-name: 'Production'
           package: .net-app
       
       - name: Health check production
@@ -120,20 +115,19 @@ jobs:
           } while ($retryCount -lt $maxRetries -and -not $success)
           
           if (-not $success) {
-            Write-Host "Health check failed after $maxRetries attempts. Rolling back..."
-            az webapp deployment slot swap --resource-group $(az webapp show --name ocms-vjvn --query resourceGroup --output tsv) --name ocms-vjvn --slot staging --target-slot production --action reset
+            Write-Host "Health check failed after $maxRetries attempts. Deployment may have issues."
             exit 1
           }
       
       - name: Log deployment status
         if: always()
         run: |
-            echo "============== DEPLOYMENT STATUS SUMMARY =============="
-            echo "Status: ${{ job.status }}"
-            echo "Timestamp: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
-            echo "Environment: Production"
-            echo "Application: ocms-vjvn"
-            echo "Deployed URL: ${{ steps.deploy-to-webapp.outputs.webapp-url }}"
-            echo "Triggered by: ${{ github.actor }}"
-            echo "Commit: ${{ github.sha }}"
-            echo "======================================================"
+          echo "============== DEPLOYMENT STATUS SUMMARY =============="
+          echo "Status: ${{ job.status }}"
+          echo "Timestamp: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+          echo "Environment: Production"
+          echo "Application: ocms-vjvn"
+          echo "Deployed URL: ${{ steps.deploy-to-webapp.outputs.webapp-url }}"
+          echo "Triggered by: ${{ github.actor }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "======================================================"
