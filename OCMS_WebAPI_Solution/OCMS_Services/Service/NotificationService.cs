@@ -1,0 +1,54 @@
+﻿using AutoMapper;
+using OCMS_BOs.Entities;
+using OCMS_BOs.ViewModel;
+using OCMS_Repositories;
+using OCMS_Repositories.IRepository;
+using OCMS_Services.IService;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace OCMS_Services.Service
+{
+    public class NotificationService : INotificationService
+    {
+        private readonly UnitOfWork _unitOfWork;
+        private readonly IMapper _mapper;
+        private readonly INotificationRepository _notificationRepository;
+
+        public NotificationService(UnitOfWork unitOfWork, IMapper mapper, INotificationRepository notificationRepository)
+        {
+            _unitOfWork = unitOfWork;
+            _mapper = mapper;
+            _notificationRepository = notificationRepository;
+        }
+
+        public async Task SendNotificationAsync(string userId, string title, string message, string type)
+        {
+            var notification = new Notification
+            {
+                UserId = userId,
+                Title = title,
+                Message = message,
+                NotificationType = type,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _unitOfWork.NotificationRepository.AddAsync(notification);
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        public async Task<IEnumerable<NotificationModel>> GetUserNotificationsAsync(string userId)
+        {
+            var notifications = await _notificationRepository.GetUserNotificationsAsync(userId);
+            return _mapper.Map<IEnumerable<NotificationModel>>(notifications);
+        }
+
+        public async Task MarkNotificationAsReadAsync(int notificationId)
+        {
+            await _notificationRepository.MarkAsReadAsync(notificationId);
+        }
+    }
+}

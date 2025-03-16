@@ -16,7 +16,7 @@ namespace OCMS_Repositories.Repository
 
         public UserRepository(OCMSDbContext context) : base(context)
         {
-            _context = context;
+            _context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
         public async Task<User> GetUserByUsernameAsync(string username)
@@ -26,6 +26,11 @@ namespace OCMS_Repositories.Repository
                                  .Where(u => u.Username == username)
                                  .FirstOrDefaultAsync();
         }
-
+        public async Task<IEnumerable<User>> GetUsersByRoleAsync(string roleName)
+        {
+            return await _context.Users
+                .Where(u => u.Role.RoleName == roleName) 
+                .ToListAsync();
+        }
     }
 }
