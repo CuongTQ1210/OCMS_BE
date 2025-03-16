@@ -1,8 +1,6 @@
 # Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
 # More GitHub Actions for Azure: https://github.com/Azure/actions
-
 name: Build and deploy ASP.Net Core app to Azure Web App - ocms-vjvn
-
 on:
   push:
     branches:
@@ -12,44 +10,73 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    timeout-minutes: 15
     permissions:
       contents: read #This is required for actions/checkout
-
+      security-events: write #This is required for security scans
     steps:
       - uses: actions/checkout@v4
-
+      
       - name: Set up .NET Core
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.x'
-
+      
+      - name: Cache NuGet packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+          restore-keys: ${{ runner.os }}-nuget-
+      
+      - name: Restore dependencies
+        run: dotnet restore ./OCMS_WebAPISolution/OCMS_WebAPI.sln
+      
+      - name: Run tests
+        run: dotnet test ./OCMS_WebAPISolution/OCMS_WebAPI.sln --no-restore --verbosity normal
+      
+      - name: Security scan with CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: csharp
+      
       - name: Build with dotnet
-        run: dotnet build --configuration Release
-
+        run: dotnet build ./OCMS_WebAPISolution/OCMS_WebAPI.sln --configuration Release --no-restore
+      
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+      
       - name: dotnet publish
-        run: dotnet publish -c Release -o "${{env.DOTNET_ROOT}}/myapp"
-
+        run: dotnet publish ./OCMS_WebAPISolution/OCMS_WebAPI.sln -c Release -o "${{env.DOTNET_ROOT}}/myapp" /p:DebugSymbols=false /p:DebugType=None
+      
+      - name: Remove unnecessary files
+        run: |
+          Remove-Item -Path "${{env.DOTNET_ROOT}}/myapp/*.pdb" -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "${{env.DOTNET_ROOT}}/myapp/ref" -Recurse -Force -ErrorAction SilentlyContinue
+      
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: .net-app
           path: ${{env.DOTNET_ROOT}}/myapp
+          retention-days: 5
 
-  deploy:
+  deploy-staging:
     runs-on: windows-latest
     needs: build
+    timeout-minutes: 10
     environment:
-      name: 'Production'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+      name: 'Staging'
+      url: ${{ steps.deploy-to-webapp-staging.outputs.webapp-url }}
     permissions:
       id-token: write #This is required for requesting the JWT
       contents: read #This is required for actions/checkout
-
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
           name: .net-app
+          path: .net-app
       
       - name: Login to Azure
         uses: azure/login@v2
@@ -57,12 +84,115 @@ jobs:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_732105261D164349B2E0977D88C3FD5D }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_D06877F8E0E841BBB49ADAE59F6AFC3F }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_5B05FF6D6C474567A76EEF82FEB59479 }}
+      
+      - name: Deploy to Azure Web App (Staging)
+        id: deploy-to-webapp-staging
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'ocms-vjvn'
+          slot-name: 'staging'
+          package: .net-app
+      
+      - name: Health check staging
+        run: |
+          $maxRetries = 5
+          $retryCount = 0
+          $success = $false
+          
+          do {
+            try {
+              $response = Invoke-WebRequest -Uri ${{ steps.deploy-to-webapp-staging.outputs.webapp-url }} -UseBasicParsing
+              if ($response.StatusCode -eq 200) {
+                $success = $true
+                Write-Host "Health check passed!"
+                break
+              }
+            }
+            catch {
+              $retryCount++
+              Write-Host "Health check failed. Retrying in 10 seconds... ($retryCount/$maxRetries)"
+              Start-Sleep -Seconds 10
+            }
+          } while ($retryCount -lt $maxRetries -and -not $success)
+          
+          if (-not $success) {
+            Write-Host "Health check failed after $maxRetries attempts. Deployment may have issues."
+            exit 1
+          }
 
+  deploy-production:
+    runs-on: windows-latest
+    needs: deploy-staging
+    timeout-minutes: 10
+    environment:
+      name: 'Production'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+    permissions:
+      id-token: write #This is required for requesting the JWT
+      contents: read #This is required for actions/checkout
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
+          path: .net-app
+      
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_732105261D164349B2E0977D88C3FD5D }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_D06877F8E0E841BBB49ADAE59F6AFC3F }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_5B05FF6D6C474567A76EEF82FEB59479 }}
+      
+      - name: Create backup before deployment
+        run: |
+          az webapp deployment slot swap --resource-group $(az webapp show --name ocms-vjvn --query resourceGroup --output tsv) --name ocms-vjvn --slot staging --target-slot production --action prepare
+      
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'ocms-vjvn'
           slot-name: 'Production'
-          package: .
+          package: .net-app
+      
+      - name: Health check production
+        run: |
+          $maxRetries = 5
+          $retryCount = 0
+          $success = $false
           
+          do {
+            try {
+              $response = Invoke-WebRequest -Uri ${{ steps.deploy-to-webapp.outputs.webapp-url }} -UseBasicParsing
+              if ($response.StatusCode -eq 200) {
+                $success = $true
+                Write-Host "Health check passed!"
+                break
+              }
+            }
+            catch {
+              $retryCount++
+              Write-Host "Health check failed. Retrying in 10 seconds... ($retryCount/$maxRetries)"
+              Start-Sleep -Seconds 10
+            }
+          } while ($retryCount -lt $maxRetries -and -not $success)
+          
+          if (-not $success) {
+            Write-Host "Health check failed after $maxRetries attempts. Rolling back..."
+            az webapp deployment slot swap --resource-group $(az webapp show --name ocms-vjvn --query resourceGroup --output tsv) --name ocms-vjvn --slot staging --target-slot production --action reset
+            exit 1
+          }
+      
+      - name: Log deployment status
+        if: always()
+        run: |
+            echo "============== DEPLOYMENT STATUS SUMMARY =============="
+            echo "Status: ${{ job.status }}"
+            echo "Timestamp: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+            echo "Environment: Production"
+            echo "Application: ocms-vjvn"
+            echo "Deployed URL: ${{ steps.deploy-to-webapp.outputs.webapp-url }}"
+            echo "Triggered by: ${{ github.actor }}"
+            echo "Commit: ${{ github.sha }}"
+            echo "======================================================"
