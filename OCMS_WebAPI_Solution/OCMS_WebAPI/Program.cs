@@ -21,7 +21,8 @@ builder.Services.AddDbContext<OCMSDbContext>(options =>
 
 // Add Azure Clients
 builder.Services.AddAzureClients(azureBuilder =>
-    azureBuilder.AddBlobServiceClient(builder.Configuration.GetConnectionString("AzureBlobStorage")));
+    azureBuilder.AddBlobServiceClient(builder.Configuration.GetValue<string>("AzureBlobStorage")));
+
 
 // Add Email Service
 builder.Services.AddTransient<IEmailService>(provider =>

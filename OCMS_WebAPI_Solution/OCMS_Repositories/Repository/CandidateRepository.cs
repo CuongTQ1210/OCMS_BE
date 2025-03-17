@@ -1,4 +1,5 @@
-﻿using OCMS_BOs;
+﻿using Microsoft.EntityFrameworkCore;
+using OCMS_BOs;
 using OCMS_BOs.Entities;
 using OCMS_Repositories.IRepository;
 using System;
@@ -15,6 +16,12 @@ namespace OCMS_Repositories.Repository
         public CandidateRepository(OCMSDbContext context) : base(context)
         {
             _context = context;
+        }
+        public async Task<IEnumerable<Candidate>> GetCandidatesByImportRequestIdAsync(string importRequestId)
+        {
+            return await _context.Candidates
+                .Where(c => c.ImportRequestId.ToString() == importRequestId.ToString())
+                .ToListAsync();
         }
     }
 }

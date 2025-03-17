@@ -29,6 +29,9 @@ namespace OCMS_BOs.Entities
         [ForeignKey("Specialty")]
         public string SpecialtyId { get; set; }
         public User ImportByUser {  get; set; }
+        [ForeignKey("Request")]
+        public string ImportRequestId { get; set; }
+        public Request ImportRequest { get; set; }
         public Specialties Specialty { get; set; }
     }
 }

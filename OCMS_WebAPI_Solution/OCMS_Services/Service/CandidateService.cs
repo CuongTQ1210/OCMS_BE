@@ -23,13 +23,15 @@ namespace OCMS_Services.Service
         private readonly IMapper _mapper;
         private readonly INotificationService _notificationService;
         private readonly IUserRepository _userRepository;
+        private readonly ICandidateRepository _candidateRepository;
 
-        public CandidateService(UnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService, IUserRepository userRepository)
+        public CandidateService(UnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService, IUserRepository userRepository, ICandidateRepository candidateRepository)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _notificationService = notificationService;
             _userRepository = userRepository;
+            _candidateRepository = candidateRepository;
         }
 
         #region Get All Candidates
@@ -232,7 +234,7 @@ namespace OCMS_Services.Service
 
                         if (result.SuccessCount > 0)
                         {
-                            var requestService = new RequestService(_unitOfWork, _mapper, _notificationService, _userRepository);
+                            var requestService = new RequestService(_unitOfWork, _mapper, _notificationService, _userRepository,_candidateRepository);
                             var requestDto = new RequestDTO
                             {
                                 RequestType = RequestType.CandidateImport,

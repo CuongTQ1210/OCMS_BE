@@ -57,6 +57,8 @@ namespace OCMS_Services.Service
             var candidate = await _unitOfWork.CandidateRepository.GetByIdAsync(candidateId);
             if (candidate == null) throw new Exception("Candidate not found.");
 
+            if (candidate.CandidateStatus != CandidateStatus.Approved)
+                throw new Exception("Candidate must be approved first.");
             // Lấy Specialty
             var specialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(candidate.SpecialtyId);
             string specialtyInitial = specialty.SpecialtyId;
