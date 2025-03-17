@@ -48,5 +48,22 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
+
+        #region Create User from Candidate
+        [HttpPost("create-from-candidate/{candidateId}")]
+        [CustomAuthorize("Admin")] 
+        public async Task<IActionResult> CreateUserFromCandidate(string candidateId)
+        {
+            try
+            {
+                var user = await _userService.CreateUserFromCandidateAsync(candidateId);
+                return Ok(new { message = "User created successfully", user });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        #endregion
     }
 }
