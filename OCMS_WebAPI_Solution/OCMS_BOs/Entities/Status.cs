@@ -78,7 +78,8 @@ namespace OCMS_BOs.Entities
     public enum TrainingPlanStatus
     {
         Draft=0,
-        Pending=1, Approved=2,
+        Pending=1, 
+        Approved=2,
         Rejected=3,
         Completed=4
     }
@@ -98,7 +99,7 @@ namespace OCMS_BOs.Entities
     }
     public enum RequestType
     {
-        NewPlan=0,RecurrentPlan=1, RelearnPlan=2, Complaint=3, PlanChange=4, PlanDelete=5, CreateNew=6, CreateRecurrent=7, CreateRelearn=8
+        NewPlan=0,RecurrentPlan=1, RelearnPlan=2, Complaint=3, PlanChange=4, PlanDelete=5, CreateNew=6, CreateRecurrent=7, CreateRelearn=8, CandidateImport = 9
     }
     public enum DecisionStatus
     {

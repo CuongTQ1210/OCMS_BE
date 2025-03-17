@@ -22,16 +22,13 @@ namespace OCMS_BOs.Entities
         [ForeignKey("User")]
         public string? UserId { get; set; }
         public User? User { get; set; }
-
         [ForeignKey("VerifyUser")]
         public string VerifyByUserId { get; set; } 
-        public User VerifyByUser { get; set; }
-        
+        public User VerifyByUser { get; set; }        
         public DateTime VerifyDate { get; set; }
         public VerificationStatus VerificationStatus { get; set; }
         [Required]
         public string CertificateFileURL { get; set; } // Path to uploaded file
-
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

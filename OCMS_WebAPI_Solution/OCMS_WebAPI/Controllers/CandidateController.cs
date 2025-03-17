@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using OCMS_BOs.ResponseModel;
 using OCMS_Services.IService;
 using OCMS_WebAPI.AuthorizeSettings;
 using System.Security.Claims;
@@ -10,25 +11,43 @@ namespace OCMS_WebAPI.Controllers
     public class CandidateController : Controller
     {
         private readonly ICandidateService _candidateService;
+        private readonly IBlobService _blobService;
 
-        public CandidateController(ICandidateService candidateService)
+        public CandidateController(ICandidateService candidateService, IBlobService blobService)
         {
             _candidateService = candidateService;
+            _blobService = blobService;
         }
 
         #region Import Candidates
         [HttpPost("import")]
         [CustomAuthorize("Admin", "HR")]
-        public async Task<IActionResult> ImportUsers(IFormFile file)
+        public async Task<IActionResult> ImportCandidates(IFormFile file)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (file == null || file.Length == 0)
-                return BadRequest("No file was uploaded");
-
-            using (var stream = file.OpenReadStream())
+            var importedByUserId = User.FindFirst(ClaimTypes.NameIdentifier).Value;
+            try
             {
-                var result = await _candidateService.ImportCandidatesFromExcelAsync(stream, userId);
-                return Ok(result);
+                // Sao chép file vào MemoryStream
+                using (var stream = new MemoryStream())
+                {
+                    await file.CopyToAsync(stream);
+                    stream.Position = 0;
+
+                    // Gọi dịch vụ import
+                    ImportResult result = await _candidateService.ImportCandidatesFromExcelAsync(stream, importedByUserId, _blobService);
+
+                    // Xử lý kết quả
+                    if (result.Errors.Count > 0)
+                    {
+                        return Ok(new { Message = "Import completed with errors.", Result = result });
+                    }
+
+                    return Ok(new { Message = "Import successful.", Result = result });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
         #endregion

@@ -1,4 +1,5 @@
-﻿using OCMS_BOs;
+﻿using Microsoft.EntityFrameworkCore.Storage;
+using OCMS_BOs;
 using OCMS_BOs.Entities;
 using System;
 using System.Threading.Tasks;
@@ -8,6 +9,7 @@ namespace OCMS_Repositories
     public class UnitOfWork : IDisposable
     {
         private readonly OCMSDbContext _context;
+        private IDbContextTransaction _transaction;
         private GenericRepository<User> _userRepository;
         private GenericRepository<Course> _courseRepository;
         private GenericRepository<Department> _departmentRepository;
@@ -22,6 +24,8 @@ namespace OCMS_Repositories
         private GenericRepository<TrainingSchedule> _trainingScheduleRepository;
         private GenericRepository<CourseParticipant> _courseParticipantRepository;
         private GenericRepository<Notification> _notificationRepository;
+        private GenericRepository<ExternalCertificate> _externalCertificateRepository;
+
         public UnitOfWork(OCMSDbContext context)
         {
             _context = context;
@@ -75,6 +79,43 @@ namespace OCMS_Repositories
 
 
 
+        public GenericRepository<ExternalCertificate> ExternalCertificateRepository
+        {
+            get => _externalCertificateRepository ??= new GenericRepository<ExternalCertificate>(_context);
+        }
+
+        public async Task<IDbContextTransaction> BeginTransactionAsync()
+        {
+            _transaction = await _context.Database.BeginTransactionAsync();
+            return _transaction;
+        }
+
+        public async Task CommitTransactionAsync()
+        {
+            try
+            {
+                await _transaction.CommitAsync();
+            }
+            finally
+            {
+                await _transaction.DisposeAsync();
+                _transaction = null;
+            }
+        }
+
+        public async Task RollbackTransactionAsync()
+        {
+            try
+            {
+                await _transaction.RollbackAsync();
+            }
+            finally
+            {
+                await _transaction.DisposeAsync();
+                _transaction = null;
+            }
+        }
+
         public async Task<int> SaveChangesAsync()
         {
             return await _context.SaveChangesAsync();
@@ -82,7 +123,9 @@ namespace OCMS_Repositories
 
         public void Dispose()
         {
+            _transaction?.Dispose();
             _context.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 }

@@ -74,9 +74,6 @@ namespace OCMS_BOs.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("ExternalCertificate")
-                        .HasColumnType("text");
-
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1613,7 +1610,7 @@ namespace OCMS_BOs.Migrations
             modelBuilder.Entity("OCMS_BOs.Entities.ExternalCertificate", b =>
                 {
                     b.HasOne("OCMS_BOs.Entities.Candidate", "Candidate")
-                        .WithMany()
+                        .WithMany("ExternalCertificate")
                         .HasForeignKey("CandidateId");
 
                     b.HasOne("OCMS_BOs.Entities.User", "User")
@@ -1864,6 +1861,11 @@ namespace OCMS_BOs.Migrations
                     b.Navigation("Role");
 
                     b.Navigation("Specialty");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.Candidate", b =>
+                {
+                    b.Navigation("ExternalCertificate");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Department", b =>

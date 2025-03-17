@@ -22,6 +22,7 @@ namespace OCMS_Services.Service
             _mapper = mapper;
         }
 
+        #region Add Specialty
         public async Task<SpecialtyModel> AddSpecialtyAsync(SpecialtyModel specialtyViewModel, string createdByUserId)
         {
             var specialty = _mapper.Map<Specialties>(specialtyViewModel);
@@ -38,7 +39,9 @@ namespace OCMS_Services.Service
             await _unitOfWork.SaveChangesAsync();
             return _mapper.Map<SpecialtyModel>(specialty);
         }
+        #endregion
 
+        #region Delete Specialty
         public async Task<bool> DeleteSpecialtyAsync(string id)
         {
             var specialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(id);
@@ -55,19 +58,25 @@ namespace OCMS_Services.Service
             await _unitOfWork.SaveChangesAsync();
             return true;
         }
+        #endregion
 
+        #region Get all specialties
         public async Task<IEnumerable<SpecialtyModel>> GetAllSpecialtiesAsync()
         {
             var specialties = await _unitOfWork.SpecialtyRepository.GetAllAsync();
             return _mapper.Map<IEnumerable<SpecialtyModel>>(specialties);
         }
+        #endregion
 
+        #region Get Specialty by Id
         public async Task<SpecialtyModel> GetSpecialtyByIdAsync(string id)
         {
             var specialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(id);
             return _mapper.Map<SpecialtyModel>(specialty);
         }
+        #endregion
 
+        #region Update Specialty
         public async Task<SpecialtyModel> UpdateSpecialtyAsync(string id, SpecialtyModel specialtyViewModel, string updatedByUserId)
         {
             var existingSpecialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(id);
@@ -84,7 +93,6 @@ namespace OCMS_Services.Service
             await _unitOfWork.SaveChangesAsync();
             return _mapper.Map<SpecialtyModel>(existingSpecialty);
         }
-
-        
+        #endregion
     }
 }

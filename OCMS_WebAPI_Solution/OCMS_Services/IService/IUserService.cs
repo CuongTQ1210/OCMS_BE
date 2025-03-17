@@ -11,6 +11,7 @@ namespace OCMS_Services.IService
     public interface IUserService
     {
         Task<UserModel> GetUserByIdAsync(string id);
-        Task<IEnumerable<UserModel>> GetAllUsersAsync();        
+        Task<IEnumerable<UserModel>> GetAllUsersAsync();
+        //Task<UserModel> AddUserAsync(UserModel user);
     }
 }
