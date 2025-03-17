@@ -21,7 +21,6 @@ namespace OCMS_BOs
         }
 
         // Define DbSet properties for your entities
-        // Define DbSet properties for your entities
         public DbSet<User> Users { get; set; }
         public DbSet<Candidate> Candidates { get; set; }
         public DbSet<Role> Roles { get; set; }
@@ -344,7 +343,7 @@ namespace OCMS_BOs
         {
             var configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json")
+                .AddJsonFile("appsettings.Development.json")
                 .Build();
 
             var optionsBuilder = new DbContextOptionsBuilder<OCMSDbContext>();

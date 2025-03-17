@@ -224,33 +224,43 @@ namespace OCMS_Services.Service
                     }
 
                     // **Lưu dữ liệu vào database**
-                    await _unitOfWork.BeginTransactionAsync();
-                    try
+                    await _unitOfWork.ExecuteWithStrategyAsync(async () =>
                     {
-                        await _unitOfWork.CandidateRepository.AddRangeAsync(candidates);
-                        await _unitOfWork.ExternalCertificateRepository.AddRangeAsync(externalCertificates);
-                        await _unitOfWork.SaveChangesAsync();
-                        await _unitOfWork.CommitTransactionAsync();
-
-                        if (result.SuccessCount > 0)
+                        await _unitOfWork.BeginTransactionAsync();
+                        try
                         {
-                            var requestService = new RequestService(_unitOfWork, _mapper, _notificationService, _userRepository,_candidateRepository);
-                            var requestDto = new RequestDTO
+                           
+                            if (result.SuccessCount > 0)
                             {
-                                RequestType = RequestType.CandidateImport,
-                                Description = $"Yêu cầu xác nhận danh sách {result.SuccessCount} ứng viên vừa được import",
-                                Notes = "Danh sách ứng viên cần phê duyệt"
-                            };
+                                var requestService = new RequestService(_unitOfWork, _mapper, _notificationService, _userRepository, _candidateRepository);
+                                var requestDto = new RequestDTO
+                                {
+                                    RequestType = RequestType.CandidateImport,
+                                    Description = $"Yêu cầu xác nhận danh sách {result.SuccessCount} ứng viên vừa được import",
+                                    Notes = "Danh sách ứng viên cần phê duyệt"
+                                };
 
-                            await requestService.CreateRequestAsync(requestDto, importedByUserId);
+
+                                var importRequestId = await requestService.CreateRequestAsync(requestDto, importedByUserId);
+                                foreach (var candidate in candidates)
+                                {
+                                    candidate.ImportRequestId = importRequestId.RequestId;
+                                }
+
+                            }
+                            await _unitOfWork.CandidateRepository.AddRangeAsync(candidates);
+                            await _unitOfWork.ExternalCertificateRepository.AddRangeAsync(externalCertificates);
+                            await _unitOfWork.SaveChangesAsync();
+                            await _unitOfWork.CommitTransactionAsync();
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        await _unitOfWork.RollbackTransactionAsync();
-                        result.Errors.Add($"Error saving data: {ex.Message}");
-                        throw;
-                    }
+                        catch (Exception ex)
+                        {
+                            await _unitOfWork.RollbackTransactionAsync();
+                            result.Errors.Add($"Error saving data: {ex.Message}");
+                            throw;
+                        }
+                    });
+
                 }
             }
             catch (Exception ex)

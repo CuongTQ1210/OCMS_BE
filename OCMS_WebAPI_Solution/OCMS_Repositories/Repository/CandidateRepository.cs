@@ -19,8 +19,9 @@ namespace OCMS_Repositories.Repository
         }
         public async Task<IEnumerable<Candidate>> GetCandidatesByImportRequestIdAsync(string importRequestId)
         {
+
             return await _context.Candidates
-                .Where(c => c.ImportRequestId.ToString() == importRequestId.ToString())
+                .Where(c => c.ImportRequestId == importRequestId)
                 .ToListAsync();
         }
     }

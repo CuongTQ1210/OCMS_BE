@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore.Storage;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using OCMS_BOs;
 using OCMS_BOs.Entities;
 using System;
@@ -126,6 +127,11 @@ namespace OCMS_Repositories
             _transaction?.Dispose();
             _context.Dispose();
             GC.SuppressFinalize(this);
+        }
+        public async Task ExecuteWithStrategyAsync(Func<Task> operation)
+        {
+            var strategy = _context.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(operation);
         }
     }
 }
