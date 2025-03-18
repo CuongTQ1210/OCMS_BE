@@ -73,5 +73,10 @@ namespace OCMS_Repositories
 
             return await query.ToListAsync();
         }
+        public IQueryable<T> GetQuery()
+        {
+            return _context.Set<T>().AsQueryable();
+        }
+
     }
 }

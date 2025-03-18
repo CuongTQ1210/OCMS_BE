@@ -17,6 +17,8 @@ using OfficeOpenXml;
 using Microsoft.AspNetCore.Identity;
 using System.Text.RegularExpressions;
 using System.Globalization;
+using System.Drawing;
+using Microsoft.EntityFrameworkCore;
 
 namespace OCMS_Services.Service
 {
@@ -24,14 +26,12 @@ namespace OCMS_Services.Service
     {
         private readonly UnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
-        private readonly PasswordHasher<User> _passwordHasher;
         private readonly IEmailService _emailService;
 
         public UserService(UnitOfWork unitOfWork, IMapper mapper, IEmailService emailService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
-            _passwordHasher = new PasswordHasher<User>();
             _emailService = emailService;
         }
 
@@ -57,6 +57,8 @@ namespace OCMS_Services.Service
             var candidate = await _unitOfWork.CandidateRepository.GetByIdAsync(candidateId);
             if (candidate == null) throw new Exception("Candidate not found.");
 
+            if (candidate.CandidateStatus != CandidateStatus.Approved)
+                throw new Exception("Candidate must be approved first.");
             // Lấy Specialty
             var specialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(candidate.SpecialtyId);
             string specialtyInitial = specialty.SpecialtyId;
@@ -65,6 +67,11 @@ namespace OCMS_Services.Service
             string lastUserId = await GetLastUserIdAsync();
             int nextNumber = lastUserId != null ? int.Parse(lastUserId.Substring(1)) + 1 : 1;
             string userId = $"{specialtyInitial}{nextNumber:D6}";
+            while (await IsUserIdExists(userId))
+            {
+                nextNumber++;
+                userId = $"{specialtyInitial}{nextNumber:D6}";
+            }
 
             // Tạo userName
             string fullNameWithoutDiacritics = RemoveDiacritics(candidate.FullName);
@@ -78,14 +85,21 @@ namespace OCMS_Services.Service
             {
                 UserId = userId,
                 Username = userName,
-                PasswordHash = _passwordHasher.HashPassword(null, password),
+                PasswordHash = PasswordHasher.HashPassword(password),
                 FullName = candidate.FullName,
                 Email = candidate.Email,
                 RoleId = 7, // Role mặc định cho User thông thường
                 SpecialtyId = candidate.SpecialtyId,
                 Status = AccountStatus.Active,
                 CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                UpdatedAt = DateTime.UtcNow,
+                Address= candidate.Address,
+                Gender= candidate.Gender,
+                DateOfBirth= candidate.DateOfBirth,
+                PhoneNumber= candidate.PhoneNumber,
+                
+
+
             };
 
             await _unitOfWork.UserRepository.AddAsync(user);
@@ -120,12 +134,18 @@ Trân trọng,
 
         private async Task<string> GetLastUserIdAsync()
         {
-            var users = await _unitOfWork.UserRepository.GetAllAsync();
-            return users
+            var userIds = await _unitOfWork.UserRepository
+                .GetQuery()
                 .Select(u => u.UserId)
-                .Where(id => Regex.IsMatch(id, @"^[A-Z]\d{6}$"))
+                .Where(id => Regex.IsMatch(id, @"^[A-Z]+\d{6}$"))
                 .OrderByDescending(id => id)
-                .FirstOrDefault();
+                .ToListAsync(); // ✅ Chuyển sang List
+
+            return userIds.FirstOrDefault(); // ✅ Lấy phần tử đầu tiên từ List
+        }
+        private async Task<bool> IsUserIdExists(string userId)
+        {
+            return await _unitOfWork.UserRepository.GetQuery().AnyAsync(u => u.UserId == userId);
         }
 
         private string GenerateRandomPassword(int length = 12)
@@ -153,5 +173,9 @@ Trân trọng,
             return stringBuilder.ToString().Normalize(NormalizationForm.FormC);
         }
         #endregion
+
+       
+ 
     }
+
 }

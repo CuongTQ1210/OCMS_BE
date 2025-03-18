@@ -4,6 +4,7 @@ using OCMS_BOs.RequestModel;
 using OCMS_BOs.ViewModel;
 using OCMS_Repositories;
 using OCMS_Repositories.IRepository;
+using OCMS_Repositories.Repository;
 using OCMS_Services.IService;
 using System;
 using System.Collections.Generic;
@@ -18,13 +19,16 @@ namespace OCMS_Services.Service
         private readonly UnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly INotificationService _notificationService;
+        private readonly ICandidateRepository _candidateRepository;
         private readonly IUserRepository _userRepository;
-        public RequestService(UnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService, IUserRepository userRepository)
+        
+        public RequestService(UnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService, IUserRepository userRepository, ICandidateRepository candidateRepository)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _notificationService = notificationService;
             _userRepository = userRepository;
+            _candidateRepository = candidateRepository;
         }
 
         #region Create Request
@@ -70,6 +74,21 @@ namespace OCMS_Services.Service
                 newRequest.RequestType == RequestType.RelearnPlan)
             {
                 var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
+                foreach (var director in directors)
+                {
+                    await _notificationService.SendNotificationAsync(
+                        director.UserId,
+                        "New Request Submitted",
+                        $"A new {newRequest.RequestType} request has been submitted for review.",
+                        "Request"
+                    );
+                }
+            }
+            else if(newRequest.RequestType == RequestType.CreateNew ||
+                newRequest.RequestType == RequestType.CreateRecurrent ||
+                newRequest.RequestType == RequestType.CreateRelearn)
+            {
+                var directors = await _userRepository.GetUsersByRoleAsync("Training staff");
                 foreach (var director in directors)
                 {
                     await _notificationService.SendNotificationAsync(
@@ -180,6 +199,16 @@ namespace OCMS_Services.Service
 
             if (request.RequestType == RequestType.CandidateImport)
             {
+                var candidates = await _candidateRepository.GetCandidatesByImportRequestIdAsync(requestId);
+
+                if (candidates != null && candidates.Any())
+                {
+                    foreach (var candidate in candidates)
+                    {
+                        candidate.CandidateStatus = CandidateStatus.Approved; // Assuming CandidateStatus is an Enum or predefined string
+                        await _unitOfWork.CandidateRepository.UpdateAsync(candidate);
+                    }
+                }
                 var admins = await _userRepository.GetUsersByRoleAsync("Admin");
                 foreach (var admin in admins)
                 {
@@ -190,6 +219,7 @@ namespace OCMS_Services.Service
                         "CandidateImport"
                     );
                 }
+               
             }
             return true; 
         }
@@ -219,6 +249,16 @@ namespace OCMS_Services.Service
 
             if (request.RequestType == RequestType.CandidateImport)
             {
+                var candidates = await _candidateRepository.GetCandidatesByImportRequestIdAsync(requestId);
+
+                if (candidates != null && candidates.Any())
+                {
+                    foreach (var candidate in candidates)
+                    {
+                        candidate.CandidateStatus = CandidateStatus.Rejected; // Assuming CandidateStatus is an Enum or predefined string
+                        await _unitOfWork.CandidateRepository.UpdateAsync(candidate);
+                    }
+                }
                 var hrs = await _userRepository.GetUsersByRoleAsync("HR");
                 foreach (var hr in hrs)
                 {

@@ -16,11 +16,11 @@ using Azure.Extensions.AspNetCore.Configuration.Secrets;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var keyVaultEndpoint = new Uri(builder.Configuration["KeyVault:Endpoint"]);
-builder.Configuration.AddAzureKeyVault(
-    keyVaultEndpoint,
-    new DefaultAzureCredential()
-);
+//var keyVaultEndpoint = new Uri(builder.Configuration["KeyVault:Endpoint"]);
+//builder.Configuration.AddAzureKeyVault(
+//    keyVaultEndpoint,
+//    new DefaultAzureCredential()
+//);
 
 // Các cấu hình khác có thể lấy từ Key Vault
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -35,7 +35,8 @@ builder.Services.AddDbContext<OCMSDbContext>(options =>
 
 // Add Azure Clients
 builder.Services.AddAzureClients(azureBuilder =>
-    azureBuilder.AddBlobServiceClient(builder.Configuration.GetConnectionString("AzureBlobStorage")));
+    azureBuilder.AddBlobServiceClient(builder.Configuration.GetValue<string>("AzureBlobStorage")));
+
 
 // Add Email Service
 builder.Services.AddTransient<IEmailService>(provider =>
