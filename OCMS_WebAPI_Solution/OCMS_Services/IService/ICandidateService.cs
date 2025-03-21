@@ -13,5 +13,7 @@ namespace OCMS_Services.IService
         Task<IEnumerable<Candidate>> GetAllCandidates();
         Task<Candidate> GetCandidateByIdAsync(string id);
         Task<ImportResult> ImportCandidatesFromExcelAsync(Stream fileStream, string importedByUserId, IBlobService blobService);
+        Task<Candidate> UpdateCandidateAsync(string id, Candidate updatedCandidate);
+        Task<(bool success, string message)> DeleteCandidateAsync(string id);
     }
 }
