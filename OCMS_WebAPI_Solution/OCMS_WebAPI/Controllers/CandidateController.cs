@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using OCMS_BOs.Entities;
 using OCMS_BOs.ResponseModel;
 using OCMS_Services.IService;
 using OCMS_WebAPI.AuthorizeSettings;
@@ -8,7 +9,7 @@ namespace OCMS_WebAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class CandidateController : Controller
+    public class CandidateController : ControllerBase
     {
         private readonly ICandidateService _candidateService;
         private readonly IBlobService _blobService;
@@ -83,6 +84,44 @@ namespace OCMS_WebAPI.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
+        }
+        #endregion
+
+        #region Update Candidate
+        [HttpPut("{id}")]
+        [CustomAuthorize("Admin", "HR")]
+        public async Task<IActionResult> UpdateCandidate(string id, Candidate updatedCandidate)
+        {
+            try
+            {
+                var candidate = await _candidateService.UpdateCandidateAsync(id, updatedCandidate);
+                return Ok(candidate);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        #endregion
+
+        #region Delete Candidate
+        [HttpDelete("{id}")]
+        [CustomAuthorize("Admin", "HR")]
+        public async Task<IActionResult> DeleteCandidate(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return BadRequest("ID không hợp lệ");
+            }
+
+            var (success, message) = await _candidateService.DeleteCandidateAsync(id);
+
+            if (!success)
+            {
+                return BadRequest(message);
+            }
+
+            return Ok(new { Success = success, Message = message });
         }
         #endregion
     }

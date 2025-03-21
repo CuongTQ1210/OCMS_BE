@@ -77,9 +77,6 @@ namespace OCMS_Repositories
         {
             get => _notificationRepository ??= new GenericRepository<Notification>(_context);
         }
-
-
-
         public GenericRepository<ExternalCertificate> ExternalCertificateRepository
         {
             get => _externalCertificateRepository ??= new GenericRepository<ExternalCertificate>(_context);

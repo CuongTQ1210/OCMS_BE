@@ -60,6 +60,7 @@ builder.Services.AddScoped<IRequestRepository, RequestRepository>();
 builder.Services.AddScoped<ISpecialtyRepository, SpecialtyRepository>();
 builder.Services.AddScoped<ICandidateRepository, CandidateRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<IExternalCertificateRepository, ExternalCertificateRepository>();
 
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -69,6 +70,7 @@ builder.Services.AddScoped<IRequestService, RequestService>();
 builder.Services.AddScoped<ISpecialtyService, SpecialtyService>();
 builder.Services.AddScoped<ICandidateService, CandidateService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IExternalCertificateService, ExternalCertificateService>();
 builder.Services.AddScoped<IBlobService, BlobService>();
 
 builder.Services.AddAuthentication(options =>

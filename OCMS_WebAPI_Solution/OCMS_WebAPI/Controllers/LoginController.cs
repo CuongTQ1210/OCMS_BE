@@ -46,13 +46,5 @@ namespace OCMS_WebAPI.Controllers
         }
         #endregion
 
-        #region Logout /(Not implemented yet)/
-        [HttpPost("logout")]
-        [CustomAuthorize]
-        public async Task<IActionResult> Logout()
-        {
-            return Ok();
-        }
-        #endregion
     }
 }

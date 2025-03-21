@@ -27,5 +27,20 @@ namespace OCMS_Services.Service
             return blobClient.Uri.ToString();
         }
         #endregion
+
+        #region DeleteFileAsync
+        public async Task DeleteFileAsync(string certificateFileUrl)
+        {
+            Uri uri = new Uri(certificateFileUrl);
+            string containerName = uri.Segments[1].TrimEnd('/');
+            string blobName = string.Join("", uri.Segments.Skip(2));
+
+            var containerClient = _blobServiceClient.GetBlobContainerClient(containerName);
+            var blobClient = containerClient.GetBlobClient(blobName);
+
+            // Delete the blob
+            await blobClient.DeleteIfExistsAsync();
+        }
+        #endregion
     }
 }
