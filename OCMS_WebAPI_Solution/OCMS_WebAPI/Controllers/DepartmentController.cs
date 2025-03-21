@@ -6,7 +6,7 @@ namespace OCMS_WebAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class DepartmentController : Controller
+    public class DepartmentController : ControllerBase
     {
         private readonly IDepartmentService _departmentService;
 

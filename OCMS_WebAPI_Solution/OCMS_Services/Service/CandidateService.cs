@@ -24,14 +24,16 @@ namespace OCMS_Services.Service
         private readonly INotificationService _notificationService;
         private readonly IUserRepository _userRepository;
         private readonly ICandidateRepository _candidateRepository;
+        private readonly IExternalCertificateService _externalCertificateService;
 
-        public CandidateService(UnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService, IUserRepository userRepository, ICandidateRepository candidateRepository)
+        public CandidateService(UnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService, IUserRepository userRepository, ICandidateRepository candidateRepository, IExternalCertificateService externalCertificateService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _notificationService = notificationService;
             _userRepository = userRepository;
             _candidateRepository = candidateRepository;
+            _externalCertificateService = externalCertificateService;
         }
 
         #region Get All Candidates
@@ -61,6 +63,12 @@ namespace OCMS_Services.Service
 
             try
             {
+                // Lấy tất cả candidates từ DB để kiểm tra trùng lặp
+                var existingCandidates = await _unitOfWork.CandidateRepository.GetAllAsync();
+                var existingPersonalIds = existingCandidates.Select(c => c.PersonalID).ToList();
+                var existingEmails = existingCandidates.Select(c => c.Email).ToList();
+                var existingPhoneNumbers = existingCandidates.Select(c => c.PhoneNumber).ToList();
+
                 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
                 using (var package = new ExcelPackage(fileStream))
                 {
@@ -88,7 +96,9 @@ namespace OCMS_Services.Service
 
                     // Dictionary để mapping PersonalID sang CandidateId
                     var personalIdToCandidateId = new Dictionary<string, string>();
-                    var personalIds = new HashSet<string>(); // Kiểm tra PersonalID trùng lặp
+                    var personalIds = new HashSet<string>(); // Kiểm tra PersonalID trùng lặp trong file
+                    var emails = new HashSet<string>(); // Kiểm tra Email trùng lặp trong file
+                    var phoneNumbers = new HashSet<string>(); // Kiểm tra PhoneNumber trùng lặp trong file
                     var candidates = new List<Candidate>();
                     var externalCertificates = new List<ExternalCertificate>();
 
@@ -127,11 +137,63 @@ namespace OCMS_Services.Service
                             result.Errors.Add($"Error at row {row} (Candidate): PersonalID is required");
                             continue;
                         }
+
+                        // Kiểm tra PersonalID trùng lặp trong file
                         if (!personalIds.Add(personalId))
                         {
                             result.FailedCount++;
-                            result.Errors.Add($"Error at row {row} (Candidate): Duplicate PersonalID '{personalId}'");
+                            result.Errors.Add($"Error at row {row} (Candidate): Duplicate PersonalID '{personalId}' within the import file");
                             continue;
+                        }
+
+                        // Kiểm tra PersonalID trùng lặp trong DB
+                        if (existingPersonalIds.Contains(personalId))
+                        {
+                            result.FailedCount++;
+                            result.Errors.Add($"Error at row {row} (Candidate): PersonalID '{personalId}' already exists in the database");
+                            continue;
+                        }
+
+                        // Đọc Email và kiểm tra trùng lặp
+                        string email = candidateSheet.Cells[row, 5].GetValue<string>();
+                        if (!string.IsNullOrEmpty(email))
+                        {
+                            // Kiểm tra Email trùng lặp trong file
+                            if (!emails.Add(email))
+                            {
+                                result.FailedCount++;
+                                result.Errors.Add($"Error at row {row} (Candidate): Duplicate Email '{email}' within the import file");
+                                continue;
+                            }
+
+                            // Kiểm tra Email trùng lặp trong DB
+                            if (existingEmails.Contains(email))
+                            {
+                                result.FailedCount++;
+                                result.Errors.Add($"Error at row {row} (Candidate): Email '{email}' already exists in the database");
+                                continue;
+                            }
+                        }
+
+                        // Đọc PhoneNumber và kiểm tra trùng lặp
+                        string phoneNumber = candidateSheet.Cells[row, 6].GetValue<string>();
+                        if (!string.IsNullOrEmpty(phoneNumber))
+                        {
+                            // Kiểm tra PhoneNumber trùng lặp trong file
+                            if (!phoneNumbers.Add(phoneNumber))
+                            {
+                                result.FailedCount++;
+                                result.Errors.Add($"Error at row {row} (Candidate): Duplicate Phone Number '{phoneNumber}' within the import file");
+                                continue;
+                            }
+
+                            // Kiểm tra PhoneNumber trùng lặp trong DB
+                            if (existingPhoneNumbers.Contains(phoneNumber))
+                            {
+                                result.FailedCount++;
+                                result.Errors.Add($"Error at row {row} (Candidate): Phone Number '{phoneNumber}' already exists in the database");
+                                continue;
+                            }
                         }
 
                         // Sinh CandidateId mới
@@ -145,8 +207,8 @@ namespace OCMS_Services.Service
                             Gender = candidateSheet.Cells[row, 2].GetValue<string>(),
                             DateOfBirth = dateOfBirth,
                             Address = candidateSheet.Cells[row, 4].GetValue<string>(),
-                            Email = candidateSheet.Cells[row, 5].GetValue<string>(),
-                            PhoneNumber = candidateSheet.Cells[row, 6].GetValue<string>(),
+                            Email = email,
+                            PhoneNumber = phoneNumber,
                             PersonalID = personalId,
                             SpecialtyId = specialtyId,
                             Note = candidateSheet.Cells[row, 9].GetValue<string>(),
@@ -198,7 +260,7 @@ namespace OCMS_Services.Service
                             string blobName = $"{candidateId}_{certificateCode}_{DateTime.UtcNow.Ticks}.jpg";
                             using (var stream = new MemoryStream(picture.Image.ImageBytes))
                             {
-                                certificateFileURL = await blobService.UploadFileAsync("externalcertificate", blobName, stream);
+                                certificateFileURL = await blobService.UploadFileAsync("externalcertificates", blobName, stream);
                             }
                         }
                         else
@@ -223,13 +285,20 @@ namespace OCMS_Services.Service
                         externalCertificates.Add(certificate);
                     }
 
+                    // Nếu có lỗi, dừng việc import
+                    if (result.FailedCount > 0)
+                    {
+                        result.SuccessCount = 0;
+                        return result;
+                    }
+
                     // **Lưu dữ liệu vào database**
                     await _unitOfWork.ExecuteWithStrategyAsync(async () =>
                     {
                         await _unitOfWork.BeginTransactionAsync();
                         try
                         {
-                           
+
                             if (result.SuccessCount > 0)
                             {
                                 var requestService = new RequestService(_unitOfWork, _mapper, _notificationService, _userRepository, _candidateRepository);
@@ -274,6 +343,106 @@ namespace OCMS_Services.Service
         }
         #endregion
 
+        #region Update Candidate
+        public async Task<Candidate> UpdateCandidateAsync(string id, Candidate updatedCandidate)
+        {
+            var existingCandidate = await _unitOfWork.CandidateRepository.GetByIdAsync(id);
+            if (existingCandidate == null)
+            {
+                throw new KeyNotFoundException($"Candidate with ID {id} not found");
+            }
+
+            // Check for duplicate email or phone if changed
+            if (updatedCandidate.Email != existingCandidate.Email)
+            {
+                var duplicateEmails = await _unitOfWork.CandidateRepository.FindAsync(c => c.Email == updatedCandidate.Email && c.CandidateId != id);
+                if (duplicateEmails.Any())
+                {
+                    throw new InvalidOperationException($"Email {updatedCandidate.Email} is already in use by another candidate");
+                }
+            }
+
+            if (updatedCandidate.PhoneNumber != existingCandidate.PhoneNumber)
+            {
+                var duplicatePhones = await _unitOfWork.CandidateRepository.FindAsync(c => c.PhoneNumber == updatedCandidate.PhoneNumber && c.CandidateId != id);
+                if (duplicatePhones.Any())
+                {
+                    throw new InvalidOperationException($"Phone number {updatedCandidate.PhoneNumber} is already in use by another candidate");
+                }
+            }
+
+            if (updatedCandidate.PersonalID != existingCandidate.PersonalID)
+            {
+                var duplicatePersonalIds = await _unitOfWork.CandidateRepository.FindAsync(c => c.PersonalID == updatedCandidate.PersonalID && c.CandidateId != id);
+                if (duplicatePersonalIds.Any())
+                {
+                    throw new InvalidOperationException($"Personal ID {updatedCandidate.PersonalID} is already in use by another candidate");
+                }
+            }
+
+            // Use AutoMapper to map properties from updatedCandidate to existingCandidate
+            // Preserve the original CandidateId and created date
+            var originalId = existingCandidate.CandidateId;
+            var originalCreatedDate = existingCandidate.CreatedAt;
+            var originalImportRequestId = existingCandidate.ImportRequestId;
+            var originalImportByUserId = existingCandidate.ImportByUserID;
+
+            _mapper.Map(updatedCandidate, existingCandidate);
+
+            // Restore values that shouldn't be updated
+            existingCandidate.CandidateId = originalId;
+            existingCandidate.CreatedAt = originalCreatedDate;
+            existingCandidate.ImportRequestId = originalImportRequestId;
+            existingCandidate.ImportByUserID = originalImportByUserId;
+            existingCandidate.UpdatedAt = DateTime.UtcNow;
+
+            await _unitOfWork.CandidateRepository.UpdateAsync(existingCandidate);
+            await _unitOfWork.SaveChangesAsync();
+
+            return existingCandidate;
+        }
+        #endregion
+
+        #region Delete Candidate
+        public async Task<(bool success, string message)> DeleteCandidateAsync(string id)
+        {
+            var candidate = await _unitOfWork.CandidateRepository.GetByIdAsync(id);
+            if (candidate == null)
+            {
+                return (false, "Candidate not found");
+            }
+
+            // Check if candidate has any certificates
+            var certificates = await _unitOfWork.ExternalCertificateRepository.FindAsync(c => c.CandidateId == id);
+            if (certificates.Any())
+            {
+                return (false, "Please clear all external certificates from this candidate first");
+            }
+
+            // Execute with transaction to ensure database consistency
+            bool success = false;
+            await _unitOfWork.ExecuteWithStrategyAsync(async () =>
+            {
+                await _unitOfWork.BeginTransactionAsync();
+                try
+                {
+                    // Delete the candidate
+                    await _unitOfWork.CandidateRepository.DeleteAsync(id);
+                    await _unitOfWork.SaveChangesAsync();
+                    await _unitOfWork.CommitTransactionAsync();
+                    success = true;
+                }
+                catch (Exception)
+                {
+                    await _unitOfWork.RollbackTransactionAsync();
+                    throw;
+                }
+            });
+
+            return (success, success ? "Candidate deleted successfully" : "Failed to delete candidate");
+        }
+        #endregion
+
         #region Helper Methods
         private bool IsRowEmpty(ExcelWorksheet worksheet, int row)
         {
@@ -306,7 +475,7 @@ namespace OCMS_Services.Service
                     return 0;
                 })
                 .FirstOrDefault();
-        }        
+        }
 
         private bool ValidateCandidate(Candidate candidate, ImportResult result, int row)
         {

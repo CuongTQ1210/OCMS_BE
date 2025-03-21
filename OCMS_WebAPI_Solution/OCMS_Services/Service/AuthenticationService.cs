@@ -23,6 +23,7 @@ namespace OCMS_Services.Service
             _jwtTokenHelper = jwtTokenHelper;
         }
 
+        #region Login
         public async Task<LoginResModel> LoginAsync(LoginModel loginDto)
         {
             // Find the user by their username and include the Role entity
@@ -47,5 +48,6 @@ namespace OCMS_Services.Service
                 Token = token
             };
         }
+        #endregion
     }
 }
