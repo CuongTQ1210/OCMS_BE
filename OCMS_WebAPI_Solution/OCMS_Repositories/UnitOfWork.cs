@@ -77,6 +77,7 @@ namespace OCMS_Repositories
         {
             get => _notificationRepository ??= new GenericRepository<Notification>(_context);
         }
+        
 
 
 
@@ -116,6 +117,7 @@ namespace OCMS_Repositories
                 _transaction = null;
             }
         }
+
 
         public async Task<int> SaveChangesAsync()
         {

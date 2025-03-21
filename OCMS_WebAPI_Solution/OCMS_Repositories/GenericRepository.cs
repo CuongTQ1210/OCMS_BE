@@ -73,9 +73,46 @@ namespace OCMS_Repositories
 
             return await query.ToListAsync();
         }
+
+        public async Task<IEnumerable<T>> GetAllAsync(params Expression<Func<T, object>>[] includes)
+        {
+            IQueryable<T> query = _dbSet;
+
+            if (includes != null)
+            {
+                foreach (var include in includes)
+                {
+                    query = query.Include(include);
+                }
+            }
+
+            return await query.ToListAsync();
+        }
+
+        public async Task<T> GetAsync(Expression<Func<T, bool>> filter, params Expression<Func<T, object>>[] includes)
+        {
+            IQueryable<T> query = _dbSet;
+
+            if (includes != null)
+            {
+                foreach (var include in includes)
+                {
+                    query = query.Include(include);
+                }
+            }
+
+            return await query.FirstOrDefaultAsync(filter);
+        }
         public IQueryable<T> GetQuery()
         {
             return _context.Set<T>().AsQueryable();
+        }
+
+        public async Task<T?> GetLastObjectIdAsync(Expression<Func<T, bool>> filter, Expression<Func<T, string>> orderByDesc)
+        {
+            return await _dbSet.Where(filter)
+                               .OrderByDescending(orderByDesc)
+                               .FirstOrDefaultAsync();
         }
 
     }

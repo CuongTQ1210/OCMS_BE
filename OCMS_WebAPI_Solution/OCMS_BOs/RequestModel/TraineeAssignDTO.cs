@@ -6,7 +6,10 @@ using System.Threading.Tasks;
 
 namespace OCMS_BOs.RequestModel
 {
-    internal class TrainingPlanModel
+    public class TraineeAssignDTO
     {
+        public string TraineeId { get; set; }
+        public string CourseId { get; set; }
+        public string Notes { get; set; }
     }
 }

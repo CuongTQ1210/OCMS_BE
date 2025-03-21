@@ -31,5 +31,8 @@ namespace OCMS_BOs.Entities
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        public List<Subject> Subjects { get; set; }
+        public List<TraineeAssign> Trainees { get;   set;}
     }
 }

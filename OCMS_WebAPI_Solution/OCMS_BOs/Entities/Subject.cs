@@ -27,5 +27,8 @@ namespace OCMS_BOs.Entities
         public User CreateByUser { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        public List<InstructorAssignment> Instructors { get; set; }
+        public List<TrainingSchedule> Schedules { get; set; }
     }
 }

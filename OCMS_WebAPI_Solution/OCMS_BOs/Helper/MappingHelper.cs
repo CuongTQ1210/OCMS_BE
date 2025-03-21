@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using OCMS_BOs.Entities;
+using OCMS_BOs.RequestModel;
 using OCMS_BOs.ViewModel;
 using System;
 using System.Collections.Generic;
@@ -47,6 +48,54 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.NotificationType, opt => opt.MapFrom(src => src.NotificationType))
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
                 .ForMember(dest => dest.IsRead, opt => opt.MapFrom(src => false));
+
+            CreateMap<TrainingPlan, TrainingPlanModel>()
+                .ForMember(dest => dest.TrainingPlanStatus, opt => opt.MapFrom(src => src.TrainingPlanStatus.ToString()))
+                .ForMember(dest => dest.CreateByUserName, opt => opt.MapFrom(src => src.CreateByUser.FullName))
+                .ForMember(dest => dest.SpecialtyName, opt => opt.MapFrom(src => src.Specialty.SpecialtyName))
+                .ForMember(dest => dest.Courses, opt => opt.MapFrom(src => src.Courses))
+                .ReverseMap();
+            CreateMap<TrainingPlanDTO, TrainingPlan>();
+            CreateMap<TrainingPlan, TrainingPlanDTO>();
+            // Course Mapping
+            CreateMap<Course, CourseModel>()
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
+                .ForMember(dest => dest.Trainees, opt => opt.MapFrom(src => src.Trainees))
+                .ForMember(dest => dest.Subjects, opt => opt.MapFrom(src => src.Subjects))
+                .ReverseMap();
+
+            // Subject Mapping
+            CreateMap<Subject, SubjectModel>()
+                .ForMember(dest => dest.Instructors, opt => opt.MapFrom(src => src.Instructors))
+                .ForMember(dest => dest.trainingSchedules, opt => opt.MapFrom(src => src.Schedules))
+                .ReverseMap();
+
+            // Trainee Assignment Mapping
+            CreateMap<TraineeAssign, TraineeAssignModel>()
+                .ReverseMap();
+
+            // Instructor Assignment Mapping
+            CreateMap<InstructorAssignment, InstructorAssignmentModel>()
+                .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => src.RequestStatus.ToString()))
+                .ReverseMap();
+            CreateMap<TrainingSchedule, TrainingScheduleModel>()
+                .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.Subject.SubjectName))
+                .ForMember(dest => dest.InstructorName, opt => opt.MapFrom(src => src.Instructor.FullName))
+                .ForMember(dest => dest.CreatedByUserName, opt => opt.MapFrom(src => src.CreatedByUser.FullName))
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
+                .ReverseMap();
+
+            CreateMap<CourseParticipant, CourseParticipantModel>()
+                .ForMember(dest => dest.CourseName, opt => opt.MapFrom(src => src.Course.CourseName))
+                .ForMember(dest => dest.UserName, opt => opt.MapFrom(src => src.User.FullName))
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
+                .ReverseMap();
+
+            CreateMap<CourseParticipantDto, CourseParticipant>()
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => Enum.Parse<CourseParticipantStatus>(src.Status)))
+                .ReverseMap();
         }
+
+
     }
 }
