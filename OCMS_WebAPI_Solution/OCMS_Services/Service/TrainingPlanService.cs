@@ -44,7 +44,8 @@ namespace OCMS_Services.Service
         {
             var plans = await _unitOfWork.TrainingPlanRepository.GetAllAsync(
                 p => p.CreateByUser,
-                p => p.Specialty
+                p => p.Specialty,
+                p => p.Courses
             );
 
             return _mapper.Map<IEnumerable<TrainingPlanModel>>(plans);

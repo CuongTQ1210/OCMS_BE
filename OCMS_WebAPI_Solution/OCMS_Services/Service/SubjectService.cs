@@ -1,0 +1,99 @@
+﻿using AutoMapper;
+using OCMS_BOs.Entities;
+using OCMS_BOs.RequestModel;
+using OCMS_BOs.ViewModel;
+using OCMS_Repositories;
+using OCMS_Services.IService;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace OCMS_Services.Service
+{
+    public class SubjectService : ISubjectService
+    {
+        private readonly UnitOfWork _unitOfWork;
+        private readonly IMapper _mapper;
+
+        public SubjectService(UnitOfWork unitOfWork, IMapper mapper)
+        {
+            _unitOfWork = unitOfWork;
+            _mapper = mapper;
+        }
+
+        public async Task<IEnumerable<SubjectModel>> GetAllSubjectsAsync()
+        {
+            var subjects = await _unitOfWork.SubjectRepository.GetAllAsync(s => s.Course);
+            return _mapper.Map<IEnumerable<SubjectModel>>(subjects);
+        }
+
+        public async Task<SubjectModel> GetSubjectByIdAsync(string subjectId)
+        {
+            var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(subjectId);
+            if (subject == null)
+                throw new KeyNotFoundException("Subject not found.");
+
+            return _mapper.Map<SubjectModel>(subject);
+        }
+
+        public async Task<SubjectModel> CreateSubjectAsync(SubjectDTO dto, string createdByUserId)
+        {
+            // Validate PassingScore (0-10)
+            if (dto.PassingScore < 0 || dto.PassingScore > 10)
+                throw new ArgumentException("Passing score must be between 0 and 10.");
+
+            // Ensure CourseId exists
+            var courseExists = await _unitOfWork.CourseRepository.ExistsAsync(c => c.CourseId == dto.CourseId);
+            if (!courseExists)
+                throw new ArgumentException("Course does not exist.");
+
+            var subject = _mapper.Map<Subject>(dto);
+            subject.SubjectId = Guid.NewGuid().ToString();
+            subject.CreateByUserId = createdByUserId;
+            subject.CreatedAt = DateTime.UtcNow;
+            subject.UpdatedAt = DateTime.UtcNow;
+
+            await _unitOfWork.SubjectRepository.AddAsync(subject);
+            await _unitOfWork.SaveChangesAsync();
+
+            return _mapper.Map<SubjectModel>(subject);
+        }
+
+        public async Task<SubjectModel> UpdateSubjectAsync(string subjectId, SubjectDTO dto)
+        {
+            var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(subjectId);
+            if (subject == null)
+                throw new KeyNotFoundException("Subject not found.");
+
+            // Validate PassingScore (0-10)
+            if (dto.PassingScore < 0 || dto.PassingScore > 10)
+                throw new ArgumentException("Passing score must be between 0 and 10.");
+
+            // Ensure CourseId exists
+            var courseExists = await _unitOfWork.CourseRepository.ExistsAsync(c => c.CourseId == dto.CourseId);
+            if (!courseExists)
+                throw new ArgumentException("Course does not exist.");
+
+            _mapper.Map(dto, subject);
+            subject.UpdatedAt = DateTime.UtcNow;
+
+            _unitOfWork.SubjectRepository.UpdateAsync(subject);
+            await _unitOfWork.SaveChangesAsync();
+
+            return _mapper.Map<SubjectModel>(subject);
+        }
+
+        public async Task<bool> DeleteSubjectAsync(string subjectId)
+        {
+            var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(subjectId);
+            if (subject == null)
+                throw new KeyNotFoundException("Subject not found.");
+
+            _unitOfWork.SubjectRepository.DeleteAsync(subjectId);
+            await _unitOfWork.SaveChangesAsync();
+            return true;
+        }
+    }
+}

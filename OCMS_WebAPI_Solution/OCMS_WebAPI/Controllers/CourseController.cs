@@ -1,7 +1,10 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using OCMS_BOs.RequestModel;
 using OCMS_Services.IService;
+using OCMS_WebAPI.AuthorizeSettings;
+using System.Security.Claims;
 
 namespace OCMS_WebAPI.Controllers
 {
@@ -20,11 +23,12 @@ namespace OCMS_WebAPI.Controllers
         /// Create a new course
         /// </summary>
         [HttpPost("create")]
+        [CustomAuthorize("Admin", "Training staff")]
         public async Task<IActionResult> CreateCourse([FromBody] CourseDTO dto)
         {
             try
             {
-                var createdByUserId = User.FindFirst("UserId")?.Value;
+                var createdByUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
                 if (string.IsNullOrEmpty(createdByUserId))
                     return Unauthorized(new { success = false, message = "Unauthorized access." });
 
@@ -51,6 +55,7 @@ namespace OCMS_WebAPI.Controllers
         /// Get all courses
         /// </summary>
         [HttpGet("all")]
+        [Authorize()]
         public async Task<IActionResult> GetAllCourses()
         {
             try
@@ -78,6 +83,7 @@ namespace OCMS_WebAPI.Controllers
         /// Get a course by ID
         /// </summary>
         [HttpGet("{id}")]
+
         public async Task<IActionResult> GetCourseById(string id)
         {
             try
@@ -108,11 +114,12 @@ namespace OCMS_WebAPI.Controllers
         /// Update a course
         /// </summary>
         [HttpPut("update/{id}")]
+        [CustomAuthorize("Admin", "Training staff")]
         public async Task<IActionResult> UpdateCourse(string id, [FromBody] CourseDTO dto)
         {
             try
             {
-                var updatedByUserId = User.FindFirst("UserId")?.Value;
+                var updatedByUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
                 if (string.IsNullOrEmpty(updatedByUserId))
                     return Unauthorized(new { success = false, message = "Unauthorized access." });
 
@@ -142,6 +149,7 @@ namespace OCMS_WebAPI.Controllers
         /// Delete a course
         /// </summary>
         [HttpDelete("delete/{id}")]
+        [CustomAuthorize("Admin", "Training staff")]
         public async Task<IActionResult> DeleteCourse(string id)
         {
             try
