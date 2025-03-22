@@ -50,13 +50,19 @@ namespace OCMS_Services.Service
 
         public async Task<IEnumerable<CourseModel>> GetAllCoursesAsync()
         {
-            var courses = await _unitOfWork.CourseRepository.GetAllAsync();
+            var courses = await _unitOfWork.CourseRepository.GetAllAsync(
+                p => p.Subjects,
+                p => p.Trainees
+                );
             return _mapper.Map<IEnumerable<CourseModel>>(courses);
         }
 
         public async Task<CourseModel?> GetCourseByIdAsync(string id)
         {
-            var course = await _unitOfWork.CourseRepository.GetByIdAsync(id);
+            var course = await _unitOfWork.CourseRepository.GetAsync(
+                p => p.CourseId == id,
+                p => p.Subjects,
+                p => p.Trainees);
             return _mapper.Map<CourseModel>(course);
         }
 

@@ -70,7 +70,8 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.Instructors, opt => opt.MapFrom(src => src.Instructors))
                 .ForMember(dest => dest.trainingSchedules, opt => opt.MapFrom(src => src.Schedules))
                 .ReverseMap();
-
+            CreateMap<SubjectDTO, Subject>();
+            CreateMap<Subject, SubjectDTO>();
             // Trainee Assignment Mapping
             CreateMap<TraineeAssign, TraineeAssignModel>()
                 .ReverseMap();

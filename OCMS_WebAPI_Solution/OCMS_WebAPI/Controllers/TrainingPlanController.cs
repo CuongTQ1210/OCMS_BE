@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using OCMS_BOs.RequestModel;
 using OCMS_Services.IService;
@@ -43,7 +44,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get All Training Plans
         [HttpGet]
-        [CustomAuthorize]
+        [Authorize]
         public async Task<IActionResult> GetAllTrainingPlans()
         {
             try

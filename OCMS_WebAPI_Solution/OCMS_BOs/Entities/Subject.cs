@@ -21,10 +21,9 @@ namespace OCMS_BOs.Entities
         public string Description { get; set; }
         public int Credits { get; set; }
         public double PassingScore { get; set; }
-        public string Schedule { get; set; }
-        [ForeignKey("CreateUser")]
+        [ForeignKey("CreateByUserId")]
         public string CreateByUserId { get; set; }
-        public User CreateByUser { get; set; }
+        public User? CreateByUser { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

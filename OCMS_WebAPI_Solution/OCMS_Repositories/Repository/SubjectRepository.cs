@@ -6,10 +6,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using OCMS_Repositories.IRepository;
 
 namespace OCMS_Repositories.Repository
 {
-    public class SubjectRepository : GenericRepository<Subject>
+    public class SubjectRepository : GenericRepository<Subject>,ISubjectRepository
     {
         private readonly OCMSDbContext _context;
 

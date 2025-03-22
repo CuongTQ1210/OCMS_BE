@@ -25,13 +25,20 @@ namespace OCMS_Services.Service
 
         public async Task<IEnumerable<SubjectModel>> GetAllSubjectsAsync()
         {
-            var subjects = await _unitOfWork.SubjectRepository.GetAllAsync(s => s.Course);
+            var subjects = await _unitOfWork.SubjectRepository.GetAllAsync(
+                p => p.Instructors,
+                p => p.Schedules
+                );
             return _mapper.Map<IEnumerable<SubjectModel>>(subjects);
         }
 
         public async Task<SubjectModel> GetSubjectByIdAsync(string subjectId)
         {
-            var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(subjectId);
+            var subject = await _unitOfWork.SubjectRepository.GetAsync(
+                p=> p.SubjectId== subjectId,
+                p => p.Instructors,
+                p => p.Schedules
+                );
             if (subject == null)
                 throw new KeyNotFoundException("Subject not found.");
 
@@ -48,10 +55,18 @@ namespace OCMS_Services.Service
             var courseExists = await _unitOfWork.CourseRepository.ExistsAsync(c => c.CourseId == dto.CourseId);
             if (!courseExists)
                 throw new ArgumentException("Course does not exist.");
-
+            var subjectExisted = await _unitOfWork.SubjectRepository.ExistsAsync(c=> c.SubjectId == dto.SubjectId);
+            if (subjectExisted)
+                throw new ArgumentException("Subject already existed.");
+            var userExists = await _unitOfWork.UserRepository.ExistsAsync(u => u.UserId == createdByUserId);
+            if (!userExists)
+            {
+                throw new Exception("The specified User ID does not exist.");
+            }
             var subject = _mapper.Map<Subject>(dto);
-            subject.SubjectId = Guid.NewGuid().ToString();
+            subject.SubjectId = dto.SubjectId;
             subject.CreateByUserId = createdByUserId;
+            
             subject.CreatedAt = DateTime.UtcNow;
             subject.UpdatedAt = DateTime.UtcNow;
 
@@ -78,7 +93,6 @@ namespace OCMS_Services.Service
 
             _mapper.Map(dto, subject);
             subject.UpdatedAt = DateTime.UtcNow;
-
             _unitOfWork.SubjectRepository.UpdateAsync(subject);
             await _unitOfWork.SaveChangesAsync();
 

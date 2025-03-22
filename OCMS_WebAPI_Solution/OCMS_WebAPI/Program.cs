@@ -63,7 +63,7 @@ builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<ITrainingPlanRepository, TrainingPlanRepository>();
 builder.Services.AddScoped<ICourseRepository, CourseRepository>();
 builder.Services.AddScoped<IExternalCertificateRepository, ExternalCertificateRepository>();
-
+builder.Services.AddScoped<ISubjectRepository, SubjectRepository>();
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
@@ -76,7 +76,7 @@ builder.Services.AddScoped<IExternalCertificateService, ExternalCertificateServi
 builder.Services.AddScoped<IBlobService, BlobService>();
 builder.Services.AddScoped<ITrainingPlanService, TrainingPlanService>();
 builder.Services.AddScoped<ICourseService, CourseService>();
-
+builder.Services.AddScoped<ISubjectService, SubjectService>();
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
