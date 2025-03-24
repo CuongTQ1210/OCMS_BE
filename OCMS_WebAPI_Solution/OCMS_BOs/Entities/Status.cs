@@ -113,5 +113,8 @@ namespace OCMS_BOs.Entities
     {
         Draft=0, Submitted=1, Approved=2, Rejected=3
     }
-    
+    public enum ScheduleStatus
+    {
+        Incoming=0, Finished=1 , Canceled=2
+    }
 }

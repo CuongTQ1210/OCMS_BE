@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace OCMS_BOs.RequestModel
+namespace OCMS_Repositories.IRepository
 {
-    internal class TrainingPlanModel
+    public interface ISubjectRepository
     {
     }
 }

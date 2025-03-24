@@ -35,7 +35,7 @@ namespace OCMS_BOs.Entities
         public DateTime CreatedDate { get; set; }
         public DateTime ModifiedDate { get; set; }
 
-        public string Status { get; set; } // scheduled, completed, cancelled
+        public ScheduleStatus Status { get; set; } 
         public string Notes { get; set; }
     }
 }

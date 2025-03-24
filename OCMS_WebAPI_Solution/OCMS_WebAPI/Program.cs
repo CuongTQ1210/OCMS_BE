@@ -16,11 +16,11 @@ using Azure.Extensions.AspNetCore.Configuration.Secrets;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var keyVaultEndpoint = new Uri(builder.Configuration["KeyVault:Endpoint"]);
-builder.Configuration.AddAzureKeyVault(
-    keyVaultEndpoint,
-    new DefaultAzureCredential()
-);
+//var keyVaultEndpoint = new Uri(builder.Configuration["KeyVault:Endpoint"]);
+//builder.Configuration.AddAzureKeyVault(
+//    keyVaultEndpoint,
+//    new DefaultAzureCredential()
+//);
 
 // Các cấu hình khác có thể lấy từ Key Vault
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -60,8 +60,10 @@ builder.Services.AddScoped<IRequestRepository, RequestRepository>();
 builder.Services.AddScoped<ISpecialtyRepository, SpecialtyRepository>();
 builder.Services.AddScoped<ICandidateRepository, CandidateRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<ITrainingPlanRepository, TrainingPlanRepository>();
+builder.Services.AddScoped<ICourseRepository, CourseRepository>();
 builder.Services.AddScoped<IExternalCertificateRepository, ExternalCertificateRepository>();
-
+builder.Services.AddScoped<ISubjectRepository, SubjectRepository>();
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
@@ -72,7 +74,9 @@ builder.Services.AddScoped<ICandidateService, CandidateService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IExternalCertificateService, ExternalCertificateService>();
 builder.Services.AddScoped<IBlobService, BlobService>();
-
+builder.Services.AddScoped<ITrainingPlanService, TrainingPlanService>();
+builder.Services.AddScoped<ICourseService, CourseService>();
+builder.Services.AddScoped<ISubjectService, SubjectService>();
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;

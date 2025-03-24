@@ -35,5 +35,7 @@ namespace OCMS_BOs.Entities
         public DateTime? ApproveDate { get; set; } = DateTime.UtcNow;
 
         public TrainingPlanStatus TrainingPlanStatus { get; set; }
+
+        public List<Course> Courses { get; set; }
     }
 }

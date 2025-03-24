@@ -1,0 +1,15 @@
+﻿using OCMS_BOs.Entities;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace OCMS_Repositories.IRepository
+{
+    public interface ICourseRepository 
+    {
+        Task<bool> ExistsAsync(string id);
+        Task<Course?> GetLastObjectIdAsync();
+    }
+}
