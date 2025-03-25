@@ -17,6 +17,13 @@ namespace OCMS_BOs.Helper
             CreateMap<User, UserModel>();
             CreateMap<UserModel, User>();
 
+            CreateMap<UserUpdateDTO, User>()
+            .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.FullName))
+            .ForMember(dest => dest.Gender, opt => opt.MapFrom(src => src.Gender))
+            .ForMember(dest => dest.DateOfBirth, opt => opt.MapFrom(src => src.DateOfBirth))
+            .ForMember(dest => dest.Address, opt => opt.MapFrom(src => src.Address))
+            .ForMember(dest => dest.PhoneNumber, opt => opt.MapFrom(src => src.PhoneNumber));
+
             CreateMap<Specialties, SpecialtyModel>();
             CreateMap<SpecialtyModel, Specialties>()
                 .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
