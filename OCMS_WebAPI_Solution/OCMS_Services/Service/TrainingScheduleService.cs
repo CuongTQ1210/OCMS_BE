@@ -16,11 +16,16 @@ namespace OCMS_Services.Service
     {
         private readonly UnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly IInstructorAssignmentService _instructorAssignmentService;
 
-        public TrainingScheduleService(UnitOfWork unitOfWork, IMapper mapper)
+        public TrainingScheduleService(
+            UnitOfWork unitOfWork,
+            IMapper mapper,
+            IInstructorAssignmentService instructorAssignmentService)
         {
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+            _instructorAssignmentService = instructorAssignmentService ?? throw new ArgumentNullException(nameof(instructorAssignmentService));
         }
 
         /// <summary>
@@ -57,7 +62,7 @@ namespace OCMS_Services.Service
         }
 
         /// <summary>
-        /// Creates a new training schedule with the provided DTO and user ID.
+        /// Creates a new training schedule and associated instructor assignment.
         /// </summary>
         public async Task<TrainingScheduleModel> CreateTrainingScheduleAsync(TrainingScheduleDTO dto, string createdByUserId)
         {
@@ -70,6 +75,11 @@ namespace OCMS_Services.Service
             var subjectExists = await _unitOfWork.SubjectRepository.ExistsAsync(s => s.SubjectId == dto.SubjectID);
             if (!subjectExists)
                 throw new ArgumentException($"Subject with ID {dto.SubjectID} does not exist.");
+
+            // Validate InstructorID (assuming it's in the DTO)
+            var instructorExists = await _unitOfWork.InstructorAssignmentRepository.ExistsAsync(i => i.InstructorId == dto.InstructorID);
+            if (!instructorExists)
+                throw new ArgumentException($"Instructor with ID {dto.InstructorID} does not exist.");
 
             // Validate CreatedBy user
             var userExists = await _unitOfWork.UserRepository.ExistsAsync(u => u.UserId == createdByUserId);
@@ -85,17 +95,22 @@ namespace OCMS_Services.Service
 
             // Map DTO to entity
             var schedule = _mapper.Map<TrainingSchedule>(dto);
-            schedule.ScheduleID = scheduleId; // Set custom ID
+            schedule.ScheduleID = scheduleId;
+            schedule.SubjectID= dto.SubjectID;
+            schedule.InstructorID = dto.InstructorID;
             schedule.CreatedBy = createdByUserId;
             schedule.CreatedDate = DateTime.UtcNow;
             schedule.ModifiedDate = DateTime.UtcNow;
 
-            // Set default values for fields not in DTO (assuming they are required)
-            schedule.StartDateTime = DateTime.UtcNow; // Placeholder; adjust as needed
-            schedule.EndDateTime = DateTime.UtcNow.AddHours(1); // Placeholder; adjust as needed
+            // Set default values for fields not in DTO
+            schedule.StartDateTime = DateTime.UtcNow; // Adjust as needed
+            schedule.EndDateTime = DateTime.UtcNow.AddHours(1); // Adjust as needed
 
             await _unitOfWork.TrainingScheduleRepository.AddAsync(schedule);
             await _unitOfWork.SaveChangesAsync();
+
+            // Create or update InstructorAssignment
+            await ManageInstructorAssignment(dto.SubjectID, dto.InstructorID, createdByUserId);
 
             // Fetch with related data
             var createdSchedule = await _unitOfWork.TrainingScheduleRepository.GetAsync(
@@ -108,7 +123,7 @@ namespace OCMS_Services.Service
         }
 
         /// <summary>
-        /// Updates an existing training schedule with the provided DTO.
+        /// Updates an existing training schedule and its associated instructor assignment.
         /// </summary>
         public async Task<TrainingScheduleModel> UpdateTrainingScheduleAsync(string scheduleId, TrainingScheduleDTO dto)
         {
@@ -126,12 +141,20 @@ namespace OCMS_Services.Service
             if (!subjectExists)
                 throw new ArgumentException($"Subject with ID {dto.SubjectID} does not exist.");
 
+            // Validate InstructorID (assuming it's in the DTO)
+            var instructorExists = await _unitOfWork.InstructorAssignmentRepository.ExistsAsync(i => i.InstructorId == dto.InstructorID);
+            if (!instructorExists)
+                throw new ArgumentException($"Instructor with ID {dto.InstructorID} does not exist.");
+
             // Map DTO to existing entity, preserving fields not in DTO
             _mapper.Map(dto, schedule);
             schedule.ModifiedDate = DateTime.UtcNow;
 
             _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
             await _unitOfWork.SaveChangesAsync();
+
+            // Update InstructorAssignment
+            await ManageInstructorAssignment(dto.SubjectID, dto.InstructorID, schedule.CreatedBy);
 
             // Fetch with related data
             var updatedSchedule = await _unitOfWork.TrainingScheduleRepository.GetAsync(
@@ -141,6 +164,43 @@ namespace OCMS_Services.Service
                 s => s.CreatedByUser
             );
             return _mapper.Map<TrainingScheduleModel>(updatedSchedule);
+        }
+
+        // Other methods (GetAll, GetById, Delete) remain unchanged...
+
+        /// <summary>
+        /// Manages the instructor assignment (create or update) based on subject and instructor.
+        /// </summary>
+        private async Task ManageInstructorAssignment(string subjectId, string instructorId, string assignByUserId)
+        {
+            // Check if an assignment already exists for this subject
+            var existingAssignment = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
+                a => a.SubjectId == subjectId
+            );
+
+            if (existingAssignment == null)
+            {
+                // Create new assignment if none exists
+                var assignmentDto = new InstructorAssignmentDTO
+                {
+                    SubjectId = subjectId,
+                    InstructorId = instructorId,
+                    Notes = "Automatically created from training schedule"
+                };
+                await _instructorAssignmentService.CreateInstructorAssignmentAsync(assignmentDto, assignByUserId);
+            }
+            else if (existingAssignment.InstructorId != instructorId)
+            {
+                // Update existing assignment if the instructor has changed
+                var assignmentDto = new InstructorAssignmentDTO
+                {
+                    SubjectId = subjectId,
+                    InstructorId = instructorId,
+                    Notes = existingAssignment.Notes ?? "Updated from training schedule"
+                };
+                await _instructorAssignmentService.UpdateInstructorAssignmentAsync(existingAssignment.AssignmentId, assignmentDto);
+            }
+            // If the instructor is the same, no update is needed
         }
 
         /// <summary>

@@ -8,5 +8,6 @@ namespace OCMS_Repositories.IRepository
 {
     public interface ITrainingScheduleRepository
     {
+        Task<bool> ExistsAsync(string id);
     }
 }

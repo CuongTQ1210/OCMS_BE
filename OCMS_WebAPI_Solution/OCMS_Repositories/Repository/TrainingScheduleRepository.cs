@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace OCMS_Repositories.Repository
 {
-    internal class TrainingScheduleRepository : GenericRepository<TrainingSchedule>, ITrainingScheduleRepository
+    public class TrainingScheduleRepository : GenericRepository<TrainingSchedule>, ITrainingScheduleRepository
     {
         private readonly OCMSDbContext _context;
         public TrainingScheduleRepository(OCMSDbContext context) : base(context)
