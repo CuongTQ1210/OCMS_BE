@@ -1,24 +1,15 @@
-﻿using OCMS_BOs.Helper;
-using OCMS_BOs.ViewModel;
-using OCMS_BOs.ResponseModel;
-using OCMS_BOs.Entities;
-using OCMS_Repositories.IRepository;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using OCMS_Services.IService;
-using AutoMapper;
-using OCMS_Repositories;
-using System.IO;
-using System.Security.Cryptography;
-using OfficeOpenXml;
-using Microsoft.AspNetCore.Identity;
-using System.Text.RegularExpressions;
-using System.Globalization;
-using System.Drawing;
+﻿using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using OCMS_BOs.Entities;
+using OCMS_BOs.Helper;
+using OCMS_BOs.RequestModel;
+using OCMS_BOs.ViewModel;
+using OCMS_Repositories;
+using OCMS_Services.IService;
+using StackExchange.Redis;
+using System.Globalization;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace OCMS_Services.Service
 {
@@ -27,12 +18,14 @@ namespace OCMS_Services.Service
         private readonly UnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly IEmailService _emailService;
+        private readonly IDatabaseAsync _redis;
 
-        public UserService(UnitOfWork unitOfWork, IMapper mapper, IEmailService emailService)
+        public UserService(UnitOfWork unitOfWork, IMapper mapper, IEmailService emailService, IConnectionMultiplexer redis)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _emailService = emailService;
+            _redis = redis.GetDatabase();
         }
 
         #region Get All Users
@@ -109,7 +102,83 @@ namespace OCMS_Services.Service
             await SendWelcomeEmailAsync(candidate.Email, userName, password);
 
             return user;
-        }        
+        }
+        #endregion
+
+        #region Update User Details
+        public async Task UpdateUserDetailsAsync(string userId, UserUpdateDTO updateDto)
+        {
+            var user = await _unitOfWork.UserRepository.GetByIdAsync(userId);
+            if (user == null)
+                throw new Exception("User not found.");
+
+            _mapper.Map(updateDto, user);
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _unitOfWork.UserRepository.UpdateAsync(user);
+            await _unitOfWork.SaveChangesAsync();
+        }
+        #endregion
+
+        #region Update Password
+        public async Task UpdatePasswordAsync(string userId, PasswordUpdateDTO passwordDto)
+        {
+            var user = await _unitOfWork.UserRepository.GetByIdAsync(userId);
+            if (user == null)
+                throw new Exception("User not found.");
+
+            if (!PasswordHasher.VerifyPassword(passwordDto.CurrentPassword, user.PasswordHash))
+                throw new Exception("Current password is incorrect.");
+
+            user.PasswordHash = PasswordHasher.HashPassword(passwordDto.NewPassword);
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _unitOfWork.UserRepository.UpdateAsync(user);
+            await _unitOfWork.SaveChangesAsync();
+        }
+        #endregion
+
+        #region Forgot Password
+        public async Task ForgotPasswordAsync(ForgotPasswordDTO forgotPasswordDto)
+        {
+            var users = await _unitOfWork.UserRepository.FindAsync(u => u.Email == forgotPasswordDto.Email);
+            if (users == null || !users.Any())
+                throw new Exception("User not found.");
+
+            var user = users.First();
+            string token = Guid.NewGuid().ToString();
+
+            // Store token in Redis with 15-minute expiration
+            await _redis.StringSetAsync(token, user.UserId, TimeSpan.FromMinutes(15));
+
+            var baseUrl = "https://ocms-vjvn.azurewebsites.net"; // Có thể lấy từ cấu hình
+            var resetLink = $"{baseUrl}/reset-password?token={token}";
+            string emailBody = $"Click the following link to reset your password: {resetLink}";
+
+            await _emailService.SendEmailAsync(user.Email, "Password Reset", emailBody);
+        }
+        #endregion
+
+        #region Reset Password
+        public async Task ResetPasswordAsync(ResetPasswordDTO resetPasswordDto)
+        {
+            string userId = await _redis.StringGetAsync(resetPasswordDto.Token);
+            if (string.IsNullOrEmpty(userId))
+                throw new Exception("Invalid or expired token.");
+
+            var user = await _unitOfWork.UserRepository.GetByIdAsync(userId);
+            if (user == null)
+                throw new Exception("User not found.");
+
+            user.PasswordHash = PasswordHasher.HashPassword(resetPasswordDto.NewPassword);
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _unitOfWork.UserRepository.UpdateAsync(user);
+            await _unitOfWork.SaveChangesAsync();
+
+            // Invalidate the token
+            await _redis.KeyDeleteAsync(resetPasswordDto.Token);
+        }
         #endregion
 
         #region Helper Methods
@@ -171,11 +240,8 @@ Trân trọng,
             }
 
             return stringBuilder.ToString().Normalize(NormalizationForm.FormC);
-        }
+        }        
         #endregion
-
-       
- 
     }
 
 }

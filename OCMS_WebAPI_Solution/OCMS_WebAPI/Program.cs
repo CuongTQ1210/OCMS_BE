@@ -13,14 +13,15 @@ using OCMS_Services.Service;
 using System.Text;
 using Azure.Identity;
 using Azure.Extensions.AspNetCore.Configuration.Secrets;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
-//var keyVaultEndpoint = new Uri(builder.Configuration["KeyVault:Endpoint"]);
-//builder.Configuration.AddAzureKeyVault(
-//    keyVaultEndpoint,
-//    new DefaultAzureCredential()
-//);
+var keyVaultEndpoint = new Uri(builder.Configuration["KeyVault:Endpoint"]);
+builder.Configuration.AddAzureKeyVault(
+   keyVaultEndpoint,
+   new DefaultAzureCredential()
+);
 
 // Các cấu hình khác có thể lấy từ Key Vault
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -37,6 +38,8 @@ builder.Services.AddDbContext<OCMSDbContext>(options =>
 builder.Services.AddAzureClients(azureBuilder =>
     azureBuilder.AddBlobServiceClient(builder.Configuration.GetValue<string>("AzureBlobStorage")));
 
+// Add Redis
+builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(builder.Configuration.GetValue<string>("Redis:ConnectionString")));
 
 // Add Email Service
 builder.Services.AddTransient<IEmailService>(provider =>
