@@ -16,20 +16,22 @@ namespace OCMS_Services.Service
 {
     public class RequestService : IRequestService
     {
-        private readonly UnitOfWork _unitOfWork;
-        private readonly IMapper _mapper;
+            private readonly UnitOfWork _unitOfWork;
+            private readonly IMapper _mapper;
+        private readonly ITrainingScheduleService _trainingScheduleService;
         private readonly INotificationService _notificationService;
-        private readonly ICandidateRepository _candidateRepository;
-        private readonly IUserRepository _userRepository;
+            private readonly ICandidateRepository _candidateRepository;
+            private readonly IUserRepository _userRepository;
         
-        public RequestService(UnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService, IUserRepository userRepository, ICandidateRepository candidateRepository)
-        {
-            _unitOfWork = unitOfWork;
-            _mapper = mapper;
-            _notificationService = notificationService;
-            _userRepository = userRepository;
-            _candidateRepository = candidateRepository;
-        }
+            public RequestService(UnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService, IUserRepository userRepository, ICandidateRepository candidateRepository, ITrainingScheduleService trainingScheduleService)
+            {
+                _unitOfWork = unitOfWork;
+                _mapper = mapper;
+                _notificationService = notificationService;
+                _userRepository = userRepository;
+                _candidateRepository = candidateRepository;
+            _trainingScheduleService = trainingScheduleService;
+            }
 
         #region Create Request
         public async Task<Request> CreateRequestAsync(RequestDTO requestDto, string userId)
@@ -71,7 +73,11 @@ namespace OCMS_Services.Service
             // 🚀 Send notification to the director if NewPlan, RecurrentPlan, RelearnPlan
             if (newRequest.RequestType == RequestType.NewPlan ||
                 newRequest.RequestType == RequestType.RecurrentPlan ||
-                newRequest.RequestType == RequestType.RelearnPlan)
+                newRequest.RequestType == RequestType.RelearnPlan||
+                newRequest.RequestType == RequestType.Update||
+                newRequest.RequestType == RequestType.Delete
+
+                )
             {
                 var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
                 foreach (var director in directors)
@@ -190,38 +196,69 @@ namespace OCMS_Services.Service
 
             _unitOfWork.RequestRepository.UpdateAsync(request);
             await _unitOfWork.SaveChangesAsync();
+
+            // Notify the requester
             await _notificationService.SendNotificationAsync(
-            request.RequestUserId,
+                request.RequestUserId,
                 "Request Approved",
                 $"Your request ({request.RequestType}) has been approved.",
                 "Request"
-                );
+            );
 
-            if (request.RequestType == RequestType.CandidateImport)
+            // Handle request type-specific actions
+            switch (request.RequestType)
             {
-                var candidates = await _candidateRepository.GetCandidatesByImportRequestIdAsync(requestId);
-
-                if (candidates != null && candidates.Any())
-                {
-                    foreach (var candidate in candidates)
+                case RequestType.CandidateImport:
+                    var candidates = await _candidateRepository.GetCandidatesByImportRequestIdAsync(requestId);
+                    if (candidates != null && candidates.Any())
                     {
-                        candidate.CandidateStatus = CandidateStatus.Approved; // Assuming CandidateStatus is an Enum or predefined string
-                        await _unitOfWork.CandidateRepository.UpdateAsync(candidate);
+                        foreach (var candidate in candidates)
+                        {
+                            candidate.CandidateStatus = CandidateStatus.Approved;
+                            await _unitOfWork.CandidateRepository.UpdateAsync(candidate);
+                        }
                     }
-                }
-                var admins = await _userRepository.GetUsersByRoleAsync("Admin");
-                foreach (var admin in admins)
-                {
-                    await _notificationService.SendNotificationAsync(
-                        admin.UserId,
-                        "Candidate Import Approved",
-                        "The candidate import request has been approved. Please create user accounts for the new candidates.",
-                        "CandidateImport"
+                    var admins = await _userRepository.GetUsersByRoleAsync("Admin");
+                    foreach (var admin in admins)
+                    {
+                        await _notificationService.SendNotificationAsync(
+                            admin.UserId,
+                            "Candidate Import Approved",
+                            "The candidate import request has been approved. Please create user accounts for the new candidates.",
+                            "CandidateImport"
+                        );
+                    }
+                    break;
+
+                case RequestType.Update:
+                    // Fetch the DTO or details for the update (assuming stored or passed elsewhere)
+                    // For simplicity, assume we need to fetch the latest DTO or re-submit it
+                    var schedule = await _unitOfWork.TrainingScheduleRepository.GetAsync(
+                        s => s.ScheduleID == request.RequestEntityId,
+                        s => s.Subject,
+                        s => s.Instructor
                     );
-                }
-               
+                    if (schedule != null)
+                    {
+                        // Construct a DTO from the current schedule or fetch it from a stored source
+                        var updateDto = new TrainingScheduleDTO
+                        {
+                            SubjectID = schedule.SubjectID,
+                            InstructorID = schedule.InstructorID // Adjust based on what was requested
+                            // Add other fields as needed
+                        };
+                        await _trainingScheduleService.UpdateTrainingScheduleAsync(request.RequestEntityId, updateDto);
+                    }
+                    break;
+
+                case RequestType.Delete:
+                    await _trainingScheduleService.DeleteTrainingScheduleAsync(request.RequestEntityId);
+                    break;
+
+                    // Add other RequestType cases as needed (e.g., NewPlan, RecurrentPlan)
             }
-            return true; 
+
+            return true;
         }
         #endregion
 
@@ -238,27 +275,47 @@ namespace OCMS_Services.Service
             _unitOfWork.RequestRepository.UpdateAsync(request);
             await _unitOfWork.SaveChangesAsync();
 
+            // Tailor notification message based on RequestType
+            string notificationTitle = "Request Rejected";
+            string notificationMessage;
 
-            // 🚀 Send notification to request creator
+            switch (request.RequestType)
+            {
+                case RequestType.Update:
+                    notificationMessage = $"Your request to update (ID: {request.RequestEntityId}) has been rejected. Reason: {rejectionReason}";
+                    break;
+                case RequestType.Delete:
+                    notificationMessage = $"Your request to delete (ID: {request.RequestEntityId}) has been rejected. Reason: {rejectionReason}";
+                    break;
+                case RequestType.CandidateImport:
+                    notificationMessage = $"Your candidate import request has been rejected. Reason: {rejectionReason}";
+                    break;
+                default:
+                    notificationMessage = $"Your request ({request.RequestType}) has been rejected. Reason: {rejectionReason}";
+                    break;
+            }
+
+            // Send notification to the request creator
             await _notificationService.SendNotificationAsync(
                 request.RequestUserId,
-                "Request Rejected",
-                $"Your request ({request.RequestType}) has been rejected. Reason: {rejectionReason}",
+                notificationTitle,
+                notificationMessage,
                 "Request"
             );
 
+            // Additional logic for CandidateImport
             if (request.RequestType == RequestType.CandidateImport)
             {
                 var candidates = await _candidateRepository.GetCandidatesByImportRequestIdAsync(requestId);
-
                 if (candidates != null && candidates.Any())
                 {
                     foreach (var candidate in candidates)
                     {
-                        candidate.CandidateStatus = CandidateStatus.Rejected; // Assuming CandidateStatus is an Enum or predefined string
+                        candidate.CandidateStatus = CandidateStatus.Rejected;
                         await _unitOfWork.CandidateRepository.UpdateAsync(candidate);
                     }
                 }
+
                 var hrs = await _userRepository.GetUsersByRoleAsync("HR");
                 foreach (var hr in hrs)
                 {
@@ -270,6 +327,7 @@ namespace OCMS_Services.Service
                     );
                 }
             }
+
             return true;
         }
         #endregion
