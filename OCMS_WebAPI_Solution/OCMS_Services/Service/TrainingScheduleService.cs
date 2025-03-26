@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace OCMS_Services.Service
@@ -18,16 +19,22 @@ namespace OCMS_Services.Service
         private readonly IMapper _mapper;
         private readonly IInstructorAssignmentService _instructorAssignmentService;
         private readonly IRequestService _requestService;
+        private readonly Lazy<ITrainingScheduleService> _trainingScheduleService;
+        private readonly Lazy<ITrainingPlanService> _trainingPlanService;
         public TrainingScheduleService(
             UnitOfWork unitOfWork,
             IMapper mapper,
             IInstructorAssignmentService instructorAssignmentService,
-            IRequestService requestService)
+            IRequestService requestService,
+            Lazy<ITrainingScheduleService> trainingScheduleService,
+            Lazy<ITrainingPlanService> trainingPlanService)
         {
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _instructorAssignmentService = instructorAssignmentService ?? throw new ArgumentNullException(nameof(instructorAssignmentService));
             _requestService = requestService;
+            _trainingPlanService = trainingPlanService ?? throw new ArgumentNullException(nameof(trainingPlanService));
+            _trainingScheduleService = trainingScheduleService ?? throw new ArgumentNullException(nameof(trainingScheduleService));
         }
 
         /// <summary>
@@ -124,10 +131,7 @@ namespace OCMS_Services.Service
             return _mapper.Map<TrainingScheduleModel>(createdSchedule);
         }
 
-        /// <summary>
-        /// Updates an existing training schedule and its associated instructor assignment.
-        /// If the related assignment is Approved, creates a request for HeadMaster approval.
-        /// </summary>
+        #region Update Training Schedule
         public async Task<TrainingScheduleModel> UpdateTrainingScheduleAsync(string scheduleId, TrainingScheduleDTO dto)
         {
             if (string.IsNullOrEmpty(scheduleId))
@@ -156,19 +160,20 @@ namespace OCMS_Services.Service
 
             if (assignment != null && assignment.RequestStatus == RequestStatus.Approved)
             {
-                // If approved, create a request for HeadMaster approval
+                // If Approved, send request with proposed changes in Notes
+                var proposedChanges = JsonSerializer.Serialize(dto);
                 var requestDto = new RequestDTO
                 {
                     RequestType = RequestType.Update,
                     RequestEntityId = scheduleId,
-                    Description = $"Request to update training schedule {scheduleId} with new instructor {dto.InstructorID}",
-                    Notes = "Awaiting HeadMaster approval"
+                    Description = $"Request to update training schedule {scheduleId}",
+                    Notes = $"Proposed changes: {proposedChanges}"
                 };
                 await _requestService.CreateRequestAsync(requestDto, schedule.CreatedBy);
-                throw new InvalidOperationException($"Cannot update schedule {scheduleId} because the related assignment is Approved. A request has been sent to the HeadMaster for approval.");
+                return _mapper.Map<TrainingScheduleModel>(schedule); // Return unchanged schedule
             }
 
-            // Proceed with update if Pending or no assignment
+            // Apply update for non-Approved statuses (e.g., Pending or no assignment)
             _mapper.Map(dto, schedule);
             schedule.ModifiedDate = DateTime.UtcNow;
 
@@ -186,13 +191,14 @@ namespace OCMS_Services.Service
             );
             return _mapper.Map<TrainingScheduleModel>(updatedSchedule);
         }
+        #endregion
 
         // Other methods (GetAll, GetById, Delete) remain unchanged...
 
         /// <summary>
         /// Manages the instructor assignment (create or update) based on subject and instructor.
         /// </summary>
-        private async Task ManageInstructorAssignment(string subjectId, string instructorId, string assignByUserId)
+        public async Task ManageInstructorAssignment(string subjectId, string instructorId, string assignByUserId)
         {
             var existingAssignment = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
                 a => a.SubjectId == subjectId
@@ -222,7 +228,7 @@ namespace OCMS_Services.Service
 
         /// <summary>
         /// Deletes a training schedule by its ID and its related instructor assignment.
-        /// If the related assignment is Approved, creates a request for HeadMaster approval.
+        /// If the related assignment is Approved, changes status to Deleting and creates a request.
         /// </summary>
         public async Task<bool> DeleteTrainingScheduleAsync(string scheduleId)
         {
@@ -243,7 +249,12 @@ namespace OCMS_Services.Service
 
             if (assignment != null && assignment.RequestStatus == RequestStatus.Approved)
             {
-                // If approved, create a request for HeadMaster approval
+                // Change status to Deleting
+                assignment.RequestStatus = RequestStatus.Deleting;
+                _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
+                await _unitOfWork.SaveChangesAsync();
+
+                // Create a request for HeadMaster approval
                 var requestDto = new RequestDTO
                 {
                     RequestType = RequestType.Delete,
@@ -252,7 +263,7 @@ namespace OCMS_Services.Service
                     Notes = "Awaiting HeadMaster approval"
                 };
                 await _requestService.CreateRequestAsync(requestDto, schedule.CreatedBy);
-                throw new InvalidOperationException($"Cannot delete schedule {scheduleId} because the related assignment is Approved. A request has been sent to the HeadMaster for approval.");
+                throw new InvalidOperationException($"Cannot delete schedule {scheduleId} because the related assignment is Approved. Status changed to Deleting, and a request has been sent to the HeadMaster for approval.");
             }
 
             // Proceed with deletion if Pending or no assignment
@@ -265,7 +276,6 @@ namespace OCMS_Services.Service
 
             return true;
         }
-
         /// <summary>
         /// Generates a ScheduleID in the format SCD-XXXXXX where XXXXXX is a random 6-digit number.
         /// </summary>

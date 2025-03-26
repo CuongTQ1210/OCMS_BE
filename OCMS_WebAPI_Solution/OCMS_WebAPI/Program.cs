@@ -84,6 +84,11 @@ builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<ISubjectService, SubjectService>();
 builder.Services.AddScoped<ITrainingScheduleService, TrainingScheduleService>();
 builder.Services.AddScoped<IInstructorAssignmentService, InstructorAssignmentService>();
+
+// Register Lazy<T> factories
+builder.Services.AddScoped(provider => new Lazy<ITrainingScheduleService>(() => provider.GetRequiredService<ITrainingScheduleService>()));
+builder.Services.AddScoped(provider => new Lazy<ITrainingPlanService>(() => provider.GetRequiredService<ITrainingPlanService>()));
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;

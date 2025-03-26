@@ -15,5 +15,7 @@ namespace OCMS_Services.IService
         Task<TrainingScheduleModel> CreateTrainingScheduleAsync(TrainingScheduleDTO dto, string createdByUserId);
         Task<TrainingScheduleModel> UpdateTrainingScheduleAsync(string scheduleId, TrainingScheduleDTO dto);
         Task<bool> DeleteTrainingScheduleAsync(string scheduleId);
+
+        Task ManageInstructorAssignment(string subjectId, string instructorId, string assignByUserId);
     }
 }

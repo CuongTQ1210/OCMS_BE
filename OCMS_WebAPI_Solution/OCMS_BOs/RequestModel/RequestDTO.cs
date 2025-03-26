@@ -17,5 +17,6 @@ namespace OCMS_BOs.RequestModel
         public string Description { get; set; }
         [Required]
         public string Notes { get; set; }
+
     }
 }

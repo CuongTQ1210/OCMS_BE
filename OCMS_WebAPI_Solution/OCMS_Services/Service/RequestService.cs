@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using MimeKit.Cryptography;
 using OCMS_BOs.Entities;
 using OCMS_BOs.RequestModel;
 using OCMS_BOs.ViewModel;
@@ -10,28 +11,46 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace OCMS_Services.Service
 {
     public class RequestService : IRequestService
     {
-            private readonly UnitOfWork _unitOfWork;
-            private readonly IMapper _mapper;
-        private readonly ITrainingScheduleService _trainingScheduleService;
+        private readonly UnitOfWork _unitOfWork;
+        private readonly IMapper _mapper;
         private readonly INotificationService _notificationService;
-            private readonly ICandidateRepository _candidateRepository;
-            private readonly IUserRepository _userRepository;
-        
-            public RequestService(UnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService, IUserRepository userRepository, ICandidateRepository candidateRepository, ITrainingScheduleService trainingScheduleService)
-            {
-                _unitOfWork = unitOfWork;
-                _mapper = mapper;
-                _notificationService = notificationService;
-                _userRepository = userRepository;
-                _candidateRepository = candidateRepository;
-            _trainingScheduleService = trainingScheduleService;
-            }
+        private readonly ICandidateRepository _candidateRepository;
+        private readonly IUserRepository _userRepository;
+        private readonly Lazy<ITrainingScheduleService> _trainingScheduleService;
+        private readonly Lazy<ITrainingPlanService> _trainingPlanService;
+
+        public RequestService(
+            UnitOfWork unitOfWork,
+            IMapper mapper,
+            INotificationService notificationService,
+            IUserRepository userRepository,
+            ICandidateRepository candidateRepository,
+            Lazy<ITrainingScheduleService> trainingScheduleService,
+            Lazy<ITrainingPlanService> trainingPlanService)
+        {
+            _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+            _notificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
+            _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
+            _candidateRepository = candidateRepository ?? throw new ArgumentNullException(nameof(candidateRepository));
+            _trainingScheduleService = trainingScheduleService ?? throw new ArgumentNullException(nameof(trainingScheduleService));
+            _trainingPlanService = trainingPlanService ?? throw new ArgumentNullException(nameof(trainingPlanService));
+        }
+        public RequestService(UnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService, IUserRepository userRepository, ICandidateRepository candidateRepository)
+        {
+            _unitOfWork = unitOfWork;
+            _mapper = mapper;
+            _notificationService = notificationService;
+            _userRepository = userRepository;
+            _candidateRepository = candidateRepository;
+        }
 
         #region Create Request
         public async Task<Request> CreateRequestAsync(RequestDTO requestDto, string userId)
@@ -231,28 +250,75 @@ namespace OCMS_Services.Service
                     break;
 
                 case RequestType.Update:
-                    // Fetch the DTO or details for the update (assuming stored or passed elsewhere)
-                    // For simplicity, assume we need to fetch the latest DTO or re-submit it
+                    var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
+                    if (trainingPlan != null && trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Approved)
+                    {
+                        // Extract proposed changes from Notes
+                        if (request.Notes != null && request.Notes.Contains("Proposed changes:"))
+                        {
+                            var jsonStart = request.Notes.IndexOf("{");
+                            var jsonEnd = request.Notes.LastIndexOf("}") + 1;
+                            if (jsonStart >= 0 && jsonEnd > jsonStart)
+                            {
+                                var json = request.Notes.Substring(jsonStart, jsonEnd - jsonStart);
+                                var dto = JsonSerializer.Deserialize<TrainingPlanDTO>(json);
+
+                                // Apply the changes
+                                trainingPlan.PlanName = dto.PlanName;
+                                trainingPlan.Desciption = dto.Desciption;
+                                trainingPlan.ModifyDate = DateTime.UtcNow;
+                                trainingPlan.CreateByUserId = request.RequestUserId; // Or approvedByUserId
+                                trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Approved;
+                                _unitOfWork.TrainingPlanRepository.UpdateAsync(trainingPlan);
+                            }
+                        }
+                    }
                     var schedule = await _unitOfWork.TrainingScheduleRepository.GetAsync(
-                        s => s.ScheduleID == request.RequestEntityId,
-                        s => s.Subject,
-                        s => s.Instructor
-                    );
+                s => s.ScheduleID == request.RequestEntityId,
+                s => s.Subject
+            );
                     if (schedule != null)
                     {
-                        // Construct a DTO from the current schedule or fetch it from a stored source
-                        var updateDto = new TrainingScheduleDTO
+                        var assignment = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
+                            a => a.SubjectId == schedule.SubjectID
+                        );
+                        if (assignment != null && assignment.RequestStatus == RequestStatus.Approved)
                         {
-                            SubjectID = schedule.SubjectID,
-                            InstructorID = schedule.InstructorID // Adjust based on what was requested
-                            // Add other fields as needed
-                        };
-                        await _trainingScheduleService.UpdateTrainingScheduleAsync(request.RequestEntityId, updateDto);
+                            if (request.Notes != null && request.Notes.Contains("Proposed changes:"))
+                            {
+                                var jsonStart = request.Notes.IndexOf("{");
+                                var jsonEnd = request.Notes.LastIndexOf("}") + 1;
+                                if (jsonStart >= 0 && jsonEnd > jsonStart)
+                                {
+                                    var json = request.Notes.Substring(jsonStart, jsonEnd - jsonStart);
+                                    var dto = JsonSerializer.Deserialize<TrainingScheduleDTO>(json);
+
+                                    // Apply the changes
+                                    _mapper.Map(dto, schedule);
+                                    schedule.ModifiedDate = DateTime.UtcNow;
+                                    _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
+                                    await _unitOfWork.SaveChangesAsync();
+
+                                    // Update InstructorAssignment if needed
+                                    await _trainingScheduleService.Value.ManageInstructorAssignment(dto.SubjectID, dto.InstructorID, schedule.CreatedBy);
+                                }
+                            }
+                        }
                     }
                     break;
 
                 case RequestType.Delete:
-                    await _trainingScheduleService.DeleteTrainingScheduleAsync(request.RequestEntityId);
+                    var trainingScheduleToDelete = await _unitOfWork.TrainingScheduleRepository.GetByIdAsync(request.RequestEntityId);
+                    if (trainingScheduleToDelete != null)
+                    {
+                        await _trainingScheduleService.Value.DeleteTrainingScheduleAsync(request.RequestEntityId);
+                    }
+
+                    var trainingPlanToDelete = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
+                    if (trainingPlanToDelete != null)
+                    {
+                        await _trainingPlanService.Value.DeleteTrainingPlanAsync(request.RequestEntityId);
+                    }
                     break;
 
                     // Add other RequestType cases as needed (e.g., NewPlan, RecurrentPlan)

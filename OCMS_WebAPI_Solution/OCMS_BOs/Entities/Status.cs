@@ -39,7 +39,9 @@ namespace OCMS_BOs.Entities
     {
         Pending = 0,
         Approved = 1,
-        Rejected = 2
+        Rejected = 2,
+        Updating=3,
+        Deleting=4
     }
 
     public enum CourseParticipantStatus
@@ -81,7 +83,8 @@ namespace OCMS_BOs.Entities
         Pending=1, 
         Approved=2,
         Rejected=3,
-        Completed=4
+        Completed=4,
+        Updating=5, Deleting=6
     }
     public enum GradeStatus
     {
