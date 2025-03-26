@@ -273,47 +273,11 @@ namespace OCMS_Services.Service
                             }
                         }
                     }
-                    var schedule = await _unitOfWork.TrainingScheduleRepository.GetAsync(
-                s => s.ScheduleID == request.RequestEntityId,
-                s => s.Subject
-            );
-                    if (schedule != null)
-                    {
-                        var assignment = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
-                            a => a.SubjectId == schedule.SubjectID
-                        );
-                        if (assignment != null && assignment.RequestStatus == RequestStatus.Approved)
-                        {
-                            if (request.Notes != null && request.Notes.Contains("Proposed changes:"))
-                            {
-                                var jsonStart = request.Notes.IndexOf("{");
-                                var jsonEnd = request.Notes.LastIndexOf("}") + 1;
-                                if (jsonStart >= 0 && jsonEnd > jsonStart)
-                                {
-                                    var json = request.Notes.Substring(jsonStart, jsonEnd - jsonStart);
-                                    var dto = JsonSerializer.Deserialize<TrainingScheduleDTO>(json);
-
-                                    // Apply the changes
-                                    _mapper.Map(dto, schedule);
-                                    schedule.ModifiedDate = DateTime.UtcNow;
-                                    _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
-                                    await _unitOfWork.SaveChangesAsync();
-
-                                    // Update InstructorAssignment if needed
-                                    await _trainingScheduleService.Value.ManageInstructorAssignment(dto.SubjectID, dto.InstructorID, schedule.CreatedBy);
-                                }
-                            }
-                        }
-                    }
+                    
                     break;
 
                 case RequestType.Delete:
-                    var trainingScheduleToDelete = await _unitOfWork.TrainingScheduleRepository.GetByIdAsync(request.RequestEntityId);
-                    if (trainingScheduleToDelete != null)
-                    {
-                        await _trainingScheduleService.Value.DeleteTrainingScheduleAsync(request.RequestEntityId);
-                    }
-
+                    
                     var trainingPlanToDelete = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
                     if (trainingPlanToDelete != null)
                     {

@@ -153,27 +153,7 @@ namespace OCMS_Services.Service
             if (!instructorExists)
                 throw new ArgumentException($"Instructor with ID {dto.InstructorID} does not exist.");
 
-            // Check related InstructorAssignment status
-            var assignment = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
-                a => a.SubjectId == schedule.SubjectID
-            );
-
-            if (assignment != null && assignment.RequestStatus == RequestStatus.Approved)
-            {
-                // If Approved, send request with proposed changes in Notes
-                var proposedChanges = JsonSerializer.Serialize(dto);
-                var requestDto = new RequestDTO
-                {
-                    RequestType = RequestType.Update,
-                    RequestEntityId = scheduleId,
-                    Description = $"Request to update training schedule {scheduleId}",
-                    Notes = $"Proposed changes: {proposedChanges}"
-                };
-                await _requestService.CreateRequestAsync(requestDto, schedule.CreatedBy);
-                return _mapper.Map<TrainingScheduleModel>(schedule); // Return unchanged schedule
-            }
-
-            // Apply update for non-Approved statuses (e.g., Pending or no assignment)
+            // Apply update directly (No approval request)
             _mapper.Map(dto, schedule);
             schedule.ModifiedDate = DateTime.UtcNow;
 
@@ -191,6 +171,7 @@ namespace OCMS_Services.Service
             );
             return _mapper.Map<TrainingScheduleModel>(updatedSchedule);
         }
+
         #endregion
 
         // Other methods (GetAll, GetById, Delete) remain unchanged...
@@ -242,35 +223,16 @@ namespace OCMS_Services.Service
             if (schedule == null)
                 throw new KeyNotFoundException($"Training schedule with ID {scheduleId} not found.");
 
-            // Check related InstructorAssignment status
+            // Delete related instructor assignment (if any)
             var assignment = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
                 a => a.SubjectId == schedule.SubjectID
             );
-
-            if (assignment != null && assignment.RequestStatus == RequestStatus.Approved)
-            {
-                // Change status to Deleting
-                assignment.RequestStatus = RequestStatus.Deleting;
-                _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
-                await _unitOfWork.SaveChangesAsync();
-
-                // Create a request for HeadMaster approval
-                var requestDto = new RequestDTO
-                {
-                    RequestType = RequestType.Delete,
-                    RequestEntityId = scheduleId,
-                    Description = $"Request to delete training schedule {scheduleId}",
-                    Notes = "Awaiting HeadMaster approval"
-                };
-                await _requestService.CreateRequestAsync(requestDto, schedule.CreatedBy);
-                throw new InvalidOperationException($"Cannot delete schedule {scheduleId} because the related assignment is Approved. Status changed to Deleting, and a request has been sent to the HeadMaster for approval.");
-            }
-
-            // Proceed with deletion if Pending or no assignment
             if (assignment != null)
             {
                 _unitOfWork.InstructorAssignmentRepository.DeleteAsync(assignment.AssignmentId);
             }
+
+            // Delete schedule directly
             _unitOfWork.TrainingScheduleRepository.DeleteAsync(scheduleId);
             await _unitOfWork.SaveChangesAsync();
 

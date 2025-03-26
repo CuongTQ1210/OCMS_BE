@@ -16,11 +16,15 @@ namespace OCMS_Services.Service
     {
         private readonly UnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
-
+        private readonly ITrainingScheduleService _trainingScheduleService;
         public SubjectService(UnitOfWork unitOfWork, IMapper mapper)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+        }
+        public SubjectService(UnitOfWork unitOfWork, IMapper mapper, ITrainingScheduleService trainingScheduleService) : this(unitOfWork, mapper)
+        {
+            _trainingScheduleService = trainingScheduleService;
         }
 
         public async Task<IEnumerable<SubjectModel>> GetAllSubjectsAsync()
@@ -105,8 +109,17 @@ namespace OCMS_Services.Service
             if (subject == null)
                 throw new KeyNotFoundException("Subject not found.");
 
+            // Get all training schedules linked to this subject
+            var schedules = await _unitOfWork.TrainingScheduleRepository.GetAllAsync(s => s.SubjectID == subjectId);
+
+            foreach (var schedule in schedules)
+            {
+                await _trainingScheduleService.DeleteTrainingScheduleAsync(schedule.ScheduleID); // Ensure schedules and assignments are deleted
+            }
+
             _unitOfWork.SubjectRepository.DeleteAsync(subjectId);
             await _unitOfWork.SaveChangesAsync();
+
             return true;
         }
     }
