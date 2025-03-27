@@ -27,7 +27,7 @@ namespace OCMS_WebAPI.Controllers
         public async Task<IActionResult> GetAllTrainingSchedules()
         {
             var schedules = await _trainingScheduleService.GetAllTrainingSchedulesAsync();
-            return Ok(new { message = "Training schedules retrieved successfully.", data = schedules });
+            return Ok(new { message = "Training schedules retrieved successfully.",  schedules });
         }
 
         /// <summary>
@@ -40,7 +40,7 @@ namespace OCMS_WebAPI.Controllers
             try
             {
                 var schedule = await _trainingScheduleService.GetTrainingScheduleByIdAsync(id);
-                return Ok(new { message = "Training schedule retrieved successfully.", data = schedule });
+                return Ok(new { message = "Training schedule retrieved successfully.", schedule });
             }
             catch (KeyNotFoundException ex)
             {
@@ -81,7 +81,7 @@ namespace OCMS_WebAPI.Controllers
             try
             {
                 var schedule = await _trainingScheduleService.UpdateTrainingScheduleAsync(id, dto);
-                return Ok(new { message = "Training schedule updated successfully.", data = schedule });
+                return Ok(new { message = "Training schedule updated successfully.", schedule });
             }
             catch (KeyNotFoundException ex)
             {
