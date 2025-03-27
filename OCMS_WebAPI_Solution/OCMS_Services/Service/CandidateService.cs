@@ -344,62 +344,56 @@ namespace OCMS_Services.Service
         #endregion
 
         #region Update Candidate
-        public async Task<Candidate> UpdateCandidateAsync(string id, Candidate updatedCandidate)
+        public async Task<CandidateUpdateResponse> UpdateCandidateAsync(string id, CandidateUpdateDTO updatedCandidateModel)
         {
-            var existingCandidate = await _unitOfWork.CandidateRepository.GetByIdAsync(id);
-            if (existingCandidate == null)
-            {
-                throw new KeyNotFoundException($"Candidate with ID {id} not found");
-            }
+            var response = new CandidateUpdateResponse();
 
-            // Check for duplicate email or phone if changed
-            if (updatedCandidate.Email != existingCandidate.Email)
+            try
             {
-                var duplicateEmails = await _unitOfWork.CandidateRepository.FindAsync(c => c.Email == updatedCandidate.Email && c.CandidateId != id);
-                if (duplicateEmails.Any())
+                // Lấy ứng viên hiện tại từ database
+                var existingCandidate = await _unitOfWork.CandidateRepository.GetByIdAsync(id);
+                if (existingCandidate == null)
                 {
-                    throw new InvalidOperationException($"Email {updatedCandidate.Email} is already in use by another candidate");
+                    response.Success = false;
+                    response.Message = $"Không tìm thấy ứng viên với ID {id}";
+                    return response;
                 }
-            }
 
-            if (updatedCandidate.PhoneNumber != existingCandidate.PhoneNumber)
-            {
-                var duplicatePhones = await _unitOfWork.CandidateRepository.FindAsync(c => c.PhoneNumber == updatedCandidate.PhoneNumber && c.CandidateId != id);
-                if (duplicatePhones.Any())
+                // Kiểm tra trùng lặp email nếu có thay đổi
+                if (updatedCandidateModel.Email != existingCandidate.Email)
                 {
-                    throw new InvalidOperationException($"Phone number {updatedCandidate.PhoneNumber} is already in use by another candidate");
+                    var duplicateEmails = await _unitOfWork.CandidateRepository.FindAsync(c => c.Email == updatedCandidateModel.Email && c.CandidateId != id);
+                    if (duplicateEmails.Any())
+                    {
+                        response.Success = false;
+                        response.Message = $"Email {updatedCandidateModel.Email} đã được sử dụng bởi ứng viên khác";
+                        return response;
+                    }
                 }
-            }
 
-            if (updatedCandidate.PersonalID != existingCandidate.PersonalID)
+                // Ánh xạ dữ liệu từ DTO sang entity
+                _mapper.Map(updatedCandidateModel, existingCandidate);
+
+                // Cập nhật trường UpdatedAt với thời gian hiện tại
+                existingCandidate.UpdatedAt = DateTime.UtcNow;
+
+                // Lưu thay đổi vào database
+                await _unitOfWork.CandidateRepository.UpdateAsync(existingCandidate);
+                await _unitOfWork.SaveChangesAsync();
+
+                // Thiết lập response thành công
+                response.Candidate = existingCandidate;
+                response.Message = "Cập nhật ứng viên thành công";
+                response.Success = true;
+            }
+            catch (Exception ex)
             {
-                var duplicatePersonalIds = await _unitOfWork.CandidateRepository.FindAsync(c => c.PersonalID == updatedCandidate.PersonalID && c.CandidateId != id);
-                if (duplicatePersonalIds.Any())
-                {
-                    throw new InvalidOperationException($"Personal ID {updatedCandidate.PersonalID} is already in use by another candidate");
-                }
+                // Xử lý lỗi nếu có
+                response.Success = false;
+                response.Message = $"Đã xảy ra lỗi: {ex.Message}";
             }
 
-            // Use AutoMapper to map properties from updatedCandidate to existingCandidate
-            // Preserve the original CandidateId and created date
-            var originalId = existingCandidate.CandidateId;
-            var originalCreatedDate = existingCandidate.CreatedAt;
-            var originalImportRequestId = existingCandidate.ImportRequestId;
-            var originalImportByUserId = existingCandidate.ImportByUserID;
-
-            _mapper.Map(updatedCandidate, existingCandidate);
-
-            // Restore values that shouldn't be updated
-            existingCandidate.CandidateId = originalId;
-            existingCandidate.CreatedAt = originalCreatedDate;
-            existingCandidate.ImportRequestId = originalImportRequestId;
-            existingCandidate.ImportByUserID = originalImportByUserId;
-            existingCandidate.UpdatedAt = DateTime.UtcNow;
-
-            await _unitOfWork.CandidateRepository.UpdateAsync(existingCandidate);
-            await _unitOfWork.SaveChangesAsync();
-
-            return existingCandidate;
+            return response;
         }
         #endregion
 
