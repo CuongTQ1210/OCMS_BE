@@ -241,11 +241,10 @@ namespace OCMS_Services.Service
         /// <summary>
         /// Generates a ScheduleID in the format SCD-XXXXXX where XXXXXX is a random 6-digit number.
         /// </summary>
-        private string GenerateScheduleId()
+        private string GenerateAssignmentId()
         {
-            Random random = new Random();
-            int randomNumber = random.Next(0, 1000000); // Generates a number between 0 and 999999
-            return $"SCD-{randomNumber:000000}"; // Ensures 6 digits with leading zeros
+            string guidPart = Guid.NewGuid().ToString("N").Substring(0, 6).ToUpper(); // Get first 6 characters
+            return $"SCD-{guidPart}";
         }
     }
 }
