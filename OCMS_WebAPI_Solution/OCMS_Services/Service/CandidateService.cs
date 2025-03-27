@@ -371,6 +371,28 @@ namespace OCMS_Services.Service
                     }
                 }
 
+                if (updatedCandidateModel.PersonalID != existingCandidate.PersonalID)
+                {
+                    var duplicatePersonalIDs = await _unitOfWork.CandidateRepository.FindAsync(c => c.PersonalID == updatedCandidateModel.PersonalID && c.CandidateId != id);
+                    if (duplicatePersonalIDs.Any())
+                    {
+                        response.Success = false;
+                        response.Message = $"Personal ID {updatedCandidateModel.PersonalID} đã được sử dụng bởi ứng viên khác";
+                        return response;
+                    }
+                }
+
+                if (updatedCandidateModel.PhoneNumber != existingCandidate.PhoneNumber)
+                {
+                    var duplicatePhoneNumbers = await _unitOfWork.CandidateRepository.FindAsync(c => c.PhoneNumber == updatedCandidateModel.PhoneNumber && c.CandidateId != id);
+                    if (duplicatePhoneNumbers.Any())
+                    {
+                        response.Success = false;
+                        response.Message = $"Số điện thoại {updatedCandidateModel.PhoneNumber} đã được sử dụng bởi ứng viên khác";
+                        return response;
+                    }
+                }
+
                 // Ánh xạ dữ liệu từ DTO sang entity
                 _mapper.Map(updatedCandidateModel, existingCandidate);
 
