@@ -131,7 +131,6 @@ namespace OCMS_Services.Service
 
             // Map DTO to existing entity
             _mapper.Map(dto, assignment);
-            assignment.RequestStatus = assignment.RequestStatus; // Assuming RequestStatus is an enum
 
             _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
             await _unitOfWork.SaveChangesAsync();
