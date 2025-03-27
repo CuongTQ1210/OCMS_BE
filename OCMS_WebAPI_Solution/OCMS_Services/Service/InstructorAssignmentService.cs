@@ -167,9 +167,8 @@ namespace OCMS_Services.Service
         /// </summary>
         private string GenerateAssignmentId()
         {
-            Random random = new Random();
-            int randomNumber = random.Next(0, 1000000); // Generates a number between 0 and 999999
-            return $"ASG-{randomNumber:000000}"; // Ensures 6 digits with leading zeros
+            string guidPart = Guid.NewGuid().ToString("N").Substring(0, 6).ToUpper(); // Get first 6 characters
+            return $"ASG-{guidPart}";
         }
     }
 }
