@@ -18,11 +18,19 @@ namespace OCMS_BOs.Helper
             CreateMap<UserModel, User>();
 
             CreateMap<UserUpdateDTO, User>()
-            .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.FullName))
-            .ForMember(dest => dest.Gender, opt => opt.MapFrom(src => src.Gender))
-            .ForMember(dest => dest.DateOfBirth, opt => opt.MapFrom(src => src.DateOfBirth))
-            .ForMember(dest => dest.Address, opt => opt.MapFrom(src => src.Address))
-            .ForMember(dest => dest.PhoneNumber, opt => opt.MapFrom(src => src.PhoneNumber));
+                .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.FullName))
+                .ForMember(dest => dest.Gender, opt => opt.MapFrom(src => src.Gender))
+                .ForMember(dest => dest.DateOfBirth, opt => opt.MapFrom(src => src.DateOfBirth))
+                .ForMember(dest => dest.Address, opt => opt.MapFrom(src => src.Address))
+                .ForMember(dest => dest.PhoneNumber, opt => opt.MapFrom(src => src.PhoneNumber));
+
+            CreateMap<CandidateUpdateDTO, Candidate>()
+                .ForMember(dest => dest.CandidateId, opt => opt.Ignore()) // Bỏ qua CandidateId
+                .ForMember(dest => dest.CreatedAt, opt => opt.Ignore()) // Bỏ qua CreatedAt
+                .ForMember(dest => dest.ImportRequestId, opt => opt.Ignore()) // Bỏ qua ImportRequestId
+                .ForMember(dest => dest.ImportByUserID, opt => opt.Ignore()) // Bỏ qua ImportByUserID
+                .ForMember(dest => dest.CandidateStatus, opt => opt.Ignore()) // Bỏ qua CandidateStatus
+                .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore()); // Bỏ qua UpdatedAt
 
             CreateMap<Specialties, SpecialtyModel>();
             CreateMap<SpecialtyModel, Specialties>()

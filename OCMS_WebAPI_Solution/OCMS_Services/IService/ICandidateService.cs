@@ -1,4 +1,5 @@
 ﻿using OCMS_BOs.Entities;
+using OCMS_BOs.RequestModel;
 using OCMS_BOs.ResponseModel;
 using System;
 using System.Collections.Generic;
@@ -13,7 +14,7 @@ namespace OCMS_Services.IService
         Task<IEnumerable<Candidate>> GetAllCandidates();
         Task<Candidate> GetCandidateByIdAsync(string id);
         Task<ImportResult> ImportCandidatesFromExcelAsync(Stream fileStream, string importedByUserId, IBlobService blobService);
-        Task<Candidate> UpdateCandidateAsync(string id, Candidate updatedCandidate);
+        Task<CandidateUpdateResponse> UpdateCandidateAsync(string id, CandidateUpdateDTO updatedCandidate);
         Task<(bool success, string message)> DeleteCandidateAsync(string id);
     }
 }
