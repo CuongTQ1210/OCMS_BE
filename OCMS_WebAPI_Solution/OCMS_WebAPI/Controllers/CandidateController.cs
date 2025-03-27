@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using OCMS_BOs.Entities;
+using OCMS_BOs.RequestModel;
 using OCMS_BOs.ResponseModel;
 using OCMS_Services.IService;
 using OCMS_WebAPI.AuthorizeSettings;
@@ -90,7 +91,7 @@ namespace OCMS_WebAPI.Controllers
         #region Update Candidate
         [HttpPut("{id}")]
         [CustomAuthorize("Admin", "HR")]
-        public async Task<IActionResult> UpdateCandidate(string id, Candidate updatedCandidate)
+        public async Task<IActionResult> UpdateCandidate(string id, [FromBody] CandidateUpdateDTO updatedCandidate)
         {
             try
             {
