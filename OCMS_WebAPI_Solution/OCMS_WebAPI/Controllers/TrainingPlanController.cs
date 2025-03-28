@@ -33,7 +33,7 @@ namespace OCMS_WebAPI.Controllers
             try
             {
                 var createdPlan = await _trainingPlanService.CreateTrainingPlanAsync(dto, createdByUserId);
-                return Ok(new { message = "Training plan created successfully.",  createdPlan });
+                return Ok(new { message = "Training plan created successfully.", data = createdPlan });
             }
             catch (Exception ex)
             {
@@ -50,7 +50,7 @@ namespace OCMS_WebAPI.Controllers
             try
             {
                 var plans = await _trainingPlanService.GetAllTrainingPlansAsync();
-                return Ok(new { message = "Training plans retrieved successfully.",  plans });
+                return Ok(new { message = "Training plans retrieved successfully.", data = plans });
             }
             catch (Exception ex)
             {
@@ -70,7 +70,7 @@ namespace OCMS_WebAPI.Controllers
                 if (plan == null)
                     return NotFound(new { message = "Training plan not found." });
 
-                return Ok(new { message = "Training plan retrieved successfully.",  plan });
+                return Ok(new { message = "Training plan retrieved successfully.", data = plan });
             }
             catch (Exception ex)
             {
@@ -89,7 +89,7 @@ namespace OCMS_WebAPI.Controllers
                 var updatedByUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
                 var updatedPlan = await _trainingPlanService.UpdateTrainingPlanAsync(id, dto, updatedByUserId);
 
-                return Ok(new { message = "Training plan updated successfully.",  updatedPlan });
+                return Ok(new { message = "Training plan updated successfully.", data = updatedPlan });
             }
             catch (KeyNotFoundException)
             {

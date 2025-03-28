@@ -11,6 +11,7 @@ namespace OCMS_BOs.RequestModel
     {
         public string SubjectId { get; set; }
         public string InstructorId { get; set; }
+        public RequestStatus RequestStatus { get; set; } 
         public string Notes { get; set; }
     }
 }

@@ -9,7 +9,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace OCMS_Services.Service
@@ -18,14 +17,11 @@ namespace OCMS_Services.Service
     {
         private readonly UnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
-        private readonly IRequestService _requestService; // Added for request creation
-
-        public TrainingPlanService(UnitOfWork unitOfWork, IMapper mapper, IRequestService requestService)
+        public TrainingPlanService(UnitOfWork unitOfWork, IMapper mapper)
         {
-            _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
-            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
-            _requestService = requestService ?? throw new ArgumentNullException(nameof(requestService));
-        }   
+            _unitOfWork = unitOfWork;
+            _mapper = mapper;
+        }
         #region Create Training
         public async Task<TrainingPlanModel> CreateTrainingPlanAsync(TrainingPlanDTO dto, string createUserId)
         {
@@ -34,7 +30,7 @@ namespace OCMS_Services.Service
             trainingPlan.PlanId = await GenerateTrainingPlanId(dto.SpecialtyId, dto.StartDate, dto.PlanLevel);
             trainingPlan.CreateDate = DateTime.UtcNow;
             trainingPlan.ModifyDate = DateTime.UtcNow;
-            trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Draft;
+            trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Pending;
             trainingPlan.CreateByUserId = createUserId;
             _unitOfWork.TrainingPlanRepository.AddAsync(trainingPlan);
             await _unitOfWork.SaveChangesAsync();
@@ -84,84 +80,47 @@ namespace OCMS_Services.Service
         }
         #endregion
 
-        #region Update Training Plan
+        #region update training plan
+
         public async Task<TrainingPlanModel> UpdateTrainingPlanAsync(string id, TrainingPlanDTO dto, string updateUserId)
         {
             var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetAsync(p => p.PlanId == id);
+
             if (trainingPlan == null)
-                throw new KeyNotFoundException("Training plan not found.");
-
-            if (trainingPlan.TrainingPlanStatus != TrainingPlanStatus.Pending &&
-                trainingPlan.TrainingPlanStatus != TrainingPlanStatus.Draft &&
-                trainingPlan.TrainingPlanStatus != TrainingPlanStatus.Approved)
-                throw new InvalidOperationException($"Cannot update training plan {id} because its status is {trainingPlan.TrainingPlanStatus}. Only Pending, Draft, or Approved plans can be updated.");
-
-            if (trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Approved)
             {
-                // Serialize the new data into Notes
-                var proposedChanges = JsonSerializer.Serialize(dto);
-                var requestDto = new RequestDTO
-                {
-                    RequestType = RequestType.Update,
-                    RequestEntityId = id,
-                    Description = $"Request to update training plan {id}",
-                    Notes = $"Proposed changes: {proposedChanges}" // Store new data in Notes
-                };
-                await _requestService.CreateRequestAsync(requestDto, updateUserId);
-                return _mapper.Map<TrainingPlanModel>(trainingPlan); // Return unchanged plan
+                throw new KeyNotFoundException("Training plan not found.");
             }
 
-            // Apply update for Pending or Draft
+            // Update fields
             trainingPlan.PlanName = dto.PlanName;
-            trainingPlan.Desciption = dto.Desciption; // Fix typo to Description if needed
+            trainingPlan.Desciption = dto.Desciption;
             trainingPlan.ModifyDate = DateTime.UtcNow;
             trainingPlan.CreateByUserId = updateUserId;
 
-            _unitOfWork.TrainingPlanRepository.UpdateAsync(trainingPlan);
+            await _unitOfWork.TrainingPlanRepository.UpdateAsync(trainingPlan);
             await _unitOfWork.SaveChangesAsync();
 
             return _mapper.Map<TrainingPlanModel>(trainingPlan);
         }
         #endregion
 
-        #region Delete Training Plan
+        #region delete 
+
         public async Task<bool> DeleteTrainingPlanAsync(string id)
         {
             var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(id);
+
             if (trainingPlan == null)
             {
                 return false;
             }
 
-            // Allow delete if status is Draft, Deleting, or Pending
-            if (trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Draft ||
-                trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Deleting ||
-                trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Pending)
-            {
-                await _unitOfWork.TrainingPlanRepository.DeleteAsync(id);
-                await _unitOfWork.SaveChangesAsync();
-                return true;
-            }
+            await _unitOfWork.TrainingPlanRepository.DeleteAsync(id);
+            await _unitOfWork.SaveChangesAsync();
 
-            // If Approved, send a request for approval
-            if (trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Approved)
-            {
-                var requestDto = new RequestDTO
-                {
-                    RequestType = RequestType.Delete,
-                    RequestEntityId = id,
-                    Description = $"Request to delete training plan {id}",
-                    Notes = "Awaiting HeadMaster approval"
-                };
-                await _requestService.CreateRequestAsync(requestDto, trainingPlan.CreateByUserId);
-                throw new InvalidOperationException($"Cannot delete training plan {id} because it is Approved. A request has been sent to the HeadMaster for approval.");
-            }
-
-            // For other statuses (e.g., Rejected, Completed), block deletion
-            throw new InvalidOperationException($"Cannot delete training plan {id} because its status is {trainingPlan.TrainingPlanStatus}. Only Draft, Deleting, or Pending plans can be deleted.");
+            return true;
         }
         #endregion
-
 
         #region create plan id
         private async Task<string> GenerateTrainingPlanId(string specialtyId, DateTime trainingDate, PlanLevel planLevel)

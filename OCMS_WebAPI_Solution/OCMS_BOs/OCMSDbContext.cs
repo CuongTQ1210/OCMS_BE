@@ -341,11 +341,9 @@ namespace OCMS_BOs
     {
         public OCMSDbContext CreateDbContext(string[] args)
         {
-            var basePath = Path.Combine(Directory.GetCurrentDirectory(), "../OCMS_WebAPI"); // Adjust if needed
-
             var configuration = new ConfigurationBuilder()
-                .SetBasePath(basePath) // Explicitly set WebAPI path
-                .AddJsonFile("appsettings.Development.json", optional: true)
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.Development.json")
                 .Build();
 
             var optionsBuilder = new DbContextOptionsBuilder<OCMSDbContext>();

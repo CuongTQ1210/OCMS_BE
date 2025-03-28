@@ -8,6 +8,5 @@ namespace OCMS_Repositories.IRepository
 {
     public interface ISubjectRepository
     {
-        Task<bool> ExistsAsync(string id);
     }
 }
