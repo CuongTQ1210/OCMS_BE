@@ -41,7 +41,7 @@ namespace OCMS_WebAPI.Controllers
             try
             {
                 var user = await _userService.GetUserByIdAsync(id);
-                return Ok(user);
+                return Ok(new { message = "User got successfully!", user });
             }
             catch (Exception ex)
             {
@@ -75,7 +75,8 @@ namespace OCMS_WebAPI.Controllers
             try
             {
                 await _userService.UpdateUserDetailsAsync(id, updateDto);
-                return NoContent();
+                var user = _userService.GetUserByIdAsync(id);
+                 return Ok(new { message = "User updated successfully!", user });
             }
             catch (Exception ex)
             {
@@ -92,7 +93,7 @@ namespace OCMS_WebAPI.Controllers
             try
             {
                 await _userService.UpdatePasswordAsync(id, passwordDto);
-                return NoContent();
+                return Ok(new { message = "Password updated successfully!"});
             }
             catch (Exception ex)
             {
