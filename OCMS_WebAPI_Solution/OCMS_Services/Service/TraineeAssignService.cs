@@ -100,6 +100,7 @@ namespace OCMS_Services.Service
                 TraineeId = dto.TraineeId,
                 CourseId = dto.CourseId,
                 RequestId = newRequest.RequestId, // Link to the request
+                AssignByUserId= createdByUserId,
                 RequestStatus = RequestStatus.Pending,
                 AssignDate = DateTime.UtcNow,
                 ApprovalDate = null,
@@ -219,6 +220,7 @@ namespace OCMS_Services.Service
                             CourseId = courseId,
                             AssignDate = DateTime.UtcNow,
                             RequestStatus = RequestStatus.Pending,
+                            AssignByUserId= importedByUserId,
                             ApproveByUserId = null,
                             ApprovalDate = null,
                             Notes = notes
@@ -230,13 +232,13 @@ namespace OCMS_Services.Service
                         result.SuccessCount++;
                     }
 
-                    if (processedUserIds.Count < 10)
-                    {
-                        result.Errors.Add($"Import failed: The list must contain at least 10 unique users. Found {processedUserIds.Count} unique users.");
-                        result.SuccessCount = 0;
-                        result.FailedCount = result.TotalRecords;
-                        return result;
-                    }
+                    //if (processedUserIds.Count < 10)
+                    //{
+                    //    result.Errors.Add($"Import failed: The list must contain at least 10 unique users. Found {processedUserIds.Count} unique users.");
+                    //    result.SuccessCount = 0;
+                    //    result.FailedCount = result.TotalRecords;
+                    //    return result;
+                    //}
 
                     if (result.FailedCount > 0)
                     {
