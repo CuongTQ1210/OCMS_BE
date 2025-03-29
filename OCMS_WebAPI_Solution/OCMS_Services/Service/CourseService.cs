@@ -41,7 +41,7 @@ namespace OCMS_Services.Service
             course.CreatedByUserId = createdByUserId;
             course.CreatedAt = DateTime.UtcNow;
             course.UpdatedAt = DateTime.UtcNow;
-
+            course.Status = CourseStatus.Pending;
             await _unitOfWork.CourseRepository.AddAsync(course);
             await _unitOfWork.SaveChangesAsync();
 

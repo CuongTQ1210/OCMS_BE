@@ -39,7 +39,9 @@ namespace OCMS_BOs.Entities
     {
         Pending = 0,
         Approved = 1,
-        Rejected = 2
+        Rejected = 2,
+        Updating=3,
+        Deleting=4
     }
 
     public enum CourseParticipantStatus
@@ -81,7 +83,8 @@ namespace OCMS_BOs.Entities
         Pending=1, 
         Approved=2,
         Rejected=3,
-        Completed=4
+        Completed=4,
+        Updating=5, Deleting=6
     }
     public enum GradeStatus
     {
@@ -99,7 +102,7 @@ namespace OCMS_BOs.Entities
     }
     public enum RequestType
     {
-        NewPlan=0,RecurrentPlan=1, RelearnPlan=2, Complaint=3, PlanChange=4, PlanDelete=5, CreateNew=6, CreateRecurrent=7, CreateRelearn=8, CandidateImport = 9
+        NewPlan=0,RecurrentPlan=1, RelearnPlan=2, Complaint=3, PlanChange=4, PlanDelete=5, CreateNew=6, CreateRecurrent=7, CreateRelearn=8, CandidateImport = 9, Update=10, Delete=11, AssignTrainee=12, AddTraineeAssign=13
     }
     public enum DecisionStatus
     {

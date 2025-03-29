@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using MimeKit.Cryptography;
 using OCMS_BOs.Entities;
 using OCMS_BOs.RequestModel;
 using OCMS_BOs.ViewModel;
@@ -10,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace OCMS_Services.Service
@@ -21,7 +23,26 @@ namespace OCMS_Services.Service
         private readonly INotificationService _notificationService;
         private readonly ICandidateRepository _candidateRepository;
         private readonly IUserRepository _userRepository;
-        
+        private readonly Lazy<ITrainingScheduleService> _trainingScheduleService;
+        private readonly Lazy<ITrainingPlanService> _trainingPlanService;
+
+        public RequestService(
+            UnitOfWork unitOfWork,
+            IMapper mapper,
+            INotificationService notificationService,
+            IUserRepository userRepository,
+            ICandidateRepository candidateRepository,
+            Lazy<ITrainingScheduleService> trainingScheduleService,
+            Lazy<ITrainingPlanService> trainingPlanService)
+        {
+            _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+            _notificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
+            _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
+            _candidateRepository = candidateRepository ?? throw new ArgumentNullException(nameof(candidateRepository));
+            _trainingScheduleService = trainingScheduleService ?? throw new ArgumentNullException(nameof(trainingScheduleService));
+            _trainingPlanService = trainingPlanService ?? throw new ArgumentNullException(nameof(trainingPlanService));
+        }
         public RequestService(UnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService, IUserRepository userRepository, ICandidateRepository candidateRepository)
         {
             _unitOfWork = unitOfWork;
@@ -71,7 +92,13 @@ namespace OCMS_Services.Service
             // 🚀 Send notification to the director if NewPlan, RecurrentPlan, RelearnPlan
             if (newRequest.RequestType == RequestType.NewPlan ||
                 newRequest.RequestType == RequestType.RecurrentPlan ||
-                newRequest.RequestType == RequestType.RelearnPlan)
+                newRequest.RequestType == RequestType.RelearnPlan||
+                newRequest.RequestType == RequestType.Update||
+                newRequest.RequestType == RequestType.Delete||
+                newRequest.RequestType== RequestType.AssignTrainee||
+                newRequest.RequestType == RequestType.AddTraineeAssign
+
+                )
             {
                 var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
                 foreach (var director in directors)
@@ -190,38 +217,141 @@ namespace OCMS_Services.Service
 
             _unitOfWork.RequestRepository.UpdateAsync(request);
             await _unitOfWork.SaveChangesAsync();
+
+            // Notify the requester
             await _notificationService.SendNotificationAsync(
-            request.RequestUserId,
+                request.RequestUserId,
                 "Request Approved",
                 $"Your request ({request.RequestType}) has been approved.",
                 "Request"
-                );
+            );
 
-            if (request.RequestType == RequestType.CandidateImport)
+            // Handle request type-specific actions
+            switch (request.RequestType)
             {
-                var candidates = await _candidateRepository.GetCandidatesByImportRequestIdAsync(requestId);
-
-                if (candidates != null && candidates.Any())
-                {
-                    foreach (var candidate in candidates)
+                case RequestType.CandidateImport:
+                    var candidates = await _candidateRepository.GetCandidatesByImportRequestIdAsync(requestId);
+                    if (candidates != null && candidates.Any())
                     {
-                        candidate.CandidateStatus = CandidateStatus.Approved; // Assuming CandidateStatus is an Enum or predefined string
-                        await _unitOfWork.CandidateRepository.UpdateAsync(candidate);
+                        foreach (var candidate in candidates)
+                        {
+                            candidate.CandidateStatus = CandidateStatus.Approved;
+                            await _unitOfWork.CandidateRepository.UpdateAsync(candidate);
+                        }
                     }
-                }
-                var admins = await _userRepository.GetUsersByRoleAsync("Admin");
-                foreach (var admin in admins)
-                {
+                    var admins = await _userRepository.GetUsersByRoleAsync("Admin");
+                    foreach (var admin in admins)
+                    {
+                        await _notificationService.SendNotificationAsync(
+                            admin.UserId,
+                            "Candidate Import Approved",
+                            "The candidate import request has been approved. Please create user accounts for the new candidates.",
+                            "CandidateImport"
+                        );
+                    }
+                    break;
+                case RequestType.AssignTrainee:
+                    var traineeAssigns = await _unitOfWork.TraineeAssignRepository.GetAllAsync(t => t.RequestId == requestId);
+                    if (traineeAssigns == null || !traineeAssigns.Any())
+                        return false;
+
+                    foreach (var assign in traineeAssigns)
+                    {
+                        assign.RequestStatus = RequestStatus.Approved;
+                        assign.ApprovalDate = DateTime.UtcNow;
+                        assign.ApproveByUserId = approvedByUserId;
+                        await _unitOfWork.TraineeAssignRepository.UpdateAsync(assign);
+
+                        // ✅ Notify the trainee
+                        await _notificationService.SendNotificationAsync(
+                            assign.TraineeId,
+                            "Trainee Assignment Approved",
+                            $"You have been assigned to Course {assign.CourseId}.",
+                            "TraineeAssign"
+                        );
+
+                        // ✅ Notify the assigner (AssignByUserId)
+                        if (!string.IsNullOrEmpty(assign.AssignByUserId))
+                        {
+                            await _notificationService.SendNotificationAsync(
+                                assign.AssignByUserId,
+                                "Trainee Assignment Approved",
+                                $"Your request to assign {assign.TraineeId} to Course {assign.CourseId} has been approved.",
+                                "TraineeAssign"
+                            );
+                        }
+                    }
+                    break;
+
+                case RequestType.AddTraineeAssign:
+                    var traineeAssign = await _unitOfWork.TraineeAssignRepository.GetAsync(t => t.RequestId == requestId);
+                    if (traineeAssign == null)
+                        return false;
+
+                    traineeAssign.RequestStatus = RequestStatus.Approved;
+                    traineeAssign.ApprovalDate = DateTime.UtcNow;
+                    traineeAssign.ApproveByUserId = approvedByUserId;
+                    await _unitOfWork.TraineeAssignRepository.UpdateAsync(traineeAssign);
+
+                    // ✅ Notify the trainee
                     await _notificationService.SendNotificationAsync(
-                        admin.UserId,
-                        "Candidate Import Approved",
-                        "The candidate import request has been approved. Please create user accounts for the new candidates.",
-                        "CandidateImport"
+                        traineeAssign.TraineeId,
+                        "Trainee Assignment Approved",
+                        $"You have been assigned to Course {traineeAssign.CourseId}.",
+                        "TraineeAssign"
                     );
-                }
-               
+
+                    // ✅ Notify the assigner (AssignByUserId)
+                    if (!string.IsNullOrEmpty(traineeAssign.AssignByUserId))
+                    {
+                        await _notificationService.SendNotificationAsync(
+                            traineeAssign.AssignByUserId,
+                            "Trainee Assignment Approved",
+                            $"Your request to assign {traineeAssign.TraineeId} to Course {traineeAssign.CourseId} has been approved.",
+                            "TraineeAssign"
+                        );
+                    }
+                    break;
+                case RequestType.Update:
+                    var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
+                    if (trainingPlan != null && trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Approved)
+                    {
+                        // Extract proposed changes from Notes
+                        if (request.Notes != null && request.Notes.Contains("Proposed changes:"))
+                        {
+                            var jsonStart = request.Notes.IndexOf("{");
+                            var jsonEnd = request.Notes.LastIndexOf("}") + 1;
+                            if (jsonStart >= 0 && jsonEnd > jsonStart)
+                            {
+                                var json = request.Notes.Substring(jsonStart, jsonEnd - jsonStart);
+                                var dto = JsonSerializer.Deserialize<TrainingPlanDTO>(json);
+
+                                // Apply the changes
+                                trainingPlan.PlanName = dto.PlanName;
+                                trainingPlan.Desciption = dto.Desciption;
+                                trainingPlan.ModifyDate = DateTime.UtcNow;
+                                trainingPlan.CreateByUserId = request.RequestUserId; // Or approvedByUserId
+                                trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Approved;
+                                _unitOfWork.TrainingPlanRepository.UpdateAsync(trainingPlan);
+                            }
+                        }
+                    }
+                    
+                    break;
+
+                case RequestType.Delete:
+                    
+                    var trainingPlanToDelete = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
+                    if (trainingPlanToDelete != null)
+                    {
+                        await _trainingPlanService.Value.DeleteTrainingPlanAsync(request.RequestEntityId);
+                    }
+                    break;
+
+                    // Add other RequestType cases as needed (e.g., NewPlan, RecurrentPlan)
             }
-            return true; 
+
+            return true;
         }
         #endregion
 
@@ -238,27 +368,53 @@ namespace OCMS_Services.Service
             _unitOfWork.RequestRepository.UpdateAsync(request);
             await _unitOfWork.SaveChangesAsync();
 
+            // Tailor notification message based on RequestType
+            string notificationTitle = "Request Rejected";
+            string notificationMessage;
 
-            // 🚀 Send notification to request creator
+            switch (request.RequestType)
+            {
+                case RequestType.Update:
+                    notificationMessage = $"Your request to update (ID: {request.RequestEntityId}) has been rejected. Reason: {rejectionReason}";
+                    break;
+                case RequestType.Delete:
+                    notificationMessage = $"Your request to delete (ID: {request.RequestEntityId}) has been rejected. Reason: {rejectionReason}";
+                    break;
+                case RequestType.CandidateImport:
+                    notificationMessage = $"Your candidate import request has been rejected. Reason: {rejectionReason}";
+                    break;
+                case RequestType.AssignTrainee:
+                    notificationMessage = $"Your request to assign trainee import has been rejected. Reason:{rejectionReason}";
+                    break;
+                case RequestType.AddTraineeAssign:
+                    notificationMessage = $"Your request to assign a trainee has been rejected. Reason: {rejectionReason}";
+                    break;
+                default:
+                    notificationMessage = $"Your request ({request.RequestType}) has been rejected. Reason: {rejectionReason}";
+                    break;
+            }
+
+            // Send notification to the request creator
             await _notificationService.SendNotificationAsync(
                 request.RequestUserId,
-                "Request Rejected",
-                $"Your request ({request.RequestType}) has been rejected. Reason: {rejectionReason}",
+                notificationTitle,
+                notificationMessage,
                 "Request"
             );
 
+            // Additional logic for CandidateImport
             if (request.RequestType == RequestType.CandidateImport)
             {
                 var candidates = await _candidateRepository.GetCandidatesByImportRequestIdAsync(requestId);
-
                 if (candidates != null && candidates.Any())
                 {
                     foreach (var candidate in candidates)
                     {
-                        candidate.CandidateStatus = CandidateStatus.Rejected; // Assuming CandidateStatus is an Enum or predefined string
+                        candidate.CandidateStatus = CandidateStatus.Rejected;
                         await _unitOfWork.CandidateRepository.UpdateAsync(candidate);
                     }
                 }
+
                 var hrs = await _userRepository.GetUsersByRoleAsync("HR");
                 foreach (var hr in hrs)
                 {
@@ -270,6 +426,7 @@ namespace OCMS_Services.Service
                     );
                 }
             }
+
             return true;
         }
         #endregion

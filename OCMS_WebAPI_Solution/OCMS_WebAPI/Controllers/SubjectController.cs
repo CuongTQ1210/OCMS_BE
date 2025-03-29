@@ -24,7 +24,7 @@ namespace OCMS_WebAPI.Controllers
         public async Task<IActionResult> GetAllSubjects()
         {
             var subjects = await _subjectService.GetAllSubjectsAsync();
-            return Ok(new { message = "Subjects retrieved successfully.", data = subjects });
+            return Ok(new { message = "Subjects retrieved successfully.",  subjects });
         }
 
         [HttpGet("{id}")]
@@ -34,7 +34,7 @@ namespace OCMS_WebAPI.Controllers
             try
             {
                 var subject = await _subjectService.GetSubjectByIdAsync(id);
-                return Ok(new { message = "Subject retrieved successfully.", data = subject });
+                return Ok(new { message = "Subject retrieved successfully.",  subject });
             }
             catch (KeyNotFoundException ex)
             {
@@ -51,7 +51,7 @@ namespace OCMS_WebAPI.Controllers
                 var createdByUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
                 var subject = await _subjectService.CreateSubjectAsync(dto, createdByUserId);
-                return CreatedAtAction(nameof(GetSubjectById), new { id = subject.SubjectId }, new { message = "Subject created successfully.", data = subject });
+                return CreatedAtAction(nameof(GetSubjectById), new { id = subject.SubjectId }, new { message = "Subject created successfully.",  subject });
             }
             catch (ArgumentException ex)
             {
@@ -67,7 +67,7 @@ namespace OCMS_WebAPI.Controllers
             try
             {
                 var subject = await _subjectService.UpdateSubjectAsync(id, dto);
-                return Ok(new { message = "Subject updated successfully.", data = subject });
+                return Ok(new { message = "Subject updated successfully.",  subject });
             }
             catch (KeyNotFoundException ex)
             {

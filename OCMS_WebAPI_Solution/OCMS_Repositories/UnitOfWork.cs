@@ -26,6 +26,7 @@ namespace OCMS_Repositories
         private GenericRepository<CourseParticipant> _courseParticipantRepository;
         private GenericRepository<Notification> _notificationRepository;
         private GenericRepository<ExternalCertificate> _externalCertificateRepository;
+        private GenericRepository<InstructorAssignment> _instructorAssignmentRepository;
         private GenericRepository<CertificateTemplate> _certificateTemplateRepository;
 
         public UnitOfWork(OCMSDbContext context)
@@ -78,6 +79,20 @@ namespace OCMS_Repositories
         {
             get => _notificationRepository ??= new GenericRepository<Notification>(_context);
         }
+        public GenericRepository<TrainingSchedule> TrainingScheduleRepository
+        {
+            get => _trainingScheduleRepository ??= new GenericRepository<TrainingSchedule>(_context);
+        }
+        public GenericRepository<InstructorAssignment> InstructorAssignmentRepository
+        {
+            get => _instructorAssignmentRepository ??= new GenericRepository<InstructorAssignment>(_context);
+        }
+        public GenericRepository<TraineeAssign> TraineeAssignRepository
+        {
+            get => _traineeAssignRepository ??= new GenericRepository<TraineeAssign>(_context);
+        }
+
+
         
         public GenericRepository<CertificateTemplate> CertificateTemplateRepository
         {

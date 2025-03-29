@@ -89,9 +89,24 @@ namespace OCMS_BOs.Helper
             CreateMap<SubjectDTO, Subject>();
             CreateMap<Subject, SubjectDTO>();
             // Trainee Assignment Mapping
+            // Mapping TraineeAssign → TraineeAssignModel (ViewModel for displaying data)
             CreateMap<TraineeAssign, TraineeAssignModel>()
-                .ReverseMap();
+                .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => src.RequestStatus.ToString())) // Convert Enum to String
+                .ReverseMap()
+                .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => Enum.Parse<RequestStatus>(src.RequestStatus))) // Convert String to Enum
+                .ForMember(dest => dest.AssignDate, opt => opt.MapFrom(src => src.AssignDate == default ? DateTime.UtcNow : src.AssignDate)) // Default AssignDate
+                .ForMember(dest => dest.ApprovalDate, opt => opt.MapFrom(src => src.ApprovalDate == default ? null : src.ApprovalDate)); // Keep null if not approved
 
+            // Mapping TraineeAssignDTO → TraineeAssign (Used for Creating Assignments)
+            CreateMap<TraineeAssignDTO, TraineeAssign>()
+                .ForMember(dest => dest.TraineeAssignId, opt => opt.Ignore()) // Ignore ID, auto-generated
+                .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(_ => RequestStatus.Pending)) // Default to Pending
+                .ForMember(dest => dest.AssignDate, opt => opt.MapFrom(_ => DateTime.UtcNow)) // Set AssignDate to now
+                .ForMember(dest => dest.ApprovalDate, opt => opt.Ignore()) // ApprovalDate ignored during creation
+                .ForMember(dest => dest.ApproveByUserId, opt => opt.Ignore()) // Approval user not set at creation
+                .ForMember(dest => dest.RequestId, opt => opt.Ignore()) // Request will be assigned later
+                .ForMember(dest => dest.Request, opt => opt.Ignore()); // Ignore navigation property
+            CreateMap<TraineeAssign, TraineeAssignDTO>();
             // Instructor Assignment Mapping
             CreateMap<InstructorAssignment, InstructorAssignmentModel>()
                 .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => src.RequestStatus.ToString()))
