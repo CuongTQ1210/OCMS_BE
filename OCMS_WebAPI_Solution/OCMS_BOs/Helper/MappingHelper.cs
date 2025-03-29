@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using OCMS_BOs.Entities;
 using OCMS_BOs.RequestModel;
+using OCMS_BOs.ResponseModel;
 using OCMS_BOs.ViewModel;
 using System;
 using System.Collections.Generic;
@@ -119,8 +120,50 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.CertificateFileURL, opt => opt.Ignore());
 
             CreateMap<ExternalCertificate, ExternalCertificateModel>();
+
+            CreateMap<CreateCertificateTemplateDTO, CertificateTemplate>()
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
+                .ForMember(dest => dest.CertificateTemplateId, opt => opt.Ignore())
+                .ForMember(dest => dest.TemplateFile, opt => opt.Ignore())
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
+                .ForMember(dest => dest.LastUpdatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
+                .ForMember(dest => dest.templateStatus, opt => opt.MapFrom(_ => TemplateStatus.active));
+
+            // Mapping for Create Certificate Template Response
+            CreateMap<CertificateTemplate, CreateCertificateTemplateResponse>()
+                .ForMember(dest => dest.TemplateStatus, opt => opt.MapFrom(src => src.templateStatus.ToString()));
+
+            // Mapping for Get Certificate Template Response
+            CreateMap<CertificateTemplate, GetCertificateTemplateResponse>()
+                .ForMember(dest => dest.CreatedByUserName, opt => opt.MapFrom(src => src.CreateByUser != null ? src.CreateByUser.FullName : null))
+                .ForMember(dest => dest.ApprovedByUserName, opt => opt.MapFrom(src => src.ApprovedByUser != null ? src.ApprovedByUser.FullName : null))
+                .ForMember(dest => dest.TemplateStatus, opt => opt.MapFrom(src => src.templateStatus.ToString()));
+
+            // Mapping for Get All Certificate Templates Response
+            CreateMap<CertificateTemplate, GetAllCertificateTemplatesResponse.CertificateTemplateItem>()
+                .ForMember(dest => dest.TemplateStatus, opt => opt.MapFrom(src => src.templateStatus.ToString()));
+
+            CreateMap<CreateCertificateTemplateDTO, CertificateTemplate>()
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
+                .ForMember(dest => dest.LastUpdatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
+                .ForMember(dest => dest.templateStatus, opt => opt.MapFrom(src => TemplateStatus.active))
+                .ForMember(dest => dest.CertificateTemplateId, opt => opt.Ignore())
+                .ForMember(dest => dest.TemplateFile, opt => opt.Ignore())
+                .ForMember(dest => dest.TemplateName, opt => opt.Ignore());
+
+            // Map from entity to response models
+            CreateMap<CertificateTemplate, CreateCertificateTemplateResponse>();
+
+            CreateMap<CertificateTemplate, GetCertificateTemplateResponse>()
+                .ForMember(dest => dest.CreatedByUserName, opt => opt.MapFrom(src => src.CreateByUser.FullName))
+                .ForMember(dest => dest.ApprovedByUserName, opt => opt.MapFrom(src => src.ApprovedByUser != null ? src.ApprovedByUser.FullName : null));
+
+            CreateMap<CertificateTemplate, GetAllCertificateTemplatesResponse.CertificateTemplateItem>();
+
+            CreateMap<CertificateTemplate, UpdateCertificateTemplateResponse>()
+                .ForMember(dest => dest.CreatedByUserName, opt => opt.MapFrom(src => src.CreateByUser.FullName))
+                .ForMember(dest => dest.ApprovedByUserName, opt => opt.MapFrom(src => src.ApprovedByUser != null ? src.ApprovedByUser.FullName : null))
+                .ForMember(dest => dest.TemplateStatus, opt => opt.MapFrom(src => src.templateStatus));
         }
-
-
     }
 }
