@@ -102,7 +102,7 @@ namespace OCMS_BOs.Entities
     }
     public enum RequestType
     {
-        NewPlan=0,RecurrentPlan=1, RelearnPlan=2, Complaint=3, PlanChange=4, PlanDelete=5, CreateNew=6, CreateRecurrent=7, CreateRelearn=8, CandidateImport = 9, Update=10, Delete=11
+        NewPlan=0,RecurrentPlan=1, RelearnPlan=2, Complaint=3, PlanChange=4, PlanDelete=5, CreateNew=6, CreateRecurrent=7, CreateRelearn=8, CandidateImport = 9, Update=10, Delete=11, AssignTrainee=12, AddTraineeAssign=13
     }
     public enum DecisionStatus
     {

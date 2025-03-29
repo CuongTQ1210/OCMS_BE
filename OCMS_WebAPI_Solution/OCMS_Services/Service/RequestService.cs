@@ -94,7 +94,9 @@ namespace OCMS_Services.Service
                 newRequest.RequestType == RequestType.RecurrentPlan ||
                 newRequest.RequestType == RequestType.RelearnPlan||
                 newRequest.RequestType == RequestType.Update||
-                newRequest.RequestType == RequestType.Delete
+                newRequest.RequestType == RequestType.Delete||
+                newRequest.RequestType== RequestType.AssignTrainee||
+                newRequest.RequestType == RequestType.AddTraineeAssign
 
                 )
             {
@@ -248,7 +250,68 @@ namespace OCMS_Services.Service
                         );
                     }
                     break;
+                case RequestType.AssignTrainee:
+                    var traineeAssigns = await _unitOfWork.TraineeAssignRepository.GetAllAsync(t => t.RequestId == requestId);
+                    if (traineeAssigns == null || !traineeAssigns.Any())
+                        return false;
 
+                    foreach (var assign in traineeAssigns)
+                    {
+                        assign.RequestStatus = RequestStatus.Approved;
+                        assign.ApprovalDate = DateTime.UtcNow;
+                        assign.ApproveByUserId = approvedByUserId;
+                        await _unitOfWork.TraineeAssignRepository.UpdateAsync(assign);
+
+                        // ✅ Notify the trainee
+                        await _notificationService.SendNotificationAsync(
+                            assign.TraineeId,
+                            "Trainee Assignment Approved",
+                            $"You have been assigned to Course {assign.CourseId}.",
+                            "TraineeAssign"
+                        );
+
+                        // ✅ Notify the assigner (AssignByUserId)
+                        if (!string.IsNullOrEmpty(assign.AssignByUserId))
+                        {
+                            await _notificationService.SendNotificationAsync(
+                                assign.AssignByUserId,
+                                "Trainee Assignment Approved",
+                                $"Your request to assign {assign.TraineeId} to Course {assign.CourseId} has been approved.",
+                                "TraineeAssign"
+                            );
+                        }
+                    }
+                    break;
+
+                case RequestType.AddTraineeAssign:
+                    var traineeAssign = await _unitOfWork.TraineeAssignRepository.GetAsync(t => t.RequestId == requestId);
+                    if (traineeAssign == null)
+                        return false;
+
+                    traineeAssign.RequestStatus = RequestStatus.Approved;
+                    traineeAssign.ApprovalDate = DateTime.UtcNow;
+                    traineeAssign.ApproveByUserId = approvedByUserId;
+                    await _unitOfWork.TraineeAssignRepository.UpdateAsync(traineeAssign);
+
+                    // ✅ Notify the trainee
+                    await _notificationService.SendNotificationAsync(
+                        traineeAssign.TraineeId,
+                        "Trainee Assignment Approved",
+                        $"You have been assigned to Course {traineeAssign.CourseId}.",
+                        "TraineeAssign"
+                    );
+
+                    // ✅ Notify the assigner (AssignByUserId)
+                    if (!string.IsNullOrEmpty(traineeAssign.AssignByUserId))
+                    {
+                        await _notificationService.SendNotificationAsync(
+                            traineeAssign.AssignByUserId,
+                            "Trainee Assignment Approved",
+                            $"Your request to assign {traineeAssign.TraineeId} to Course {traineeAssign.CourseId} has been approved.",
+                            "TraineeAssign"
+                        );
+                    }
+                    break;
                 case RequestType.Update:
                     var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
                     if (trainingPlan != null && trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Approved)
@@ -319,6 +382,12 @@ namespace OCMS_Services.Service
                     break;
                 case RequestType.CandidateImport:
                     notificationMessage = $"Your candidate import request has been rejected. Reason: {rejectionReason}";
+                    break;
+                case RequestType.AssignTrainee:
+                    notificationMessage = $"Your request to assign trainee import has been rejected. Reason:{rejectionReason}";
+                    break;
+                case RequestType.AddTraineeAssign:
+                    notificationMessage = $"Your request to assign a trainee has been rejected. Reason: {rejectionReason}";
                     break;
                 default:
                     notificationMessage = $"Your request ({request.RequestType}) has been rejected. Reason: {rejectionReason}";
