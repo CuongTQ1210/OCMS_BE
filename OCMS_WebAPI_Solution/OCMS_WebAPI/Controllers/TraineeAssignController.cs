@@ -23,7 +23,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Import Trainee Assignments
         [HttpPost("import")]
-        [CustomAuthorize("Admin", "HR")]
+        [CustomAuthorize("Admin", "Training Staff")]
         public async Task<IActionResult> ImportTraineeAssignments(IFormFile file)
         {
             var importedByUserId = User.FindFirst(ClaimTypes.NameIdentifier).Value;
@@ -53,7 +53,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Create Trainee Assignment
         [HttpPost]
-        [CustomAuthorize("Admin", "HR")]
+        [CustomAuthorize("Admin", "Training Staff")]
         public async Task<IActionResult> CreateTraineeAssignment([FromBody] TraineeAssignDTO dto) {
         {
             try
