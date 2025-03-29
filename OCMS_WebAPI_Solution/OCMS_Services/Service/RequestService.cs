@@ -94,7 +94,9 @@ namespace OCMS_Services.Service
                 newRequest.RequestType == RequestType.RecurrentPlan ||
                 newRequest.RequestType == RequestType.RelearnPlan||
                 newRequest.RequestType == RequestType.Update||
-                newRequest.RequestType == RequestType.Delete
+                newRequest.RequestType == RequestType.Delete||
+                newRequest.RequestType== RequestType.AssignTrainee||
+                newRequest.RequestType == RequestType.AddTraineeAssign
 
                 )
             {
@@ -248,7 +250,45 @@ namespace OCMS_Services.Service
                         );
                     }
                     break;
+                case RequestType.AssignTrainee:
+                    var traineeAssigns = await _unitOfWork.TraineeAssignRepository.GetAllAsync(t => t.RequestId == requestId);
+                    if (traineeAssigns == null || !traineeAssigns.Any())
+                        return false;
 
+                    foreach (var assign in traineeAssigns)
+                    {
+                        assign.RequestStatus = RequestStatus.Approved;
+                        assign.ApprovalDate = DateTime.UtcNow;
+                        assign.ApproveByUserId = approvedByUserId;
+                        await _unitOfWork.TraineeAssignRepository.UpdateAsync(assign);
+
+                        // ✅ Notify each trainee
+                        await _notificationService.SendNotificationAsync(
+                            assign.TraineeId,
+                            "Trainee Assignment Approved",
+                            $"You have been assigned to Course {assign.CourseId}", 
+                            "TraineeAssign"
+                        );
+                    }
+                    break;
+                case RequestType.AddTraineeAssign:
+                    
+                    var traineeAssign= await _unitOfWork.TraineeAssignRepository.GetAsync(t => t.RequestId == requestId);
+
+                    traineeAssign.RequestStatus = RequestStatus.Approved;
+                    traineeAssign.ApprovalDate = DateTime.UtcNow;
+                    traineeAssign.ApproveByUserId = approvedByUserId;
+                        await _unitOfWork.TraineeAssignRepository.UpdateAsync(traineeAssign);
+
+                        // ✅ Notify each trainee
+                        await _notificationService.SendNotificationAsync(
+                            traineeAssign.TraineeId,
+                            "Trainee Assignment Approved",
+                            $"You have been assigned to Course {traineeAssign.CourseId}",
+                            "TraineeAssign"
+                        );
+                    
+                    break;
                 case RequestType.Update:
                     var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
                     if (trainingPlan != null && trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Approved)

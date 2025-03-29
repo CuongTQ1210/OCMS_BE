@@ -88,9 +88,22 @@ namespace OCMS_BOs.Helper
             CreateMap<SubjectDTO, Subject>();
             CreateMap<Subject, SubjectDTO>();
             // Trainee Assignment Mapping
+            // Mapping TraineeAssign → TraineeAssignModel
             CreateMap<TraineeAssign, TraineeAssignModel>()
-                .ReverseMap();
+                .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => src.RequestStatus.ToString())) // Convert Enum to String
+                .ReverseMap()
+                .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => Enum.Parse<RequestStatus>(src.RequestStatus))) // Convert String to Enum
+                .ForMember(dest => dest.AssignDate, opt => opt.MapFrom(src => src.AssignDate == default ? DateTime.Now : src.AssignDate)) // Default AssignDate
+                .ForMember(dest => dest.ApprovalDate, opt => opt.MapFrom(src => src.ApprovalDate == default ? DateTime.Now : src.ApprovalDate)); // Default ApprovalDate
 
+            // Mapping TraineeAssignDTO → TraineeAssign (Used for Creating Assignments)
+            CreateMap<TraineeAssignDTO, TraineeAssign>()
+                .ForMember(dest => dest.TraineeAssignId, opt => opt.Ignore()) 
+                .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(_ => RequestStatus.Pending)) // Default status
+                .ForMember(dest => dest.AssignDate, opt => opt.MapFrom(_ => DateTime.Now)) // Default AssignDate
+                .ForMember(dest => dest.ApprovalDate, opt => opt.Ignore()) // Ignore ApprovalDate at creation
+                .ForMember(dest => dest.ApproveByUserId, opt => opt.Ignore()) // Ignore ApproveByUserId at creation
+                .ForMember(dest => dest.Request, opt => opt.Ignore()); // Ignore navigation property
             // Instructor Assignment Mapping
             CreateMap<InstructorAssignment, InstructorAssignmentModel>()
                 .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => src.RequestStatus.ToString()))

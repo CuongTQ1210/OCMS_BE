@@ -18,13 +18,15 @@ namespace OCMS_BOs.Entities
         [ForeignKey("Course")]
         public string CourseId { get; set; }
         public Course Course { get; set; }
-        
+        public RequestStatus RequestStatus { get; set; }
         public DateTime AssignDate { get; set; }= DateTime.Now;
         [ForeignKey("ApproveUser")]
         public string? ApproveByUserId { get; set; }
         public User? ApproveByUser { get; set; }
         public DateTime? ApprovalDate {  get; set; }= DateTime.Now;
-
+        [ForeignKey("Request")]
+        public string RequestId { get; set; }
+        public Request Request { get; set; }
         public string Notes;
 
     }

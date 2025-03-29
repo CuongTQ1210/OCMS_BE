@@ -85,7 +85,10 @@ namespace OCMS_Repositories
         {
             get => _instructorAssignmentRepository ??= new GenericRepository<InstructorAssignment>(_context);
         }
-
+        public GenericRepository<TraineeAssign> TraineeAssignRepository
+        {
+            get => _traineeAssignRepository ??= new GenericRepository<TraineeAssign>(_context);
+        }
 
 
         public GenericRepository<ExternalCertificate> ExternalCertificateRepository
