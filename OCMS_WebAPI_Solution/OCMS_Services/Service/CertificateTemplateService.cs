@@ -175,8 +175,7 @@ namespace OCMS_Services.Service
             }
             catch (Exception ex)
             {
-                ex.Message.ToString();
-                throw;
+                throw new Exception("Error updating certificate template", ex);
             }
         }
         #endregion
