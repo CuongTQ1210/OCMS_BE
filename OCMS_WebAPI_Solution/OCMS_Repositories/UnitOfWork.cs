@@ -27,6 +27,8 @@ namespace OCMS_Repositories
         private GenericRepository<Notification> _notificationRepository;
         private GenericRepository<ExternalCertificate> _externalCertificateRepository;
         private GenericRepository<InstructorAssignment> _instructorAssignmentRepository;
+        private GenericRepository<CertificateTemplate> _certificateTemplateRepository;
+
         public UnitOfWork(OCMSDbContext context)
         {
             _context = context;
@@ -61,35 +63,46 @@ namespace OCMS_Repositories
         {
             get => _candidateRepository ??= new GenericRepository<Candidate>(_context);
         }
+
         public GenericRepository<TrainingPlan> TrainingPlanRepository
         {
             get=> _trainingplanRepository ??= new GenericRepository<TrainingPlan>(_context);
         }
+
         public GenericRepository<Subject> SubjectRepository
         {
             get => _subjectRepository ??= new GenericRepository<Subject>(_context);
         }
+
         public GenericRepository<Request> RequestRepository
         {
             get => _requestRepository ??= new GenericRepository<Request>(_context);
         }
+
         public GenericRepository<Notification> NotificationRepository
         {
             get => _notificationRepository ??= new GenericRepository<Notification>(_context);
         }
+
         public GenericRepository<TrainingSchedule> TrainingScheduleRepository
         {
             get => _trainingScheduleRepository ??= new GenericRepository<TrainingSchedule>(_context);
         }
+
         public GenericRepository<InstructorAssignment> InstructorAssignmentRepository
         {
             get => _instructorAssignmentRepository ??= new GenericRepository<InstructorAssignment>(_context);
         }
+
         public GenericRepository<TraineeAssign> TraineeAssignRepository
         {
             get => _traineeAssignRepository ??= new GenericRepository<TraineeAssign>(_context);
+        }    
+        
+        public GenericRepository<CertificateTemplate> CertificateTemplateRepository
+        {
+            get => _certificateTemplateRepository ??= new GenericRepository<CertificateTemplate>(_context);
         }
-
 
         public GenericRepository<ExternalCertificate> ExternalCertificateRepository
         {
@@ -127,7 +140,6 @@ namespace OCMS_Repositories
                 _transaction = null;
             }
         }
-
 
         public async Task<int> SaveChangesAsync()
         {
