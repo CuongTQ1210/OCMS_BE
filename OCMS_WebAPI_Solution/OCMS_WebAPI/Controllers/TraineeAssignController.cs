@@ -56,7 +56,7 @@ namespace OCMS_WebAPI.Controllers
         [CustomAuthorize("Admin", "Training Staff")]
         public async Task<IActionResult> CreateTraineeAssignment([FromBody] TraineeAssignDTO dto)
         {
-            {
+            
                 try
                 {
                     var createdByUserId = User.FindFirst(ClaimTypes.NameIdentifier).Value;
@@ -68,79 +68,96 @@ namespace OCMS_WebAPI.Controllers
                     return BadRequest(new { message = ex.Message });
                 }
             }
+
             #endregion
 
-            //#region Get All Trainee Assignments
-            //[HttpGet]
-            //[CustomAuthorize("Admin", "HR", "Reviewer")]
-            //public async Task<IActionResult> GetAllTraineeAssignments()
-            //{
-            //    try
-            //    {
-            //        var traineeAssignments = await _traineeAssignService.GetAllTraineeAssignments();
-            //        return Ok(traineeAssignments);
-            //    }
-            //    catch (Exception ex)
-            //    {
-            //        return BadRequest(new { message = ex.Message });
-            //    }
-            //}
-            //#endregion
+            #region Get All Trainee Assignments
+            [HttpGet]
+            [CustomAuthorize("Admin", "Training Staff", "Reviewer")]
+            public async Task<IActionResult> GetAllTraineeAssignments()
+            {
+                try
+                {
+                    var traineeAssignments = await _traineeAssignService.GetAllTraineeAssignmentsAsync();
+                    return Ok(traineeAssignments);
+                }
+                catch (Exception ex)
+                {
+                    return BadRequest(new { message = ex.Message });
+                }
+            }
+            #endregion
 
-            //#region Get Trainee Assignment By Id
-            //[HttpGet("{id}")]
-            //[CustomAuthorize("Admin", "HR", "Reviewer")]
-            //public async Task<IActionResult> GetTraineeAssignmentById(string id)
-            //{
-            //    try
-            //    {
-            //        var traineeAssignment = await _traineeAssignService.GetTraineeAssignmentByIdAsync(id);
-            //        return Ok(traineeAssignment);
-            //    }
-            //    catch (Exception ex)
-            //    {
-            //        return BadRequest(new { message = ex.Message });
-            //    }
-            //}
-            //#endregion
+            #region Get Trainee Assignment By Id
+            [HttpGet("{id}")]
+            [CustomAuthorize("Admin", "Training Staff", "Reviewer")]
+            public async Task<IActionResult> GetTraineeAssignmentById(string id)
+            {
+                try
+                {
+                    var traineeAssignment = await _traineeAssignService.GetTraineeAssignmentByIdAsync(id);
+                    return Ok(traineeAssignment);
+                }
+                catch (Exception ex)
+                {
+                    return BadRequest(new { message = ex.Message });
+                }
+            }
+            #endregion
 
-            //#region Update Trainee Assignment
-            //[HttpPut("{id}")]
-            //[CustomAuthorize("Admin", "HR")]
-            //public async Task<IActionResult> UpdateTraineeAssignment(string id, [FromBody] TraineeAssignUpdateDTO updatedTraineeAssign)
-            //{
-            //    try
-            //    {
-            //        var traineeAssignment = await _traineeAssignService.UpdateTraineeAssignmentAsync(id, updatedTraineeAssign);
-            //        return Ok(traineeAssignment);
-            //    }
-            //    catch (Exception ex)
-            //    {
-            //        return BadRequest(new { message = ex.Message });
-            //    }
-            //}
-            //#endregion
+            #region Update Trainee Assignment
+            [HttpPut("{id}")]
+            [CustomAuthorize("Admin", "Training Staff")]
+            public async Task<IActionResult> UpdateTraineeAssignment(string id, [FromBody] TraineeAssignDTO updatedTraineeAssign)
+            {
+                try
+                {
+                    var traineeAssignment = await _traineeAssignService.UpdateTraineeAssignmentAsync(id, updatedTraineeAssign);
+                    return Ok(traineeAssignment);
+                }
+                catch (Exception ex)
+                {
+                    return BadRequest(new { message = ex.Message });
+                }
+            }
+            #endregion
 
-            //#region Delete Trainee Assignment
-            //[HttpDelete("{id}")]
-            //[CustomAuthorize("Admin", "HR")]
-            //public async Task<IActionResult> DeleteTraineeAssignment(string id)
-            //{
-            //    if (string.IsNullOrEmpty(id))
-            //    {
-            //        return BadRequest("Invalid ID");
-            //    }
+            #region Delete Trainee Assignment
+            [HttpDelete("{id}")]
+            [CustomAuthorize("Admin", "Training Staff")]
+            public async Task<IActionResult> DeleteTraineeAssignment(string id)
+            {
+                if (string.IsNullOrEmpty(id)) 
+                {
+                    return BadRequest("Invalid ID");
+                }
 
-            //    var (success, message) = await _traineeAssignService.DeleteTraineeAssignmentAsync(id);
+                var (success, message) = await _traineeAssignService.DeleteTraineeAssignmentAsync(id);
 
-            //    if (!success)
-            //    {
-            //        return BadRequest(message);
-            //    }
+                if (!success)
+                {
+                    return BadRequest(message);
+                }
 
-            //    return Ok(new { Success = success, Message = message });
-            //}
-            //#endregion
+                return Ok(new { Success = success, Message = message });
+            }
+        #endregion
+
+        [HttpGet("trainee/{traineeId}/courses")]
+        [CustomAuthorize("Trainee")]
+        public async Task<IActionResult> GetCoursesByTraineeId(string traineeId)
+        {
+            try
+            {
+                var courses = await _traineeAssignService.GetCoursesByTraineeIdAsync(traineeId);
+                return Ok(courses);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
     }
-}
+
+    }
+
