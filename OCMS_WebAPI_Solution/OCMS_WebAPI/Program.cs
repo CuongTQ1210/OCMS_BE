@@ -70,6 +70,7 @@ builder.Services.AddScoped<ISubjectRepository, SubjectRepository>();
 builder.Services.AddScoped<ICertiTempRepository, CertificateTemplateRepository>();
 builder.Services.AddScoped<ITrainingScheduleRepository, TrainingScheduleRepository>();
 builder.Services.AddScoped<IInstructorAssignmentRepository, InstructorAssignmentRepository>();
+builder.Services.AddScoped<ITraineeAssignRepository, TraineeAssignRepository>();
 
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -86,6 +87,7 @@ builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<ISubjectService, SubjectService>();
 builder.Services.AddScoped<ITrainingScheduleService, TrainingScheduleService>();
 builder.Services.AddScoped<IInstructorAssignmentService, InstructorAssignmentService>();
+builder.Services.AddScoped<ITraineeAssignService, TraineeAssignService>();
 builder.Services.AddScoped<ICertificateTemplateService, CertificateTemplateService>();
 
 // Register Lazy<T> factories

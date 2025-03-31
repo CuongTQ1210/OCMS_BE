@@ -39,7 +39,95 @@ namespace OCMS_Services.Service
             _candidateRepository = candidateRepository;
             _courseRepository = courseRepository;
         }
+        #region Get All Trainee Assignments
+        public async Task<IEnumerable<TraineeAssignModel>> GetAllTraineeAssignmentsAsync()
+        {
+            var assignments = await _unitOfWork.TraineeAssignRepository.GetAllAsync();
+            return _mapper.Map<IEnumerable<TraineeAssignModel>>(assignments);
+        }
 
+        #region Get Trainee Assignment By ID
+        public async Task<TraineeAssignModel> GetTraineeAssignmentByIdAsync(string traineeAssignId)
+        {
+            if (string.IsNullOrEmpty(traineeAssignId))
+                throw new ArgumentException("Trainee Assignment ID cannot be null or empty.", nameof(traineeAssignId));
+
+            var assignment = await _unitOfWork.TraineeAssignRepository.GetByIdAsync(traineeAssignId);
+            if (assignment == null)
+                throw new KeyNotFoundException($"Trainee Assignment with ID {traineeAssignId} not found.");
+
+            return _mapper.Map<TraineeAssignModel>(assignment);
+        }
+        #endregion
+
+        #region Update Trainee Assignment
+        public async Task<TraineeAssignModel> UpdateTraineeAssignmentAsync(string id, TraineeAssignDTO dto)
+        {
+            if (string.IsNullOrEmpty(id))
+                throw new ArgumentException("Assignment ID cannot be null or empty.", nameof(id));
+
+            var existingAssignment = await _unitOfWork.TraineeAssignRepository.GetByIdAsync(id);
+            if (existingAssignment == null)
+                throw new KeyNotFoundException($"Trainee Assignment with ID {id} not found.");
+
+            // Ensure update is allowed only if status is "Pending" or "Rejected"
+            if (existingAssignment.RequestStatus.ToString() != "Pending" && existingAssignment.RequestStatus.ToString() != "Rejected")
+                throw new InvalidOperationException($"Cannot update trainee assignment because its status is '{existingAssignment.RequestStatus.ToString()}'. Only 'Pending' or 'Rejected' can be updated.");
+
+            existingAssignment.TraineeId = dto.TraineeId;
+            existingAssignment.CourseId = dto.CourseId;
+            existingAssignment.Notes = dto.Notes;
+
+            _unitOfWork.TraineeAssignRepository.UpdateAsync(existingAssignment);
+            await _unitOfWork.SaveChangesAsync();
+
+            return _mapper.Map<TraineeAssignModel>(existingAssignment);
+        }
+        #endregion
+
+        #region Delete Trainee Assignment
+        public async Task<(bool success, string message)> DeleteTraineeAssignmentAsync(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+                return (false, "Invalid ID.");
+
+            var assignment = await _unitOfWork.TraineeAssignRepository.GetByIdAsync(id);
+            if (assignment == null)
+                return (false, "Trainee Assignment not found.");
+
+            // Ensure deletion is allowed only if status is "Pending" or "Rejected"
+            if (assignment.RequestStatus.ToString() != "Pending" && assignment.RequestStatus.ToString() != "Rejected")
+                return (false, $"Cannot delete trainee assignment because its status is '{assignment.RequestStatus.ToString()}'. Only 'Pending' or 'Rejected' can be deleted.");
+
+            _unitOfWork.TraineeAssignRepository.DeleteAsync(id);
+            await _unitOfWork.SaveChangesAsync();
+
+            return (true, "Trainee Assignment deleted successfully.");
+        }
+        #endregion
+
+        #region Get Trainee's Assigned Courses
+        public async Task<IEnumerable<CourseModel>> GetCoursesByTraineeIdAsync(string traineeId)
+        {
+            if (string.IsNullOrEmpty(traineeId))
+                throw new ArgumentException("Trainee ID cannot be null or empty.", nameof(traineeId));
+
+            var assignments = await _unitOfWork.TraineeAssignRepository.GetAllAsync(a => a.TraineeId == traineeId);
+            var courseIds = assignments.Select(a => a.CourseId).Distinct().ToList();
+
+            var courses = await _unitOfWork.CourseRepository.GetAllAsync(c => courseIds.Contains(c.CourseId));
+            return _mapper.Map<IEnumerable<CourseModel>>(courses);
+        }
+        #endregion
+
+        #region Generate Assignment ID
+        private string GenerateAssignmentId()
+        {
+            string guidPart = Guid.NewGuid().ToString("N").Substring(0, 6).ToUpper();
+            return $"TAS-{guidPart}";
+        }
+        #endregion
+        #endregion
         #region Create TraineeAssign
         public async Task<TraineeAssignModel> CreateTraineeAssignAsync(TraineeAssignDTO dto, string createdByUserId)
         {

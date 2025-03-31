@@ -40,7 +40,11 @@ namespace OCMS_Services.Service
         public async Task<UserModel> GetUserByIdAsync(string id)
         {
             var user = await _unitOfWork.UserRepository.GetByIdAsync(id);
-            return _mapper.Map<UserModel>(user);
+            if (user == null)
+            {
+                throw new Exception("User not found!!");
+            }
+                return _mapper.Map<UserModel>(user);
         }
         #endregion
 
