@@ -5,6 +5,7 @@ using OCMS_Repositories.IRepository;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -30,6 +31,10 @@ namespace OCMS_Repositories.Repository
                 notification.IsRead = true;
                 await _context.SaveChangesAsync();
             }
+        }
+        public async Task<int> CountAsync(Expression<Func<Notification, bool>> predicate)
+        {
+            return await _context.Notifications.Where(predicate).CountAsync();
         }
     }
 }

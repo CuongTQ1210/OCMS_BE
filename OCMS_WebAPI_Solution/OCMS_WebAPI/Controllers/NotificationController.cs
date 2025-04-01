@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using OCMS_BOs.RequestModel;
 using OCMS_Services.IService;
+using OCMS_WebAPI.AuthorizeSettings;
 using System.Security.Claims;
 
 namespace OCMS_WebAPI.Controllers
@@ -39,6 +41,7 @@ namespace OCMS_WebAPI.Controllers
         }
 
         [HttpGet("{userId}")]
+        [Authorize]
         public async Task<IActionResult> GetUserNotifications(string userId)
         {
             var notifications = await _notificationService.GetUserNotificationsAsync(userId);
@@ -47,6 +50,21 @@ namespace OCMS_WebAPI.Controllers
                 return NotFound(new { message = "No notifications found for this user." });
 
             return Ok(new { message = "Notifications retrieved successfully.", data = notifications });
+        }
+
+        [HttpGet("unread-count/{userId}")]
+        [Authorize]
+        public async Task<IActionResult> GetUnreadNotificationCount(string userId)
+        {
+            try
+            {
+                var count = await _notificationService.GetUnreadNotificationCountAsync(userId);
+                return Ok(new { UnreadCount = count });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
     }
 }
