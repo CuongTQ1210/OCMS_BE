@@ -20,6 +20,25 @@ namespace OCMS_WebAPI.Controllers
             _specialtyService = specialtyService;
         }
 
+        // Helper method để kiểm tra ModelState
+        private IActionResult ValidateModelState()
+        {
+            if (!ModelState.IsValid)
+            {
+                var validationErrors = string.Join("; ", ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage));
+                return BadRequest(new ErrorResponse { Message = validationErrors });
+            }
+            return null;
+        }
+
+        // Helper method để lấy UserId từ Claims
+        private string GetUserId()
+        {
+            return User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        }
+
         #region Get All Specialties
         [HttpGet]
         [CustomAuthorize]
@@ -28,19 +47,11 @@ namespace OCMS_WebAPI.Controllers
             try
             {
                 var specialties = await _specialtyService.GetAllSpecialtiesAsync();
-                var response = new GetAllSpecialtiesResponse
-                {
-                    Data = specialties.ToList()
-                };
-                return Ok(response);
+                return Ok(new GetAllSpecialtiesResponse { Data = specialties.ToList() });
             }
             catch (Exception ex)
             {
-                var errorResponse = new ErrorResponse
-                {
-                    Message = $"Error retrieving specialties: {ex.Message}"
-                };
-                return StatusCode(500, errorResponse);
+                return StatusCode(500, new ErrorResponse { Message = $"Error retrieving specialties: {ex.Message}" });
             }
         }
         #endregion
@@ -53,19 +64,11 @@ namespace OCMS_WebAPI.Controllers
             try
             {
                 var specialtyTree = await _specialtyService.GetSpecialtyTreeAsync();
-                var response = new GetSpecialtyTreeResponse
-                {
-                    Data = specialtyTree.ToList()
-                };
-                return Ok(response);
+                return Ok(new GetSpecialtyTreeResponse { Data = specialtyTree.ToList() });
             }
             catch (Exception ex)
             {
-                var errorResponse = new ErrorResponse
-                {
-                    Message = $"Error retrieving specialty tree: {ex.Message}"
-                };
-                return StatusCode(500, errorResponse);
+                return StatusCode(500, new ErrorResponse { Message = $"Error retrieving specialty tree: {ex.Message}" });
             }
         }
         #endregion
@@ -80,26 +83,13 @@ namespace OCMS_WebAPI.Controllers
                 var specialty = await _specialtyService.GetSpecialtyByIdAsync(id);
                 if (specialty == null)
                 {
-                    var notFoundResponse = new ErrorResponse
-                    {
-                        Message = $"Specialty with ID {id} not found."
-                    };
-                    return NotFound(notFoundResponse);
+                    return NotFound(new ErrorResponse { Message = $"Specialty with ID {id} not found." });
                 }
-
-                var response = new GetSpecialtyResponse
-                {
-                    Data = specialty
-                };
-                return Ok(response);
+                return Ok(new GetSpecialtyResponse { Data = specialty });
             }
             catch (Exception ex)
             {
-                var errorResponse = new ErrorResponse
-                {
-                    Message = $"Error retrieving specialty: {ex.Message}"
-                };
-                return StatusCode(500, errorResponse);
+                return StatusCode(500, new ErrorResponse { Message = $"Error retrieving specialty: {ex.Message}" });
             }
         }
         #endregion
@@ -109,53 +99,28 @@ namespace OCMS_WebAPI.Controllers
         [CustomAuthorize("Admin", "Training staff", "AOC Manager")]
         public async Task<IActionResult> CreateSpecialty([FromBody] CreateSpecialtyDTO model)
         {
+            var validationResult = ValidateModelState();
+            if (validationResult != null) return validationResult;
+
+            var userId = GetUserId();
+            if (string.IsNullOrEmpty(userId))
+            {
+                return BadRequest(new ErrorResponse { Message = "User ID not found in token." });
+            }
+
             try
             {
-                if (!ModelState.IsValid)
-                {
-                    var validationErrors = string.Join("; ", ModelState.Values
-                        .SelectMany(v => v.Errors)
-                        .Select(e => e.ErrorMessage));
-
-                    var errorResponse = new ErrorResponse
-                    {
-                        Message = validationErrors
-                    };
-                    return BadRequest(errorResponse);
-                }
-
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId))
-                {
-                    var errorResponse = new ErrorResponse
-                    {
-                        Message = "User ID not found in token."
-                    };
-                    return BadRequest(errorResponse);
-                }
-
                 var specialty = await _specialtyService.AddSpecialtyAsync(model, userId);
-                var response = new CreateSpecialtyResponse
-                {
-                    Data = specialty
-                };
-                return CreatedAtAction(nameof(GetSpecialtyById), new { id = specialty.SpecialtyId }, response);
+                return CreatedAtAction(nameof(GetSpecialtyById), new { id = specialty.SpecialtyId },
+                    new CreateSpecialtyResponse { Data = specialty });
             }
             catch (ArgumentException ex)
             {
-                var errorResponse = new ErrorResponse
-                {
-                    Message = ex.Message
-                };
-                return BadRequest(errorResponse);
+                return BadRequest(new ErrorResponse { Message = ex.Message });
             }
             catch (Exception ex)
             {
-                var errorResponse = new ErrorResponse
-                {
-                    Message = $"Error creating specialty: {ex.Message}"
-                };
-                return StatusCode(500, errorResponse);
+                return StatusCode(500, new ErrorResponse { Message = $"Error creating specialty: {ex.Message}" });
             }
         }
         #endregion
@@ -168,44 +133,23 @@ namespace OCMS_WebAPI.Controllers
             try
             {
                 await _specialtyService.DeleteSpecialtyAsync(id);
-                var response = new DeleteSpecialtyResponse
-                {
-                    SpecialtyId = id
-                };
-                return Ok(response);
+                return Ok(new DeleteSpecialtyResponse { SpecialtyId = id });
             }
             catch (ArgumentException ex)
             {
                 if (ex.Message.Contains("not found"))
                 {
-                    var notFoundResponse = new ErrorResponse
-                    {
-                        Message = ex.Message
-                    };
-                    return NotFound(notFoundResponse);
+                    return NotFound(new ErrorResponse { Message = ex.Message });
                 }
-
-                var errorResponse = new ErrorResponse
-                {
-                    Message = ex.Message
-                };
-                return BadRequest(errorResponse);
+                return BadRequest(new ErrorResponse { Message = ex.Message });
             }
             catch (InvalidOperationException ex)
             {
-                var errorResponse = new ErrorResponse
-                {
-                    Message = ex.Message
-                };
-                return BadRequest(errorResponse);
+                return BadRequest(new ErrorResponse { Message = ex.Message });
             }
             catch (Exception ex)
             {
-                var errorResponse = new ErrorResponse
-                {
-                    Message = $"Error deleting specialty: {ex.Message}"
-                };
-                return StatusCode(500, errorResponse);
+                return StatusCode(500, new ErrorResponse { Message = $"Error deleting specialty: {ex.Message}" });
             }
         }
         #endregion
@@ -215,62 +159,31 @@ namespace OCMS_WebAPI.Controllers
         [CustomAuthorize("Admin", "Training staff")]
         public async Task<IActionResult> UpdateSpecialty(string id, [FromBody] UpdateSpecialtyDTO model)
         {
+            var validationResult = ValidateModelState();
+            if (validationResult != null) return validationResult;
+
+            var userId = GetUserId();
+            if (string.IsNullOrEmpty(userId))
+            {
+                return BadRequest(new ErrorResponse { Message = "User ID not found in token." });
+            }
+
             try
             {
-                if (!ModelState.IsValid)
-                {
-                    var validationErrors = string.Join("; ", ModelState.Values
-                        .SelectMany(v => v.Errors)
-                        .Select(e => e.ErrorMessage));
-
-                    var errorResponse = new ErrorResponse
-                    {
-                        Message = validationErrors
-                    };
-                    return BadRequest(errorResponse);
-                }
-
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId))
-                {
-                    var errorResponse = new ErrorResponse
-                    {
-                        Message = "User ID not found in token."
-                    };
-                    return BadRequest(errorResponse);
-                }
-
                 var specialty = await _specialtyService.UpdateSpecialtyAsync(id, model, userId);
-                var response = new UpdateSpecialtyResponse
-                {
-                    Data = specialty
-                };
-                return Ok(response);
+                return Ok(new UpdateSpecialtyResponse { Data = specialty });
             }
             catch (ArgumentException ex)
             {
                 if (ex.Message.Contains("not found"))
                 {
-                    var notFoundResponse = new ErrorResponse
-                    {
-                        Message = ex.Message
-                    };
-                    return NotFound(notFoundResponse);
+                    return NotFound(new ErrorResponse { Message = ex.Message });
                 }
-
-                var errorResponse = new ErrorResponse
-                {
-                    Message = ex.Message
-                };
-                return BadRequest(errorResponse);
+                return BadRequest(new ErrorResponse { Message = ex.Message });
             }
             catch (Exception ex)
             {
-                var errorResponse = new ErrorResponse
-                {
-                    Message = $"Error updating specialty: {ex.Message}"
-                };
-                return StatusCode(500, errorResponse);
+                return StatusCode(500, new ErrorResponse { Message = $"Error updating specialty: {ex.Message}" });
             }
         }
         #endregion
