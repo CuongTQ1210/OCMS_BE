@@ -52,6 +52,14 @@ namespace OCMS_Services.Service
         }
         #endregion
 
+        #region Get User Unread Notification Count
+        public async Task<int> GetUnreadNotificationCountAsync(string userId)
+        {
+            var count = await _notificationRepository.CountAsync(n => n.UserId == userId && !n.IsRead);
+            return count;
+        }
+        #endregion
+
         #region Mark Notification as Read
         public async Task MarkNotificationAsReadAsync(int notificationId)
         {

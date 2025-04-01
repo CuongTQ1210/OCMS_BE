@@ -12,5 +12,7 @@ namespace OCMS_Services.IService
         Task SendNotificationAsync(string userId, string title, string message, string type);
         Task<IEnumerable<NotificationModel>> GetUserNotificationsAsync(string userId);
         Task MarkNotificationAsReadAsync(int notificationId);
+
+        Task<int> GetUnreadNotificationCountAsync(string userId);
     }
 }
