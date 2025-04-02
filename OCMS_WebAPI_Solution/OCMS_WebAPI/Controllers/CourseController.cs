@@ -24,13 +24,13 @@ namespace OCMS_WebAPI.Controllers
         /// </summary>
         [HttpPost("create")]
         [CustomAuthorize("Admin", "Training staff")]
-        public async Task<IActionResult> CreateCourse([FromBody] CourseDTO dto)
+        public async Task<IActionResult> CreateCourse([FromBody] CourseCreateDTO dto)
         {
             try
             {
                 var createdByUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
                 if (string.IsNullOrEmpty(createdByUserId))
-                    return Unauthorized(new { success = false, message = "Unauthorized access." });
+                    return Unauthorized(new { success = false, message = "Login to process this function." });
 
                 var createdCourse = await _courseService.CreateCourseAsync(dto, createdByUserId);
                 return Ok(new
@@ -122,7 +122,6 @@ namespace OCMS_WebAPI.Controllers
                 var updatedByUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
                 if (string.IsNullOrEmpty(updatedByUserId))
                     return Unauthorized(new { success = false, message = "Unauthorized access." });
-
                 var updatedCourse = await _courseService.UpdateCourseAsync(id, dto, updatedByUserId);
                 if (updatedCourse == null)
                     return NotFound(new { success = false, message = "Course not found." });

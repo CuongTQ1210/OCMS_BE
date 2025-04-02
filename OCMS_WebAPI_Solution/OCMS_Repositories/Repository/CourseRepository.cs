@@ -30,5 +30,14 @@ namespace OCMS_Repositories.Repository
                 .OrderByDescending(c => c.CourseId)
                 .FirstOrDefaultAsync();
         }
+        public async Task<string> GenerateCourseID()
+        {
+            int courseCount = await _context.Courses.CountAsync();
+            int nextId = courseCount + 1;
+            string courseID = $"COU{nextId:D6}";
+
+            return courseID;
+        }
+
     }
 }

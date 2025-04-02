@@ -8,5 +8,7 @@ namespace OCMS_Repositories.IRepository
 {
     public interface ISpecialtyRepository
     {
+     Task<bool> isExistSpecialty(string? name = null, string? id = null);
+
     }
 }

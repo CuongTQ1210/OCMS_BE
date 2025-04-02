@@ -10,7 +10,7 @@ namespace OCMS_Services.IService
 {
     public interface ICourseService
     {
-        Task<CourseModel> CreateCourseAsync(CourseDTO dto, string createdByUserId);
+        Task<CourseModel> CreateCourseAsync(CourseCreateDTO dto, string createdByUserId);
         Task<IEnumerable<CourseModel>> GetAllCoursesAsync();
         Task<CourseModel?> GetCourseByIdAsync(string id);
         Task<bool> DeleteCourseAsync(string id);

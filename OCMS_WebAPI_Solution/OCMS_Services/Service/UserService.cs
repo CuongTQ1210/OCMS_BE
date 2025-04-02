@@ -164,9 +164,9 @@ namespace OCMS_Services.Service
         #endregion
 
         #region Reset Password
-        public async Task ResetPasswordAsync(ResetPasswordDTO resetPasswordDto)
+        public async Task ResetPasswordAsync(string token, string newpass)
         {
-            string userId = await _redis.StringGetAsync(resetPasswordDto.Token);
+            string userId = await _redis.StringGetAsync(token);
             if (string.IsNullOrEmpty(userId))
                 throw new Exception("Invalid or expired token.");
 
@@ -174,14 +174,14 @@ namespace OCMS_Services.Service
             if (user == null)
                 throw new Exception("User not found.");
 
-            user.PasswordHash = PasswordHasher.HashPassword(resetPasswordDto.NewPassword);
+            user.PasswordHash = PasswordHasher.HashPassword(newpass);
             user.UpdatedAt = DateTime.UtcNow;
 
             await _unitOfWork.UserRepository.UpdateAsync(user);
             await _unitOfWork.SaveChangesAsync();
 
             // Invalidate the token
-            await _redis.KeyDeleteAsync(resetPasswordDto.Token);
+            await _redis.KeyDeleteAsync(token);
         }
         #endregion
 

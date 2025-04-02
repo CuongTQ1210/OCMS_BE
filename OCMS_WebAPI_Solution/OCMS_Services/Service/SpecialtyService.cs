@@ -3,6 +3,7 @@ using OCMS_BOs.Entities;
 using OCMS_BOs.RequestModel;
 using OCMS_BOs.ViewModel;
 using OCMS_Repositories;
+using OCMS_Repositories.IRepository;
 using OCMS_Services.IService;
 using System;
 using System.Collections.Generic;
@@ -14,43 +15,41 @@ namespace OCMS_Services.Service
     public class SpecialtyService : ISpecialtyService
     {
         private readonly UnitOfWork _unitOfWork;
+        private readonly ISpecialtyRepository _specialtyRepository;
         private readonly IMapper _mapper;
 
-        public SpecialtyService(UnitOfWork unitOfWork, IMapper mapper)
+        public SpecialtyService(UnitOfWork unitOfWork, IMapper mapper, ISpecialtyRepository specialtyRepository)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _specialtyRepository = specialtyRepository;
         }
 
         #region Add Specialty
         public async Task<SpecialtyModel> AddSpecialtyAsync(CreateSpecialtyDTO model, string createdByUserId)
         {
             // Check if specialty with same name already exists
-            var existingSpecialty = (await _unitOfWork.SpecialtyRepository.GetAllAsync())
-                .FirstOrDefault(s => s.SpecialtyName.Equals(model.SpecialtyName, StringComparison.OrdinalIgnoreCase));
-
-            if (existingSpecialty != null)
+            if (await _specialtyRepository.isExistSpecialty(model.SpecialtyName) == true)
             {
                 throw new ArgumentException("Specialty with this name already exists.");
             }
-
+            if (!string.IsNullOrEmpty(model.ParentSpecialtyId))
+            {
+                if (await _specialtyRepository.isExistSpecialty(model.ParentSpecialtyId) != true)
+                {
+                    throw new ArgumentException("Parent Specialty ID doesn't exist.");
+                }
+            }
             // Generate specialty ID
             string specialtyId = await GenerateSpecialtyId(model.SpecialtyName, model.ParentSpecialtyId);
+            var specialty = _mapper.Map<Specialties>(model);
 
-            // Create new specialty entity
-            var specialty = new Specialties
-            {
-                SpecialtyId = specialtyId,
-                SpecialtyName = model.SpecialtyName,
-                Description = model.Description,
-                ParentSpecialtyId = model.ParentSpecialtyId,
-                CreatedByUserId = createdByUserId,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedByUserId = createdByUserId,
-                UpdatedAt = DateTime.UtcNow,
-                Status = model.Status
-            };
-
+            specialty.SpecialtyId = specialtyId;
+            specialty.CreatedByUserId = createdByUserId;
+            specialty.CreatedAt = DateTime.UtcNow;
+            specialty.UpdatedByUserId = createdByUserId;
+            specialty.UpdatedAt = DateTime.UtcNow;
+            specialty.Status = (int)SpecialtyStatus.Inactive;
             await _unitOfWork.SpecialtyRepository.AddAsync(specialty);
             await _unitOfWork.SaveChangesAsync();
 
@@ -93,7 +92,6 @@ namespace OCMS_Services.Service
             var specialties = await _unitOfWork.SpecialtyRepository.GetAllAsync();
             var specialtyModels = _mapper.Map<IEnumerable<SpecialtyModel>>(specialties);
 
-            // Populate additional information for each specialty
             foreach (var model in specialtyModels)
             {
                 if (!string.IsNullOrEmpty(model.ParentSpecialtyId))
@@ -229,39 +227,28 @@ namespace OCMS_Services.Service
                     throw new ArgumentException("Another specialty with this name already exists.");
                 }
             }
-
-            // Check for circular reference in parent-child relationship
-            if (model.ParentSpecialtyId == id)
-            {
-                throw new ArgumentException("A specialty cannot be its own parent.");
-            }
-
             if (!string.IsNullOrEmpty(model.ParentSpecialtyId))
             {
-                // Check if creates a circular reference in the hierarchy
-                string currentParentId = model.ParentSpecialtyId;
-                while (!string.IsNullOrEmpty(currentParentId))
+                if (model.ParentSpecialtyId == id)
                 {
-                    var parent = await _unitOfWork.SpecialtyRepository.GetByIdAsync(currentParentId);
+                    throw new ArgumentException("A specialty cannot be its own parent.");
+                }
+                // Check if creates a circular reference in the hierarchy
+                while (!string.IsNullOrEmpty(model.ParentSpecialtyId))
+                {
+                    var parent = await _unitOfWork.SpecialtyRepository.GetByIdAsync(model.ParentSpecialtyId);
                     if (parent == null)
                     {
                         break;
                     }
-
                     if (parent.SpecialtyId == id)
                     {
                         throw new ArgumentException("Cannot set parent that would create a circular reference in the hierarchy.");
                     }
 
-                    currentParentId = parent.ParentSpecialtyId;
                 }
             }
-
-            // Update properties
-            existingSpecialty.SpecialtyName = model.SpecialtyName;
-            existingSpecialty.Description = model.Description;
-            existingSpecialty.ParentSpecialtyId = model.ParentSpecialtyId;
-            existingSpecialty.Status = model.Status;
+            existingSpecialty = _mapper.Map<Specialties>(model);
             existingSpecialty.UpdatedByUserId = updatedByUserId;
             existingSpecialty.UpdatedAt = DateTime.UtcNow;
 
@@ -273,7 +260,7 @@ namespace OCMS_Services.Service
         #endregion
 
         #region Helper Methods
-        public async Task<string> GenerateSpecialtyId(string specialtyName, string parentSpecialtyId = null)
+        public async Task<string> GenerateSpecialtyId(string specialtyName, string? parentSpecialtyId = null)
         {
             string specialtyId;
 

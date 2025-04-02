@@ -9,14 +9,14 @@ namespace OCMS_BOs.RequestModel
 {
     public class CreateSpecialtyDTO
     {
-        [Required]
-        [StringLength(100, MinimumLength = 2)]
-        public string SpecialtyName { get; set; }
-
-        public string Description { get; set; }
+        [Required(ErrorMessage = "Name is required.")]
+        [StringLength(100, MinimumLength = 2, ErrorMessage = "SpecialtyName must contain 2 to 100 words.")]
+        public string SpecialtyName { get; set; } = string.Empty;
+        [Required(ErrorMessage = "Description is required.")]
+        [StringLength(255, MinimumLength = 2, ErrorMessage = "Description must contain 2 to 255 words.")]
+        public string Description { get; set; } = string.Empty;
 
         public string? ParentSpecialtyId { get; set; }
 
-        public int Status { get; set; } = 1;
     }
 }

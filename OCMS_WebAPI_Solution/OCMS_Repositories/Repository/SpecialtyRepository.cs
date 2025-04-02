@@ -18,5 +18,17 @@ namespace OCMS_Repositories.Repository
         {
             _context = context;
         }
+        public async Task<bool> isExistSpecialty(string? name=null, string? id = null)
+        {
+            if (name != null) { 
+            return await _context.Specialties.AnyAsync(s => s.SpecialtyName.Trim().ToLower() == name.Trim().ToLower());
+                
+            }
+            if (id != null)
+            {
+                return await _context.Specialties.AnyAsync(s => s.SpecialtyId.Trim().ToLower() == id.Trim().ToLower());
+            }
+            return false;
+        }
     }
 }

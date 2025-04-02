@@ -76,7 +76,7 @@ namespace OCMS_WebAPI.Controllers
             {
                 await _userService.UpdateUserDetailsAsync(id, updateDto);
                 var user = _userService.GetUserByIdAsync(id);
-                 return Ok(new { message = "User updated successfully!", user });
+                return Ok(new { message = "User updated successfully!", user });
             }
             catch (Exception ex)
             {
@@ -93,7 +93,7 @@ namespace OCMS_WebAPI.Controllers
             try
             {
                 await _userService.UpdatePasswordAsync(id, passwordDto);
-                return Ok(new { message = "Password updated successfully!"});
+                return Ok(new { message = "Password updated successfully!" });
             }
             catch (Exception ex)
             {
@@ -119,12 +119,12 @@ namespace OCMS_WebAPI.Controllers
         #endregion
 
         #region Reset Password
-        [HttpPost("reset-password")]
-        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDTO resetPasswordDto)
+        [HttpPost("reset-password/{token}")]
+        public async Task<IActionResult> ResetPassword([FromRoute] string token, [FromBody] string newpass)
         {
             try
             {
-                await _userService.ResetPasswordAsync(resetPasswordDto);
+                await _userService.ResetPasswordAsync(token,newpass);
                 return Ok("Password has been reset.");
             }
             catch (Exception ex)

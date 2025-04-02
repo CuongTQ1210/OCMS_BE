@@ -105,7 +105,7 @@ namespace OCMS_WebAPI.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Lỗi server: {ex.Message}");
+                return StatusCode(500, $"Server error: {ex.Message}");
             }
         }
         #endregion
