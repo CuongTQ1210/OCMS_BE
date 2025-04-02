@@ -25,7 +25,10 @@ namespace OCMS_Services.Service
         private readonly IUserRepository _userRepository;
         private readonly Lazy<ITrainingScheduleService> _trainingScheduleService;
         private readonly Lazy<ITrainingPlanService> _trainingPlanService;
-
+        private readonly ITrainingScheduleRepository _trainingScheduleRepository;
+        private readonly ICourseRepository _courseRepository;
+        private readonly IInstructorAssignmentRepository _instructorAssignmentRepository;
+        
         public RequestService(
             UnitOfWork unitOfWork,
             IMapper mapper,
@@ -33,13 +36,16 @@ namespace OCMS_Services.Service
             IUserRepository userRepository,
             ICandidateRepository candidateRepository,
             Lazy<ITrainingScheduleService> trainingScheduleService,
-            Lazy<ITrainingPlanService> trainingPlanService)
+            Lazy<ITrainingPlanService> trainingPlanService, ITrainingScheduleRepository trainingScheduleRepository, ICourseRepository courseRepository, IInstructorAssignmentRepository instructorAssignmentRepository)
         {
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _notificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
             _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
             _candidateRepository = candidateRepository ?? throw new ArgumentNullException(nameof(candidateRepository));
+            _trainingScheduleRepository = trainingScheduleRepository;
+            _courseRepository = courseRepository;
+            _instructorAssignmentRepository = instructorAssignmentRepository;
             _trainingScheduleService = trainingScheduleService ?? throw new ArgumentNullException(nameof(trainingScheduleService));
             _trainingPlanService = trainingPlanService ?? throw new ArgumentNullException(nameof(trainingPlanService));
         }
@@ -215,7 +221,7 @@ namespace OCMS_Services.Service
             request.ApprovedDate = DateTime.UtcNow;
             request.UpdatedAt = DateTime.UtcNow;
 
-            _unitOfWork.RequestRepository.UpdateAsync(request);
+            await _unitOfWork.RequestRepository.UpdateAsync(request);
             await _unitOfWork.SaveChangesAsync();
 
             // Notify the requester
@@ -229,6 +235,50 @@ namespace OCMS_Services.Service
             // Handle request type-specific actions
             switch (request.RequestType)
             {
+                case RequestType.NewPlan:
+                case RequestType.RecurrentPlan:
+                case RequestType.RelearnPlan:
+                    var plan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
+                    if (plan != null)
+                    {
+                        plan.TrainingPlanStatus = TrainingPlanStatus.Approved;
+                        plan.ApproveByUserId = approvedByUserId;
+                        plan.ApproveDate = DateTime.UtcNow;
+                        await _unitOfWork.TrainingPlanRepository.UpdateAsync(plan);
+                        // ✅ Approve all courses in the plan
+                        var courses = await _courseRepository.GetCoursesByTrainingPlanIdAsync(plan.PlanId);
+                        foreach (var course in courses)
+                        {
+                            course.Status = CourseStatus.Approved;
+                            await _unitOfWork.CourseRepository.UpdateAsync(course);
+                        }
+
+                        // ✅ Approve all schedules
+                        var schedules = await _trainingScheduleRepository.GetSchedulesByTrainingPlanIdAsync(plan.PlanId);
+                        foreach (var schedule in schedules)
+                        {
+                            schedule.Status = ScheduleStatus.Incoming;
+                            await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
+                        }
+
+                        // ✅ Approve all instructor assignments
+                        var instructorAssignments = await _instructorAssignmentRepository.GetAssignmentsByTrainingPlanIdAsync(plan.PlanId);
+                        foreach (var assignment in instructorAssignments)
+                        {
+                            assignment.RequestStatus = RequestStatus.Approved;
+                            await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
+                        }
+                        if (!string.IsNullOrEmpty(request.RequestUserId))
+                        {
+                            await _notificationService.SendNotificationAsync(
+                                request.RequestUserId,
+                                "Trainee Plan Approved",
+                                $"Your request for {request.RequestEntityId} has been approved.",
+                                $"{request.RequestType.ToString()}"
+                            );
+                        }
+                    }
+                    break;
                 case RequestType.CandidateImport:
                     var candidates = await _candidateRepository.GetCandidatesByImportRequestIdAsync(requestId);
                     if (candidates != null && candidates.Any())
@@ -332,7 +382,7 @@ namespace OCMS_Services.Service
                                 trainingPlan.ModifyDate = DateTime.UtcNow;
                                 trainingPlan.CreateByUserId = request.RequestUserId; // Or approvedByUserId
                                 trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Approved;
-                                _unitOfWork.TrainingPlanRepository.UpdateAsync(trainingPlan);
+                                await _unitOfWork.TrainingPlanRepository.UpdateAsync(trainingPlan);
                             }
                         }
                     }
@@ -365,7 +415,7 @@ namespace OCMS_Services.Service
             request.Status = RequestStatus.Rejected;
             request.UpdatedAt = DateTime.UtcNow;
 
-            _unitOfWork.RequestRepository.UpdateAsync(request);
+            await _unitOfWork.RequestRepository.UpdateAsync(request);
             await _unitOfWork.SaveChangesAsync();
 
             // Tailor notification message based on RequestType
@@ -374,6 +424,46 @@ namespace OCMS_Services.Service
 
             switch (request.RequestType)
             {
+                case RequestType.NewPlan:
+                case RequestType.RecurrentPlan:
+                case RequestType.RelearnPlan:
+                    var plan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
+                    if (plan != null)
+                    {
+                        plan.TrainingPlanStatus = TrainingPlanStatus.Rejected;
+                        plan.ApproveByUserId = null; // Clear approval details
+                        plan.ApproveDate = null;
+
+                        await _unitOfWork.TrainingPlanRepository.UpdateAsync(plan);
+
+                        // ❌ Reject all associated courses
+                        var courses = await _courseRepository.GetCoursesByTrainingPlanIdAsync(plan.PlanId);
+                        foreach (var course in courses)
+                        {
+                            course.Status = CourseStatus.Rejected;
+                            await _unitOfWork.CourseRepository.UpdateAsync(course);
+                        }
+
+                        // ❌ Reject all associated schedules
+                        var schedules = await _trainingScheduleRepository.GetSchedulesByTrainingPlanIdAsync(plan.PlanId);
+                        foreach (var schedule in schedules)
+                        {
+                            schedule.Status = ScheduleStatus.Canceled; // Use Canceled instead of Rejected (if applicable)
+                            await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
+                        }
+
+                        // ❌ Reject all instructor assignments
+                        var instructorAssignments = await _instructorAssignmentRepository.GetAssignmentsByTrainingPlanIdAsync(plan.PlanId);
+                        foreach (var assignment in instructorAssignments)
+                        {
+                            assignment.RequestStatus = RequestStatus.Rejected;
+                            await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
+                        }
+                    }
+
+                    notificationMessage = $"Your training plan request (ID: {request.RequestEntityId}) has been rejected. Reason: {rejectionReason}";
+                    break;
+
                 case RequestType.Update:
                     notificationMessage = $"Your request to update (ID: {request.RequestEntityId}) has been rejected. Reason: {rejectionReason}";
                     break;

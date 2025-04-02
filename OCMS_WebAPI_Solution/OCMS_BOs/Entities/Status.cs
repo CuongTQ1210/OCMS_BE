@@ -118,6 +118,6 @@ namespace OCMS_BOs.Entities
     }
     public enum ScheduleStatus
     {
-        Incoming=0, Finished=1 , Canceled=2
+        Pending=0, Incoming=1 , Canceled=2
     }
 }

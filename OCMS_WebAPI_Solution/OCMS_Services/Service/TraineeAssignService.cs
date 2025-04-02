@@ -241,6 +241,14 @@ namespace OCMS_Services.Service
                         return result;
                     }
 
+                    // Read CourseId from cell B1
+                    string courseId = worksheet.Cells[1, 2].GetValue<string>(); // B1 (row 1, column 2)
+                    if (string.IsNullOrEmpty(courseId) || !existingCourseIds.Contains(courseId))
+                    {
+                        result.Errors.Add($"Invalid or missing CourseId '{courseId}' in cell B1.");
+                        return result;
+                    }
+
                     var lastTraineeAssignId = await GetLastTraineeAssignIdAsync();
                     int lastIdNumber = 0;
                     if (!string.IsNullOrEmpty(lastTraineeAssignId))
@@ -252,21 +260,18 @@ namespace OCMS_Services.Service
                     var traineeAssignments = new List<TraineeAssign>();
                     var processedUserIds = new HashSet<string>();
                     int rowCount = worksheet.Dimension.Rows;
-                    result.TotalRecords = rowCount - 1;
+                    result.TotalRecords = rowCount - 2; // Starting from row 3, so subtract 2 (row 1 and 2 are headers)
 
-                    for (int row = 2; row <= rowCount; row++)
+                    // Start from row 3
+                    for (int row = 3; row <= rowCount; row++)
                     {
                         if (IsRowEmpty(worksheet, row)) continue;
 
-                        string courseId = worksheet.Cells[row, 1].GetValue<string>();
-                        if (string.IsNullOrEmpty(courseId) || !existingCourseIds.Contains(courseId))
-                        {
-                            result.FailedCount++;
-                            result.Errors.Add($"Error at row {row}: Invalid or missing CourseId '{courseId}'.");
-                            continue;
-                        }
+                        // Read UserId from column A (1) - A3, A4, A视角
 
-                        string userId = worksheet.Cells[row, 2].GetValue<string>();
+                        string userId = worksheet.Cells[row, 1].GetValue<string>(); // Column A (A3, A4, A5, ...)
+                                                                                    // Log the UserId being read
+                        //result.Errors.Add($"Debug: Row {row} - UserId (A{row}): '{userId}'");
                         if (string.IsNullOrEmpty(userId))
                         {
                             result.FailedCount++;
@@ -282,10 +287,10 @@ namespace OCMS_Services.Service
                         }
 
                         var user = userDict[userId];
-                        if (user.Role.RoleName != "Trainee")
+                        if (user.UserId == null || user.RoleId != 7)
                         {
                             result.FailedCount++;
-                            result.Errors.Add($"Error at row {row}: User with ID '{userId}' is not a Trainee. Role: {user.Role}.");
+                            result.Errors.Add($"Error at row {row}: User with ID '{userId}' is not a Trainee. Role: {(user.RoleId != null ? user.RoleId.ToString() : "None")}.");
                             continue;
                         }
 
@@ -296,7 +301,10 @@ namespace OCMS_Services.Service
                             continue;
                         }
 
-                        string notes = worksheet.Cells[row, 3].GetValue<string>();
+                        // Read Notes from column B (2) - B3, B4, B5, ...
+                        string notes = worksheet.Cells[row, 2].Text ?? "";
+                        // Log the Notes being read
+                        //result.Errors.Add($"Debug: Row {row} - Notes (B{row}): '{notes}'");
 
                         lastIdNumber++;
                         string traineeAssignId = $"TA{lastIdNumber:D5}";
@@ -308,7 +316,7 @@ namespace OCMS_Services.Service
                             CourseId = courseId,
                             AssignDate = DateTime.UtcNow,
                             RequestStatus = RequestStatus.Pending,
-                            AssignByUserId= importedByUserId,
+                            AssignByUserId = importedByUserId,
                             ApproveByUserId = null,
                             ApprovalDate = null,
                             Notes = notes
@@ -319,14 +327,6 @@ namespace OCMS_Services.Service
                         processedUserIds.Add(userId);
                         result.SuccessCount++;
                     }
-
-                    //if (processedUserIds.Count < 10)
-                    //{
-                    //    result.Errors.Add($"Import failed: The list must contain at least 10 unique users. Found {processedUserIds.Count} unique users.");
-                    //    result.SuccessCount = 0;
-                    //    result.FailedCount = result.TotalRecords;
-                    //    return result;
-                    //}
 
                     if (result.FailedCount > 0)
                     {
