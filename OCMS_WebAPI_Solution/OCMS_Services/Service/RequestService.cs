@@ -244,8 +244,7 @@ namespace OCMS_Services.Service
                         plan.TrainingPlanStatus = TrainingPlanStatus.Approved;
                         plan.ApproveByUserId = approvedByUserId;
                         plan.ApproveDate = DateTime.UtcNow;
-                        _unitOfWork.TrainingPlanRepository.UpdateAsync(plan);
-
+                        await _unitOfWork.TrainingPlanRepository.UpdateAsync(plan);
                         // ✅ Approve all courses in the plan
                         var courses = await _courseRepository.GetCoursesByTrainingPlanIdAsync(plan.PlanId);
                         foreach (var course in courses)
