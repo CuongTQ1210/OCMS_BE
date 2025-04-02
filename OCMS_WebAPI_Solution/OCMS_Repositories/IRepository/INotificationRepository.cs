@@ -10,7 +10,6 @@ namespace OCMS_Repositories.IRepository
 {
     public interface INotificationRepository
     {
-        Task AddAsync(Notification notification);
         Task<IEnumerable<Notification>> GetUserNotificationsAsync(string userId);
         Task MarkAsReadAsync(int notificationId);
 

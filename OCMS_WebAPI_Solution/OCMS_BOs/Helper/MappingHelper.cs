@@ -38,6 +38,24 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedByUserId, opt => opt.Ignore());
 
+            CreateMap<CreateSpecialtyDTO, Specialties>()
+                .ForMember(dest => dest.SpecialtyId, opt => opt.Ignore())
+                .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
+                .ForMember(dest => dest.CreatedByUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
+                .ForMember(dest => dest.UpdatedByUserId, opt => opt.Ignore());
+
+            // UpdateSpecialtyDTO to Specialties mapping
+            CreateMap<UpdateSpecialtyDTO, Specialties>()
+                .ForMember(dest => dest.SpecialtyId, opt => opt.Ignore())
+                .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
+                .ForMember(dest => dest.CreatedByUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
+                .ForMember(dest => dest.UpdatedByUserId, opt => opt.Ignore());
+
+            CreateMap<Specialties, SpecialtyTreeModel>()
+                .ForMember(dest => dest.Children, opt => opt.Ignore());
+
             CreateMap<Request, ViewModel.RequestModel>()
                 .ForMember(dest => dest.RequestById, opt => opt.MapFrom(src => src.RequestUserId))
                 .ForMember(dest => dest.ApprovedById, opt => opt.MapFrom(src => src.ApprovedBy))
