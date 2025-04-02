@@ -1,4 +1,5 @@
 ﻿using OCMS_BOs.Entities;
+using OCMS_BOs.RequestModel;
 using OCMS_BOs.ViewModel;
 using System;
 using System.Collections.Generic;
@@ -10,10 +11,18 @@ namespace OCMS_Services.IService
 {
     public interface ISpecialtyService
     {
-        Task<IEnumerable<SpecialtyModel>> GetAllSpecialtiesAsync();
-        Task<SpecialtyModel> GetSpecialtyByIdAsync(string id);
-        Task<SpecialtyModel> AddSpecialtyAsync(SpecialtyModel specialty, string createdByUserId);
-        Task<SpecialtyModel> UpdateSpecialtyAsync(string id, SpecialtyModel specialty, string updatedByUserId);
+        Task<SpecialtyModel> AddSpecialtyAsync(CreateSpecialtyDTO model, string createdByUserId);
+
+        Task<SpecialtyModel> UpdateSpecialtyAsync(string id, UpdateSpecialtyDTO model, string updatedByUserId);
+
         Task<bool> DeleteSpecialtyAsync(string id);
+
+        Task<IEnumerable<SpecialtyModel>> GetAllSpecialtiesAsync();
+
+        Task<IEnumerable<SpecialtyTreeModel>> GetSpecialtyTreeAsync();
+
+        Task<SpecialtyModel> GetSpecialtyByIdAsync(string id);
+
+        Task<string> GenerateSpecialtyId(string specialtyName, string parentSpecialtyId = null);
     }
 }

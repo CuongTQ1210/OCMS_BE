@@ -18,6 +18,7 @@ namespace OCMS_Repositories.Repository
         {
             _context = context;
         }
+
         public async Task<IEnumerable<Notification>> GetUserNotificationsAsync(string userId)
         {
             return await _context.Notifications.Where(n => n.UserId == userId).ToListAsync();
