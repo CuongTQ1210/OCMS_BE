@@ -221,7 +221,7 @@ namespace OCMS_Services.Service
             request.ApprovedDate = DateTime.UtcNow;
             request.UpdatedAt = DateTime.UtcNow;
 
-            _unitOfWork.RequestRepository.UpdateAsync(request);
+            await _unitOfWork.RequestRepository.UpdateAsync(request);
             await _unitOfWork.SaveChangesAsync();
 
             // Notify the requester
@@ -244,14 +244,14 @@ namespace OCMS_Services.Service
                         plan.TrainingPlanStatus = TrainingPlanStatus.Approved;
                         plan.ApproveByUserId = approvedByUserId;
                         plan.ApproveDate = DateTime.UtcNow;
-                        _unitOfWork.TrainingPlanRepository.UpdateAsync(plan);
+                        await _unitOfWork.TrainingPlanRepository.UpdateAsync(plan);
 
                         // ✅ Approve all courses in the plan
                         var courses = await _courseRepository.GetCoursesByTrainingPlanIdAsync(plan.PlanId);
                         foreach (var course in courses)
                         {
                             course.Status = CourseStatus.Approved;
-                            _unitOfWork.CourseRepository.UpdateAsync(course);
+                            await _unitOfWork.CourseRepository.UpdateAsync(course);
                         }
 
                         // ✅ Approve all schedules
@@ -259,7 +259,7 @@ namespace OCMS_Services.Service
                         foreach (var schedule in schedules)
                         {
                             schedule.Status = ScheduleStatus.Incoming;
-                            _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
+                            await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
                         }
 
                         // ✅ Approve all instructor assignments
@@ -267,7 +267,7 @@ namespace OCMS_Services.Service
                         foreach (var assignment in instructorAssignments)
                         {
                             assignment.RequestStatus = RequestStatus.Approved;
-                            _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
+                            await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
                         }
                         if (!string.IsNullOrEmpty(request.RequestUserId))
                         {
@@ -383,7 +383,7 @@ namespace OCMS_Services.Service
                                 trainingPlan.ModifyDate = DateTime.UtcNow;
                                 trainingPlan.CreateByUserId = request.RequestUserId; // Or approvedByUserId
                                 trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Approved;
-                                _unitOfWork.TrainingPlanRepository.UpdateAsync(trainingPlan);
+                                await _unitOfWork.TrainingPlanRepository.UpdateAsync(trainingPlan);
                             }
                         }
                     }
@@ -416,7 +416,7 @@ namespace OCMS_Services.Service
             request.Status = RequestStatus.Rejected;
             request.UpdatedAt = DateTime.UtcNow;
 
-            _unitOfWork.RequestRepository.UpdateAsync(request);
+            await _unitOfWork.RequestRepository.UpdateAsync(request);
             await _unitOfWork.SaveChangesAsync();
 
             // Tailor notification message based on RequestType
@@ -435,14 +435,14 @@ namespace OCMS_Services.Service
                         plan.ApproveByUserId = null; // Clear approval details
                         plan.ApproveDate = null;
 
-                        _unitOfWork.TrainingPlanRepository.UpdateAsync(plan);
+                        await _unitOfWork.TrainingPlanRepository.UpdateAsync(plan);
 
                         // ❌ Reject all associated courses
                         var courses = await _courseRepository.GetCoursesByTrainingPlanIdAsync(plan.PlanId);
                         foreach (var course in courses)
                         {
                             course.Status = CourseStatus.Rejected;
-                            _unitOfWork.CourseRepository.UpdateAsync(course);
+                            await _unitOfWork.CourseRepository.UpdateAsync(course);
                         }
 
                         // ❌ Reject all associated schedules
@@ -450,7 +450,7 @@ namespace OCMS_Services.Service
                         foreach (var schedule in schedules)
                         {
                             schedule.Status = ScheduleStatus.Canceled; // Use Canceled instead of Rejected (if applicable)
-                            _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
+                            await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
                         }
 
                         // ❌ Reject all instructor assignments
@@ -458,7 +458,7 @@ namespace OCMS_Services.Service
                         foreach (var assignment in instructorAssignments)
                         {
                             assignment.RequestStatus = RequestStatus.Rejected;
-                            _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
+                            await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
                         }
                     }
 
