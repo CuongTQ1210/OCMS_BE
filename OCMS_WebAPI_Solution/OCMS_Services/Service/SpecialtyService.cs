@@ -38,18 +38,12 @@ namespace OCMS_Services.Service
             string specialtyId = await GenerateSpecialtyId(model.SpecialtyName, model.ParentSpecialtyId);
 
             // Create new specialty entity
-            var specialty = new Specialties
-            {
-                SpecialtyId = specialtyId,
-                SpecialtyName = model.SpecialtyName,
-                Description = model.Description,
-                ParentSpecialtyId = model.ParentSpecialtyId,
-                CreatedByUserId = createdByUserId,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedByUserId = createdByUserId,
-                UpdatedAt = DateTime.UtcNow,
-                Status = model.Status
-            };
+            var specialty = _mapper.Map<Specialties>(model);
+            specialty.SpecialtyId = specialtyId;
+            specialty.CreatedByUserId = createdByUserId;
+            specialty.CreatedAt = DateTime.UtcNow;
+            specialty.UpdatedByUserId = createdByUserId;
+            specialty.UpdatedAt = DateTime.UtcNow;
 
             await _unitOfWork.SpecialtyRepository.AddAsync(specialty);
             await _unitOfWork.SaveChangesAsync();
@@ -257,11 +251,7 @@ namespace OCMS_Services.Service
                 }
             }
 
-            // Update properties
-            existingSpecialty.SpecialtyName = model.SpecialtyName;
-            existingSpecialty.Description = model.Description;
-            existingSpecialty.ParentSpecialtyId = model.ParentSpecialtyId;
-            existingSpecialty.Status = model.Status;
+            _mapper.Map(model, existingSpecialty);
             existingSpecialty.UpdatedByUserId = updatedByUserId;
             existingSpecialty.UpdatedAt = DateTime.UtcNow;
 
