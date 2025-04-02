@@ -43,8 +43,7 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedByUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
-                .ForMember(dest => dest.UpdatedByUserId, opt => opt.Ignore())
-                .ForMember(dest => dest.ParentSpecialty, opt => opt.Ignore());
+                .ForMember(dest => dest.UpdatedByUserId, opt => opt.Ignore());
 
             // UpdateSpecialtyDTO to Specialties mapping
             CreateMap<UpdateSpecialtyDTO, Specialties>()
@@ -52,8 +51,7 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedByUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
-                .ForMember(dest => dest.UpdatedByUserId, opt => opt.Ignore())
-                .ForMember(dest => dest.ParentSpecialty, opt => opt.Ignore());
+                .ForMember(dest => dest.UpdatedByUserId, opt => opt.Ignore());
 
             CreateMap<Specialties, SpecialtyTreeModel>()
                 .ForMember(dest => dest.Children, opt => opt.Ignore());
