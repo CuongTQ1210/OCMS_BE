@@ -435,8 +435,7 @@ namespace OCMS_Services.Service
                         plan.ApproveByUserId = null; // Clear approval details
                         plan.ApproveDate = null;
 
-                        _unitOfWork.TrainingPlanRepository.UpdateAsync(plan);
-
+                        await _unitOfWork.TrainingPlanRepository.UpdateAsync(plan);
                         // ❌ Reject all associated courses
                         var courses = await _courseRepository.GetCoursesByTrainingPlanIdAsync(plan.PlanId);
                         foreach (var course in courses)
