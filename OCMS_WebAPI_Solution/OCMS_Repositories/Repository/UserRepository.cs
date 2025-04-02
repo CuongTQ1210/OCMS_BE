@@ -32,5 +32,11 @@ namespace OCMS_Repositories.Repository
                 .Where(u => u.Role.RoleName == roleName) 
                 .ToListAsync();
         }
+        public async Task<List<User>> GetAllAsync()
+        {
+            return await _context.Users
+                .Include(u => u.Role) 
+                .ToListAsync();
+        }
     }
 }
