@@ -30,5 +30,12 @@ namespace OCMS_Repositories.Repository
                 .OrderByDescending(c => c.CourseId)
                 .FirstOrDefaultAsync();
         }
+
+        public async Task<IEnumerable<Course>> GetCoursesByTrainingPlanIdAsync(string trainingPlanId)
+        {
+            return await _context.Courses
+                .Where(c => c.TrainingPlanId == trainingPlanId)
+                .ToListAsync();
+        }
     }
 }
