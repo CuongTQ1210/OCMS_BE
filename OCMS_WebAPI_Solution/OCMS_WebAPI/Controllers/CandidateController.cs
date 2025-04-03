@@ -41,7 +41,7 @@ namespace OCMS_WebAPI.Controllers
                     // Xử lý kết quả
                     if (result.Errors.Count > 0)
                     {
-                        return Ok(new { Message = "Import completed with errors.", Result = result });
+                        return BadRequest(new { Message = "Import completed with errors.", Result = result });
                     }
 
                     return Ok(new { Message = "Import successful.", Result = result });

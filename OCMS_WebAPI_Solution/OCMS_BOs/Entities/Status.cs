@@ -52,8 +52,9 @@ namespace OCMS_BOs.Entities
 
     public enum  Progress
     {
-        Ongoing = 0,
-        Completed = 1
+        Pending = 0,
+        Ongoing = 1,
+        Completed = 2
     }
     public enum DepartmentStatus
     {

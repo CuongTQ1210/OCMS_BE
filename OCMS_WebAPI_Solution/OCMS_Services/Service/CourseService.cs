@@ -26,7 +26,7 @@ namespace OCMS_Services.Service
 
         }
 
-        public async Task<CourseModel> CreateCourseAsync(CourseDTO dto, string createdByUserId)
+        public async Task<CourseModel> CreateCourseAsync(CreateCourseDTO dto, string createdByUserId)
         {
 
             
@@ -34,17 +34,14 @@ namespace OCMS_Services.Service
             if (trainingPlan == null)
                 throw new Exception("Training Plan ID does not exist. Please provide a valid Training Plan.");
             var course = _mapper.Map<Course>(dto);
-            course.CourseId = dto.CourseId;
-            course.CourseName = dto.CourseName;
-            course.TrainingPlanId= dto.TrainingPlanId;
             course.TrainingPlan = trainingPlan;
             course.CreatedByUserId = createdByUserId;
             course.CreatedAt = DateTime.UtcNow;
             course.UpdatedAt = DateTime.UtcNow;
             course.Status = CourseStatus.Pending;
+            course.Progress = Progress.Pending;
             await _unitOfWork.CourseRepository.AddAsync(course);
             await _unitOfWork.SaveChangesAsync();
-
             return _mapper.Map<CourseModel>(course);
         }
 
@@ -86,7 +83,6 @@ namespace OCMS_Services.Service
             _mapper.Map(dto, course);
             course.TrainingPlanId = dto.TrainingPlanId;
             course.UpdatedAt = DateTime.UtcNow;
-
             _unitOfWork.CourseRepository.UpdateAsync(course);
             await _unitOfWork.SaveChangesAsync();
 

@@ -24,7 +24,7 @@ namespace OCMS_WebAPI.Controllers
         /// </summary>
         [HttpPost("create")]
         [CustomAuthorize("Admin", "Training staff")]
-        public async Task<IActionResult> CreateCourse([FromBody] CourseDTO dto)
+        public async Task<IActionResult> CreateCourse([FromBody] CreateCourseDTO dto)
         {
             try
             {
