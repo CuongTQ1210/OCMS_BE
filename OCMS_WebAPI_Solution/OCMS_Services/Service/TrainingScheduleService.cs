@@ -75,59 +75,44 @@ namespace OCMS_Services.Service
         /// </summary>
         public async Task<TrainingScheduleModel> CreateTrainingScheduleAsync(TrainingScheduleDTO dto, string createdByUserId)
         {
-            if (dto == null)
-                throw new ArgumentNullException(nameof(dto));
             if (string.IsNullOrEmpty(createdByUserId))
                 throw new ArgumentException("CreatedBy user ID cannot be null or empty.", nameof(createdByUserId));
 
-            // Validate SubjectID
-            var subjectExists = await _unitOfWork.SubjectRepository.ExistsAsync(s => s.SubjectId == dto.SubjectID);
-            if (!subjectExists)
-                throw new ArgumentException($"Subject with ID {dto.SubjectID} does not exist.");
-
-            // Validate InstructorID (assuming it's in the DTO)
-            var instructorExists = await _unitOfWork.InstructorAssignmentRepository.ExistsAsync(i => i.InstructorId == dto.InstructorID);
-            if (!instructorExists)
-                throw new ArgumentException($"Instructor with ID {dto.InstructorID} does not exist.");
-
-            // Validate CreatedBy user
             var userExists = await _unitOfWork.UserRepository.ExistsAsync(u => u.UserId == createdByUserId);
             if (!userExists)
                 throw new ArgumentException($"User with ID {createdByUserId} does not exist.");
 
-            // Generate ScheduleID in the format SCD-XXXXXX
+            await ValidateTrainingScheduleAsync(dto);
+
+            // Generate unique ScheduleID
             string scheduleId;
             do
             {
                 scheduleId = GenerateScheduleId();
             } while (await _unitOfWork.TrainingScheduleRepository.ExistsAsync(s => s.ScheduleID == scheduleId));
 
-            // Map DTO to entity
-            var schedule = _mapper.Map<TrainingSchedule>(dto);
-            schedule.ScheduleID = scheduleId;
-            schedule.SubjectID= dto.SubjectID;
-            schedule.InstructorID = dto.InstructorID;
-            schedule.CreatedBy = createdByUserId;
-            schedule.CreatedDate = DateTime.UtcNow;
-            schedule.ModifiedDate = DateTime.UtcNow;
-
-            // Set default values for fields not in DTO
-            schedule.StartDateTime = DateTime.UtcNow; // Adjust as needed
-            schedule.EndDateTime = DateTime.UtcNow.AddHours(1); // Adjust as needed
-
-            await _unitOfWork.TrainingScheduleRepository.AddAsync(schedule);
-            await _unitOfWork.SaveChangesAsync();
-
             // Create or update InstructorAssignment
             await ManageInstructorAssignment(dto.SubjectID, dto.InstructorID, createdByUserId);
 
-            // Fetch with related data
+            // Map DTO to entity
+            var schedule = _mapper.Map<TrainingSchedule>(dto);
+            schedule.ScheduleID = scheduleId;
+            schedule.CreatedBy = createdByUserId;
+            schedule.CreatedDate = DateTime.UtcNow;
+            schedule.ModifiedDate = DateTime.UtcNow;
+            schedule.Status = ScheduleStatus.Pending;
+            schedule.StartDateTime = dto.StartDay;
+            schedule.EndDateTime = dto.EndDay;
+            await _unitOfWork.TrainingScheduleRepository.AddAsync(schedule);
+            await _unitOfWork.SaveChangesAsync();
+
             var createdSchedule = await _unitOfWork.TrainingScheduleRepository.GetAsync(
                 s => s.ScheduleID == schedule.ScheduleID,
                 s => s.Subject,
                 s => s.Instructor,
                 s => s.CreatedByUser
             );
+
             return _mapper.Map<TrainingScheduleModel>(createdSchedule);
         }
 
@@ -136,24 +121,14 @@ namespace OCMS_Services.Service
         {
             if (string.IsNullOrEmpty(scheduleId))
                 throw new ArgumentException("Schedule ID cannot be null or empty.", nameof(scheduleId));
-            if (dto == null)
-                throw new ArgumentNullException(nameof(dto));
 
             var schedule = await _unitOfWork.TrainingScheduleRepository.GetByIdAsync(scheduleId);
             if (schedule == null)
                 throw new KeyNotFoundException($"Training schedule with ID {scheduleId} not found.");
 
-            // Validate SubjectID
-            var subjectExists = await _unitOfWork.SubjectRepository.ExistsAsync(s => s.SubjectId == dto.SubjectID);
-            if (!subjectExists)
-                throw new ArgumentException($"Subject with ID {dto.SubjectID} does not exist.");
+            await ValidateTrainingScheduleAsync(dto, scheduleId);
 
-            // Validate InstructorID
-            var instructorExists = await _unitOfWork.InstructorAssignmentRepository.ExistsAsync(i => i.InstructorId == dto.InstructorID);
-            if (!instructorExists)
-                throw new ArgumentException($"Instructor with ID {dto.InstructorID} does not exist.");
-
-            // Apply update directly (No approval request)
+            // Apply update
             _mapper.Map(dto, schedule);
             schedule.ModifiedDate = DateTime.UtcNow;
 
@@ -169,8 +144,10 @@ namespace OCMS_Services.Service
                 s => s.Instructor,
                 s => s.CreatedByUser
             );
+
             return _mapper.Map<TrainingScheduleModel>(updatedSchedule);
         }
+
 
         #endregion
 
@@ -246,5 +223,85 @@ namespace OCMS_Services.Service
             string guidPart = Guid.NewGuid().ToString("N").Substring(0, 6).ToUpper(); // Get first 6 characters
             return $"SCD-{guidPart}";
         }
+        private async Task ValidateTrainingScheduleAsync(TrainingScheduleDTO dto, string scheduleId = null)
+        {
+            if (dto == null)
+                throw new ArgumentNullException(nameof(dto));
+
+            // Validate SubjectID
+            var subjectExists = await _unitOfWork.SubjectRepository.ExistsAsync(s => s.SubjectId == dto.SubjectID);
+            if (!subjectExists)
+                throw new ArgumentException($"Subject with ID {dto.SubjectID} does not exist.");
+
+            // Validate InstructorID
+            var instructor = await _unitOfWork.UserRepository.GetAsync(
+                u => u.UserId.Equals(dto.InstructorID),
+                u => u.Role
+            );
+            if (instructor == null)
+                throw new ArgumentException($"Instructor with ID {dto.InstructorID} does not exist.");
+            if (instructor.RoleId == null || instructor.RoleId != 5)
+                throw new ArgumentException($"User with ID {dto.InstructorID} is not an Instructor.");
+
+            // Validate DaysOfWeek
+            if (dto.DaysOfWeek != null)
+            {
+                foreach (var day in dto.DaysOfWeek)
+                {
+                    if (day < 0 || day > 6)
+                        throw new ArgumentException($"Invalid day of week value: {day}. Must be between 0 (Sunday) and 6 (Saturday).");
+                }
+            }
+
+            // Validate ClassTime
+            var allowedTimes = new List<TimeOnly>
+    {
+        new(7, 0),  new(8, 0),  new(9, 0), new(11, 0), new(12, 0), new(13, 0),
+        new(14, 0), new(15, 0), new(16, 0), new(17, 0), new(18, 0), new(19, 0), new(20, 0)
+    };
+
+            if (!allowedTimes.Contains(dto.ClassTime))
+            {
+                throw new ArgumentException(
+                    $"ClassTime must be one of the following: {string.Join(", ", allowedTimes.Select(t => t.ToString("HH:mm")))}. Provided time: {dto.ClassTime:HH:mm:ss}."
+                );
+            }
+
+            // Validate StartDateTime and EndDateTime
+            if (dto.StartDay == default)
+                throw new ArgumentException("StartDateTime is required.");
+            if (dto.EndDay == default)
+                throw new ArgumentException("EndDateTime is required.");
+            if (dto.StartDay >= dto.EndDay)
+                throw new ArgumentException("StartDateTime must be before EndDateTime.");
+            if (dto.StartDay < DateTime.UtcNow)
+                throw new ArgumentException("StartDateTime cannot be in the past.");
+
+            // Validate for overlapping schedules (excluding current schedule in case of update)
+            var existingSchedules = await _unitOfWork.TrainingScheduleRepository
+                .GetAllAsync(s => s.Location == dto.Location && s.Room == dto.Room && s.ClassTime == dto.ClassTime);
+
+            foreach (var existingSchedule in existingSchedules)
+            {
+                if (scheduleId != null && existingSchedule.ScheduleID == scheduleId) continue; // Ignore self in update
+
+                if (dto.StartDay <= existingSchedule.EndDateTime && dto.EndDay >= existingSchedule.StartDateTime)
+                {
+                    var existingDays = existingSchedule.DaysOfWeek?.Select(d => (int)d) ?? new List<int>();
+                    var newDays = dto.DaysOfWeek ?? new List<int>();
+                    var commonDays = existingDays.Intersect(newDays).ToList();
+
+                    if (commonDays.Any())
+                    {
+                        throw new ArgumentException(
+                            $"A schedule already exists at {dto.Location}, {dto.Room} on " +
+                            $"{string.Join(", ", commonDays.Select(d => ((DayOfWeek)d).ToString()))} " +
+                            $"at {dto.ClassTime:HH:mm} during {existingSchedule.StartDateTime:yyyy-MM-dd} to {existingSchedule.EndDateTime:yyyy-MM-dd}."
+                        );
+                    }
+                }
+            }
+        }
+
     }
 }

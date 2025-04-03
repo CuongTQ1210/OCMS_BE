@@ -23,5 +23,9 @@ namespace OCMS_BOs.ViewModel
         public DateTime ModifiedDate { get; set; }
         public string Status { get; set; } // incoming, completed, cancelled
         public string Notes { get; set; }
+
+        public string DaysOfWeek { get; set; } // e.g., "Monday, Wednesday, Friday"
+
+        public TimeOnly ClassTime { get; set; } // e.g., "09:00"
     }
 }

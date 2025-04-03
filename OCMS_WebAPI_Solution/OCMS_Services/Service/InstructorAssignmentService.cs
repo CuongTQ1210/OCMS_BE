@@ -70,7 +70,7 @@ namespace OCMS_Services.Service
                 throw new ArgumentException($"Subject with ID {dto.SubjectId} does not exist.");
 
             // Validate InstructorID
-            var instructorExists = await _unitOfWork.InstructorAssignmentRepository.ExistsAsync(i => i.InstructorId == dto.InstructorId);
+            var instructorExists = await _unitOfWork.UserRepository.ExistsAsync(i => i.UserId == dto.InstructorId);
             if (!instructorExists)
                 throw new ArgumentException($"Instructor with ID {dto.InstructorId} does not exist.");
 
