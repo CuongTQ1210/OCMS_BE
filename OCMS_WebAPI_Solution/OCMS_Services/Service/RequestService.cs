@@ -121,8 +121,15 @@ namespace OCMS_Services.Service
                 newRequest.RequestType == RequestType.CreateRecurrent ||
                 newRequest.RequestType == RequestType.CreateRelearn)
             {
+                var plan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(requestDto.RequestEntityId)
+    ?? throw new KeyNotFoundException("Plan not found!");
+
+                plan.TrainingPlanStatus = TrainingPlanStatus.Pending;
+                await _unitOfWork.TrainingPlanRepository.UpdateAsync(plan);
+                await _unitOfWork.SaveChangesAsync(); 
                 var directors = await _userRepository.GetUsersByRoleAsync("Training staff");
-                foreach (var director in directors)
+                
+                    foreach (var director in directors)
                 {
                     await _notificationService.SendNotificationAsync(
                         director.UserId,
@@ -180,12 +187,10 @@ namespace OCMS_Services.Service
                 case RequestType.RelearnPlan:
                 case RequestType.PlanChange:
                 case RequestType.PlanDelete:
-                    return await _unitOfWork.TrainingPlanRepository.ExistsAsync(tp => tp.PlanId == entityId);
-
                 case RequestType.CreateNew:
                 case RequestType.CreateRecurrent:
                 case RequestType.CreateRelearn:
-                    return await _unitOfWork.CourseRepository.ExistsAsync(c => c.CourseId == entityId);
+                    return await _unitOfWork.TrainingPlanRepository.ExistsAsync(tp => tp.PlanId == entityId);
 
                 case RequestType.Complaint:
                     return await _unitOfWork.SubjectRepository.ExistsAsync(s => s.SubjectId == entityId);
@@ -398,7 +403,7 @@ namespace OCMS_Services.Service
                     }
                     break;
 
-                    // Add other RequestType cases as needed (e.g., NewPlan, RecurrentPlan)
+                    
             }
 
             return true;

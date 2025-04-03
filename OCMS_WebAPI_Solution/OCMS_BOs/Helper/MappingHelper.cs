@@ -5,6 +5,7 @@ using OCMS_BOs.ResponseModel;
 using OCMS_BOs.ViewModel;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -94,6 +95,8 @@ namespace OCMS_BOs.Helper
             // Course Mapping
             CreateMap<Course, CourseModel>()
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
+                .ForMember(dest => dest.CourseLevel, opt => opt.MapFrom(src => src.CourseLevel.ToString()))
+                .ForMember(dest => dest.Progress, opt => opt.MapFrom(src => src.Progress.ToString()))
                 .ForMember(dest => dest.Trainees, opt => opt.MapFrom(src => src.Trainees))
                 .ForMember(dest => dest.Subjects, opt => opt.MapFrom(src => src.Subjects))
                 .ReverseMap();
@@ -126,20 +129,51 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.Request, opt => opt.Ignore()); // Ignore navigation property
             CreateMap<TraineeAssign, TraineeAssignDTO>();
             // Instructor Assignment Mapping
+            CreateMap<InstructorAssignmentDTO, InstructorAssignment>()
+    .ForMember(dest => dest.AssignmentId, opt => opt.Ignore()) // AssignmentId should be generated, not mapped
+    .ForMember(dest => dest.AssignByUserId, opt => opt.Ignore()) // AssignByUserId is set elsewhere
+    .ForMember(dest => dest.AssignDate, opt => opt.MapFrom(src => DateTime.UtcNow)) // Set default assign date
+    .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => "Pending")) // Default status if needed
+    .ReverseMap();
+
             CreateMap<InstructorAssignment, InstructorAssignmentModel>()
-                .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => src.RequestStatus.ToString()))
+                .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => src.RequestStatus.ToString())) // Ensure status is a string
                 .ReverseMap();
+
+
+            // Mapping from TrainingSchedule to TrainingScheduleModel
             CreateMap<TrainingSchedule, TrainingScheduleModel>()
                 .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.Subject.SubjectName))
                 .ForMember(dest => dest.InstructorName, opt => opt.MapFrom(src => src.Instructor.FullName))
                 .ForMember(dest => dest.CreatedByUserName, opt => opt.MapFrom(src => src.CreatedByUser.FullName))
+                .ForMember(dest => dest.StartDateTime, opt => opt.MapFrom(src => src.StartDateTime))
+                .ForMember(dest => dest.EndDateTime, opt => opt.MapFrom(src => src.EndDateTime))
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
-                .ReverseMap();
+                .ForMember(dest => dest.DaysOfWeek, opt => opt.MapFrom(src =>
+                    src.DaysOfWeek != null
+                        ? string.Join(", ", src.DaysOfWeek.Select(d => d.ToString()))
+                        : ""))
+                .ReverseMap()
+                .ForMember(dest => dest.DaysOfWeek, opt => opt.Ignore()); // Ignore reverse mapping for DaysOfWeek
 
+            // Mapping from TrainingScheduleDTO to TrainingSchedule
+            CreateMap<TrainingScheduleDTO, TrainingSchedule>()
+                .ForMember(dest => dest.DaysOfWeek, opt => opt.MapFrom(src =>
+                    src.DaysOfWeek != null
+                        ? src.DaysOfWeek.Select(d => (DayOfWeek)d).ToList()
+                        : new List<DayOfWeek>()))
+                .ReverseMap()
+                .ForMember(dest => dest.StartDay, opt => opt.MapFrom(src => src.StartDateTime))
+                .ForMember(dest => dest.EndDay, opt => opt.MapFrom(src => src.EndDateTime))
+                .ForMember(dest => dest.DaysOfWeek, opt => opt.MapFrom(src =>
+                    src.DaysOfWeek != null
+                        ? src.DaysOfWeek.Select(d => (int)d).ToList()
+                        : new List<int>()));
             CreateMap<CourseParticipant, CourseParticipantModel>()
                 .ForMember(dest => dest.CourseName, opt => opt.MapFrom(src => src.Course.CourseName))
                 .ForMember(dest => dest.UserName, opt => opt.MapFrom(src => src.User.FullName))
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
+
                 .ReverseMap();
 
             CreateMap<CourseParticipantDto, CourseParticipant>()
@@ -198,5 +232,8 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.ApprovedByUserName, opt => opt.MapFrom(src => src.ApprovedByUser != null ? src.ApprovedByUser.FullName : null))
                 .ForMember(dest => dest.TemplateStatus, opt => opt.MapFrom(src => src.templateStatus));
         }
+
     }
+    
 }
+

@@ -13,7 +13,5 @@ namespace OCMS_BOs.RequestModel
         public string TrainingPlanId { get; set; }
         public string CourseName { get; set; }
         public CourseLevel CourseLevel { get; set; }
-        public CourseStatus Status { get; set; }
-        public Progress Progress { get; set; }
     }
 }

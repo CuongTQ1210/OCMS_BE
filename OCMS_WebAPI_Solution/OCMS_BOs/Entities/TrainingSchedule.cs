@@ -17,7 +17,9 @@ namespace OCMS_BOs.Entities
         public string SubjectID { get; set; }
         public Subject Subject { get; set; }
 
+        public List<DayOfWeek> DaysOfWeek { get; set; }
 
+        public TimeOnly ClassTime { get; set; }
         public DateTime StartDateTime { get; set; }
         public DateTime EndDateTime { get; set; }
 

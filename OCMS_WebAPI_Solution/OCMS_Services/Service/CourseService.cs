@@ -37,11 +37,13 @@ namespace OCMS_Services.Service
             course.CourseId = dto.CourseId;
             course.CourseName = dto.CourseName;
             course.TrainingPlanId= dto.TrainingPlanId;
+            course.CourseLevel = dto.CourseLevel;
             course.TrainingPlan = trainingPlan;
             course.CreatedByUserId = createdByUserId;
             course.CreatedAt = DateTime.UtcNow;
             course.UpdatedAt = DateTime.UtcNow;
             course.Status = CourseStatus.Pending;
+            course.Progress = Progress.NotYet;
             await _unitOfWork.CourseRepository.AddAsync(course);
             await _unitOfWork.SaveChangesAsync();
 
