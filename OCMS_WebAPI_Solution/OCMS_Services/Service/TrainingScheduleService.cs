@@ -279,26 +279,37 @@ namespace OCMS_Services.Service
 
             // Validate for overlapping schedules (excluding current schedule in case of update)
             var existingSchedules = await _unitOfWork.TrainingScheduleRepository
-                .GetAllAsync(s => s.Location == dto.Location && s.Room == dto.Room && s.ClassTime == dto.ClassTime);
-
+                .GetAllAsync(s => s.Location == dto.Location
+                               && s.Room == dto.Room
+                               && s.ClassTime == dto.ClassTime);
+            // Ensure duration is between 1h20 and 2h50
+            var duration = dto.SubjectPeriod;
+            if (duration < TimeSpan.FromMinutes(80) || duration > TimeSpan.FromMinutes(170))
+            {
+                throw new ArgumentException(
+                    $"Schedule duration must be between 1 hour 20 minutes and 2 hours 50 minutes. Current duration: {duration.TotalMinutes} minutes.");
+            }
             foreach (var existingSchedule in existingSchedules)
             {
-                if (scheduleId != null && existingSchedule.ScheduleID == scheduleId) continue; // Ignore self in update
+                if (scheduleId != null && existingSchedule.ScheduleID == scheduleId)
+                    continue; // Ignore self if updating
 
-                if (dto.StartDay <= existingSchedule.EndDateTime && dto.EndDay >= existingSchedule.StartDateTime)
+                // Check overlapping date ranges
+                bool isDateOverlapping = dto.StartDay <= existingSchedule.EndDateTime &&
+                                          dto.EndDay >= existingSchedule.StartDateTime;
+
+                // Check overlapping days of the week
+                var existingDays = existingSchedule.DaysOfWeek?.Select(d => (int)d) ?? new List<int>();
+                var newDays = dto.DaysOfWeek ?? new List<int>();
+                var overlappingDays = existingDays.Intersect(newDays).ToList();
+
+                if (isDateOverlapping && overlappingDays.Any())
                 {
-                    var existingDays = existingSchedule.DaysOfWeek?.Select(d => (int)d) ?? new List<int>();
-                    var newDays = dto.DaysOfWeek ?? new List<int>();
-                    var commonDays = existingDays.Intersect(newDays).ToList();
-
-                    if (commonDays.Any())
-                    {
-                        throw new ArgumentException(
-                            $"A schedule already exists at {dto.Location}, {dto.Room} on " +
-                            $"{string.Join(", ", commonDays.Select(d => ((DayOfWeek)d).ToString()))} " +
-                            $"at {dto.ClassTime:HH:mm} during {existingSchedule.StartDateTime:yyyy-MM-dd} to {existingSchedule.EndDateTime:yyyy-MM-dd}."
-                        );
-                    }
+                    throw new ArgumentException(
+                        $"A subject is already scheduled in Room '{dto.Room}' at '{dto.Location}' on " +
+                        $"{string.Join(", ", overlappingDays.Select(d => ((DayOfWeek)d).ToString()))} " +
+                        $"at {dto.ClassTime:HH:mm} during {existingSchedule.StartDateTime:yyyy-MM-dd} to {existingSchedule.EndDateTime:yyyy-MM-dd}."
+                    );
                 }
             }
         }
