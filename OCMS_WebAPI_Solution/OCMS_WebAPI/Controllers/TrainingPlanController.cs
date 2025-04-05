@@ -59,6 +59,27 @@ namespace OCMS_WebAPI.Controllers
         }
         #endregion
 
+        #region Get Training Plans Trainee Joined
+        [HttpGet("joined")]
+        [CustomAuthorize("Trainee")]
+        public async Task<IActionResult> GetTrainingPlansJoinedByTrainee()
+        {
+            var traineeId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(traineeId))
+                return Unauthorized(new { message = "Trainee ID not found in token." });
+
+            try
+            {
+                var plans = await _trainingPlanService.GetTrainingPlansByTraineeIdAsync(traineeId);
+                return Ok(new { message = "Joined training plans retrieved successfully.", plans });
+            }
+            catch (Exception ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+        }
+        #endregion
+
         #region Get Training Plan By Id
         [HttpGet("{id}")]
         [CustomAuthorize]
