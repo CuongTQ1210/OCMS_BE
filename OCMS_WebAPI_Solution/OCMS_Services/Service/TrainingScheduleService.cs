@@ -281,7 +281,20 @@ namespace OCMS_Services.Service
             var subjectExists = await _unitOfWork.SubjectRepository.ExistsAsync(s => s.SubjectId == dto.SubjectID);
             if (!subjectExists)
                 throw new ArgumentException($"Subject with ID {dto.SubjectID} does not exist.");
+            // Validate only one schedule per subject
+            var subjectSchedules = await _unitOfWork.TrainingScheduleRepository
+                .GetAllAsync(s => s.SubjectID == dto.SubjectID);
 
+            if (scheduleId == null && subjectSchedules.Any())
+            {
+                // Creating new schedule but one already exists
+                throw new ArgumentException($"Subject with ID {dto.SubjectID} already has a schedule. Only one schedule is allowed per subject.");
+            }
+            else if (scheduleId != null && subjectSchedules.Any(s => s.ScheduleID != scheduleId))
+            {
+                // Updating, but another schedule exists for this subject
+                throw new ArgumentException($"Another schedule already exists for Subject ID {dto.SubjectID}. Only one schedule is allowed per subject.");
+            }
             // Validate InstructorID
             var instructor = await _unitOfWork.UserRepository.GetAsync(
                 u => u.UserId.Equals(dto.InstructorID),
