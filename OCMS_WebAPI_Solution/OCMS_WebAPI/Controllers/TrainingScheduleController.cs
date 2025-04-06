@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using OCMS_BOs.RequestModel;
 using OCMS_Services.IService;
+using OCMS_Services.Service;
 using OCMS_WebAPI.AuthorizeSettings;
 using System.Security.Claims;
 
@@ -109,6 +110,25 @@ namespace OCMS_WebAPI.Controllers
                 return Ok(new { message = "Training schedule deleted successfully." });
             }
             catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("instructor/subjects")]
+        [CustomAuthorize("Instructor")]
+        public async Task<IActionResult> GetSubjectsAndSchedules()
+        {
+            var instructorId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(instructorId))
+                return Unauthorized(new { message = "Instructor ID not found in token." });
+
+            try
+            {
+                var subscheldule = await _trainingScheduleService.GetSubjectsAndSchedulesForInstructorAsync(instructorId);
+                return Ok(new { message = "Joined Subjects And Schedules retrieved successfully.", subscheldule });
+            }
+            catch (Exception ex)
             {
                 return NotFound(new { message = ex.Message });
             }

@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using OCMS_BOs.Entities;
 using OCMS_BOs.RequestModel;
 using OCMS_BOs.ViewModel;
@@ -7,6 +8,7 @@ using OCMS_Services.IService;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -183,7 +185,54 @@ namespace OCMS_Services.Service
                 await _instructorAssignmentService.UpdateInstructorAssignmentAsync(existingAssignment.AssignmentId, assignmentDto);
             }
         }
+        public async Task<List<InstructorSubjectScheduleModel>> GetSubjectsAndSchedulesForInstructorAsync(string instructorId)
+        {
+            if (string.IsNullOrEmpty(instructorId))
+                throw new ArgumentException("Instructor ID cannot be null or empty.");
 
+            
+            var assignments = await _unitOfWork.InstructorAssignmentRepository.GetAllAsync(
+                predicate: i => i.InstructorId == instructorId,
+                includes: new Expression<Func<InstructorAssignment, object>>[]
+                {
+            i => i.Subject,
+            i => i.Subject.Schedules
+                });
+            if (assignments == null || !assignments.Any())
+                throw new InvalidOperationException("No subject assignments found for this instructor.");
+
+            var result = assignments
+                .GroupBy(a => a.Subject)
+                .Select(group => new InstructorSubjectScheduleModel
+                {
+                    SubjectId = group.Key.SubjectId,
+                    SubjectName = group.Key.SubjectName,
+                    Description = group.Key.Description,
+                    Schedules = group.Key.Schedules != null
+                        ? group.Key.Schedules
+                            .Where(s => s.InstructorID == instructorId)
+                            .Select(s => new TrainingScheduleModel
+                            {
+                                ScheduleID = s.ScheduleID,
+                                DaysOfWeek = string.Join(",", s.DaysOfWeek), 
+                                SubjectPeriod = s.SubjectPeriod,
+                                ClassTime = s.ClassTime,
+                                StartDateTime = s.StartDateTime,
+                                EndDateTime = s.EndDateTime,
+                                Location = s.Location,
+                                Room = s.Room,
+                                Status = s.Status.ToString(),
+                            })
+                            .ToList()
+                        : new List<TrainingScheduleModel>()
+                })
+                .ToList();
+
+            if (!result.Any())
+                throw new InvalidOperationException("No valid schedules found for this instructor's assigned subjects.");
+
+            return result;
+        }
         /// <summary>
         /// Deletes a training schedule by its ID and its related instructor assignment.
         /// If the related assignment is Approved, changes status to Deleting and creates a request.

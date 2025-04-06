@@ -29,5 +29,6 @@ namespace OCMS_Repositories.Repository
                 .ThenInclude(sub => sub.Course) 
                 .ToListAsync();
         }
+
     }
 }
