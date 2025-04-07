@@ -143,32 +143,35 @@ namespace OCMS_BOs.Helper
 
             // Mapping from TrainingSchedule to TrainingScheduleModel
             CreateMap<TrainingSchedule, TrainingScheduleModel>()
-                .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.Subject.SubjectName))
-                .ForMember(dest => dest.InstructorName, opt => opt.MapFrom(src => src.Instructor.FullName))
-                .ForMember(dest => dest.CreatedByUserName, opt => opt.MapFrom(src => src.CreatedByUser.FullName))
-                .ForMember(dest => dest.StartDateTime, opt => opt.MapFrom(src => src.StartDateTime))
-                .ForMember(dest => dest.EndDateTime, opt => opt.MapFrom(src => src.EndDateTime))
-                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
-                .ForMember(dest => dest.DaysOfWeek, opt => opt.MapFrom(src =>
-                    src.DaysOfWeek != null
-                        ? string.Join(", ", src.DaysOfWeek.Select(d => d.ToString()))
-                        : ""))
-                .ReverseMap()
-                .ForMember(dest => dest.DaysOfWeek, opt => opt.Ignore()); // Ignore reverse mapping for DaysOfWeek
+    .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.Subject.SubjectName))
+    .ForMember(dest => dest.InstructorName, opt => opt.MapFrom(src => src.Instructor.FullName))
+    .ForMember(dest => dest.CreatedByUserName, opt => opt.MapFrom(src => src.CreatedByUser.FullName))
+    .ForMember(dest => dest.StartDateTime, opt => opt.MapFrom(src => src.StartDateTime))
+    .ForMember(dest => dest.EndDateTime, opt => opt.MapFrom(src => src.EndDateTime))
+    .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
+    .ForMember(dest => dest.DaysOfWeek, opt => opt.MapFrom(src =>
+        src.DaysOfWeek != null
+            ? string.Join(", ", src.DaysOfWeek.Select(d => d.ToString()))
+            : ""))
+    .ForMember(dest => dest.SubjectPeriod, opt => opt.MapFrom(src => src.SubjectPeriod))
+    .ReverseMap()
+    .ForMember(dest => dest.DaysOfWeek, opt => opt.Ignore()); // still ignoring reverse mapping for DaysOfWeek
 
             // Mapping from TrainingScheduleDTO to TrainingSchedule
             CreateMap<TrainingScheduleDTO, TrainingSchedule>()
-                .ForMember(dest => dest.DaysOfWeek, opt => opt.MapFrom(src =>
-                    src.DaysOfWeek != null
-                        ? src.DaysOfWeek.Select(d => (DayOfWeek)d).ToList()
-                        : new List<DayOfWeek>()))
-                .ReverseMap()
-                .ForMember(dest => dest.StartDay, opt => opt.MapFrom(src => src.StartDateTime))
-                .ForMember(dest => dest.EndDay, opt => opt.MapFrom(src => src.EndDateTime))
-                .ForMember(dest => dest.DaysOfWeek, opt => opt.MapFrom(src =>
-                    src.DaysOfWeek != null
-                        ? src.DaysOfWeek.Select(d => (int)d).ToList()
-                        : new List<int>()));
+    .ForMember(dest => dest.DaysOfWeek, opt => opt.MapFrom(src =>
+        src.DaysOfWeek != null
+            ? src.DaysOfWeek.Select(d => (DayOfWeek)d).ToList()
+            : new List<DayOfWeek>()))
+    .ForMember(dest => dest.SubjectPeriod, opt => opt.MapFrom(src => src.SubjectPeriod))
+    .ReverseMap()
+    .ForMember(dest => dest.StartDay, opt => opt.MapFrom(src => src.StartDateTime))
+    .ForMember(dest => dest.EndDay, opt => opt.MapFrom(src => src.EndDateTime))
+    .ForMember(dest => dest.DaysOfWeek, opt => opt.MapFrom(src =>
+        src.DaysOfWeek != null
+            ? src.DaysOfWeek.Select(d => (int)d).ToList()
+            : new List<int>()))
+    .ForMember(dest => dest.SubjectPeriod, opt => opt.MapFrom(src => src.SubjectPeriod));
             CreateMap<CourseParticipant, CourseParticipantModel>()
                 .ForMember(dest => dest.CourseName, opt => opt.MapFrom(src => src.Course.CourseName))
                 .ForMember(dest => dest.UserName, opt => opt.MapFrom(src => src.User.FullName))

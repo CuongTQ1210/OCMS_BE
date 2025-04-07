@@ -27,5 +27,7 @@ namespace OCMS_BOs.ViewModel
         public string DaysOfWeek { get; set; } // e.g., "Monday, Wednesday, Friday"
 
         public TimeOnly ClassTime { get; set; } // e.g., "09:00"
+
+        public TimeSpan SubjectPeriod { get; set; } // e.g., "01:30:00"
     }
 }

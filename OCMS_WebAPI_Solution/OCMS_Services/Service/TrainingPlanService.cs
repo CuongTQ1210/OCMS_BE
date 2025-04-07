@@ -42,7 +42,32 @@ namespace OCMS_Services.Service
             return _mapper.Map<TrainingPlanModel>(trainingPlan);
         }
         #endregion
+        
+        #region Get Training plan by trainee user id 
+        public async Task<List<TrainingPlanModel>> GetTrainingPlansByTraineeIdAsync(string traineeId)
+        {
+            if (string.IsNullOrEmpty(traineeId))
+                throw new ArgumentException("Trainee ID cannot be null or empty.", nameof(traineeId));
 
+            var courses = await _unitOfWork.CourseRepository
+        .GetAllAsync(
+            c => c.Trainees.Any(t => t.TraineeId == traineeId),
+            c => c.TrainingPlan
+        );
+
+            if (courses == null || !courses.Any())
+            {
+                throw new Exception("No training plan joined.");
+            }
+
+            var trainingPlans = courses
+                .Where(c => c.TrainingPlan != null)
+                .Select(c => c.TrainingPlan)
+                .Distinct()
+                .ToList();
+            return _mapper.Map<List<TrainingPlanModel>>(trainingPlans);
+        }
+        #endregion
         #region Get all
         public async Task<IEnumerable<TrainingPlanModel>> GetAllTrainingPlansAsync()
         {
@@ -222,6 +247,9 @@ namespace OCMS_Services.Service
                 _ => throw new ArgumentOutOfRangeException(nameof(planLevel), "Invalid plan level")
             };
         }
+
+        
         #endregion
+
     }
 }

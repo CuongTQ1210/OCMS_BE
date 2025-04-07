@@ -18,5 +18,7 @@ namespace OCMS_BOs.RequestModel
         public DateTime EndDay { get; set; }
         public List<int> DaysOfWeek { get; set; } // e.g., [1, 3, 5] for Monday, Wednesday, Friday
         public TimeOnly ClassTime { get; set; } // e.g., "09:00" for 9:00 AM
+
+        public TimeSpan SubjectPeriod { get; set; } // e.g., "01:30:00"
     }
 }

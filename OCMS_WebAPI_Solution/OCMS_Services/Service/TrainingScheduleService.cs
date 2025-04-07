@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using OCMS_BOs.Entities;
 using OCMS_BOs.RequestModel;
 using OCMS_BOs.ViewModel;
@@ -7,6 +8,7 @@ using OCMS_Services.IService;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -183,7 +185,54 @@ namespace OCMS_Services.Service
                 await _instructorAssignmentService.UpdateInstructorAssignmentAsync(existingAssignment.AssignmentId, assignmentDto);
             }
         }
+        public async Task<List<InstructorSubjectScheduleModel>> GetSubjectsAndSchedulesForInstructorAsync(string instructorId)
+        {
+            if (string.IsNullOrEmpty(instructorId))
+                throw new ArgumentException("Instructor ID cannot be null or empty.");
 
+            
+            var assignments = await _unitOfWork.InstructorAssignmentRepository.GetAllAsync(
+                predicate: i => i.InstructorId == instructorId,
+                includes: new Expression<Func<InstructorAssignment, object>>[]
+                {
+            i => i.Subject,
+            i => i.Subject.Schedules
+                });
+            if (assignments == null || !assignments.Any())
+                throw new InvalidOperationException("No subject assignments found for this instructor.");
+
+            var result = assignments
+                .GroupBy(a => a.Subject)
+                .Select(group => new InstructorSubjectScheduleModel
+                {
+                    SubjectId = group.Key.SubjectId,
+                    SubjectName = group.Key.SubjectName,
+                    Description = group.Key.Description,
+                    Schedules = group.Key.Schedules != null
+                        ? group.Key.Schedules
+                            .Where(s => s.InstructorID == instructorId)
+                            .Select(s => new TrainingScheduleModel
+                            {
+                                ScheduleID = s.ScheduleID,
+                                DaysOfWeek = string.Join(",", s.DaysOfWeek), 
+                                SubjectPeriod = s.SubjectPeriod,
+                                ClassTime = s.ClassTime,
+                                StartDateTime = s.StartDateTime,
+                                EndDateTime = s.EndDateTime,
+                                Location = s.Location,
+                                Room = s.Room,
+                                Status = s.Status.ToString(),
+                            })
+                            .ToList()
+                        : new List<TrainingScheduleModel>()
+                })
+                .ToList();
+
+            if (!result.Any())
+                throw new InvalidOperationException("No valid schedules found for this instructor's assigned subjects.");
+
+            return result;
+        }
         /// <summary>
         /// Deletes a training schedule by its ID and its related instructor assignment.
         /// If the related assignment is Approved, changes status to Deleting and creates a request.
@@ -232,7 +281,20 @@ namespace OCMS_Services.Service
             var subjectExists = await _unitOfWork.SubjectRepository.ExistsAsync(s => s.SubjectId == dto.SubjectID);
             if (!subjectExists)
                 throw new ArgumentException($"Subject with ID {dto.SubjectID} does not exist.");
+            // Validate only one schedule per subject
+            var subjectSchedules = await _unitOfWork.TrainingScheduleRepository
+                .GetAllAsync(s => s.SubjectID == dto.SubjectID);
 
+            if (scheduleId == null && subjectSchedules.Any())
+            {
+                // Creating new schedule but one already exists
+                throw new ArgumentException($"Subject with ID {dto.SubjectID} already has a schedule. Only one schedule is allowed per subject.");
+            }
+            else if (scheduleId != null && subjectSchedules.Any(s => s.ScheduleID != scheduleId))
+            {
+                // Updating, but another schedule exists for this subject
+                throw new ArgumentException($"Another schedule already exists for Subject ID {dto.SubjectID}. Only one schedule is allowed per subject.");
+            }
             // Validate InstructorID
             var instructor = await _unitOfWork.UserRepository.GetAsync(
                 u => u.UserId.Equals(dto.InstructorID),
@@ -279,26 +341,37 @@ namespace OCMS_Services.Service
 
             // Validate for overlapping schedules (excluding current schedule in case of update)
             var existingSchedules = await _unitOfWork.TrainingScheduleRepository
-                .GetAllAsync(s => s.Location == dto.Location && s.Room == dto.Room && s.ClassTime == dto.ClassTime);
-
+                .GetAllAsync(s => s.Location == dto.Location
+                               && s.Room == dto.Room
+                               && s.ClassTime == dto.ClassTime);
+            // Ensure duration is between 1h20 and 2h50
+            var duration = dto.SubjectPeriod;
+            if (duration < TimeSpan.FromMinutes(80) || duration > TimeSpan.FromMinutes(170))
+            {
+                throw new ArgumentException(
+                    $"Schedule duration must be between 1 hour 20 minutes and 2 hours 50 minutes. Current duration: {duration.TotalMinutes} minutes.");
+            }
             foreach (var existingSchedule in existingSchedules)
             {
-                if (scheduleId != null && existingSchedule.ScheduleID == scheduleId) continue; // Ignore self in update
+                if (scheduleId != null && existingSchedule.ScheduleID == scheduleId)
+                    continue; // Ignore self if updating
 
-                if (dto.StartDay <= existingSchedule.EndDateTime && dto.EndDay >= existingSchedule.StartDateTime)
+                // Check overlapping date ranges
+                bool isDateOverlapping = dto.StartDay <= existingSchedule.EndDateTime &&
+                                          dto.EndDay >= existingSchedule.StartDateTime;
+
+                // Check overlapping days of the week
+                var existingDays = existingSchedule.DaysOfWeek?.Select(d => (int)d) ?? new List<int>();
+                var newDays = dto.DaysOfWeek ?? new List<int>();
+                var overlappingDays = existingDays.Intersect(newDays).ToList();
+
+                if (isDateOverlapping && overlappingDays.Any())
                 {
-                    var existingDays = existingSchedule.DaysOfWeek?.Select(d => (int)d) ?? new List<int>();
-                    var newDays = dto.DaysOfWeek ?? new List<int>();
-                    var commonDays = existingDays.Intersect(newDays).ToList();
-
-                    if (commonDays.Any())
-                    {
-                        throw new ArgumentException(
-                            $"A schedule already exists at {dto.Location}, {dto.Room} on " +
-                            $"{string.Join(", ", commonDays.Select(d => ((DayOfWeek)d).ToString()))} " +
-                            $"at {dto.ClassTime:HH:mm} during {existingSchedule.StartDateTime:yyyy-MM-dd} to {existingSchedule.EndDateTime:yyyy-MM-dd}."
-                        );
-                    }
+                    throw new ArgumentException(
+                        $"A subject is already scheduled in Room '{dto.Room}' at '{dto.Location}' on " +
+                        $"{string.Join(", ", overlappingDays.Select(d => ((DayOfWeek)d).ToString()))} " +
+                        $"at {dto.ClassTime:HH:mm} during {existingSchedule.StartDateTime:yyyy-MM-dd} to {existingSchedule.EndDateTime:yyyy-MM-dd}."
+                    );
                 }
             }
         }

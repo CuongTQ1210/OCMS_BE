@@ -108,7 +108,19 @@ namespace OCMS_Repositories
             }
             return await query.ToListAsync();
         }
+        public async Task<List<T>> GetAllAsync(
+    Expression<Func<T, bool>> predicate,
+    params Expression<Func<T, object>>[] includes
+)
+        {
+            IQueryable<T> query = _context.Set<T>().Where(predicate);
+            foreach (var include in includes)
+            {
+                query = query.Include(include);
+            }
 
+            return await query.ToListAsync();
+        }
         public async Task<T> GetAsync(Expression<Func<T, bool>> filter, params Expression<Func<T, object>>[] includes)
         {
             IQueryable<T> query = _dbSet;
