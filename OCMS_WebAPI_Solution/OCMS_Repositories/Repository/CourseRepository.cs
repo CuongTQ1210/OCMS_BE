@@ -37,5 +37,16 @@ namespace OCMS_Repositories.Repository
                 .Where(c => c.TrainingPlanId == trainingPlanId)
                 .ToListAsync();
         }
+
+        public async Task<Course?> GetCourseWithDetailsAsync(string courseId)
+        {
+            return await _context.Courses
+                .Include(c => c.Subjects)
+                    .ThenInclude(s => s.Instructors)
+                .Include(c => c.Subjects)
+                    .ThenInclude(s => s.Schedules)
+                .Include(c => c.Trainees)
+                .FirstOrDefaultAsync(c => c.CourseId == courseId);
+        }
     }
 }

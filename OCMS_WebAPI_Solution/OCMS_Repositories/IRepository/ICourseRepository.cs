@@ -13,5 +13,7 @@ namespace OCMS_Repositories.IRepository
         Task<Course?> GetLastObjectIdAsync();
 
         Task<IEnumerable<Course>> GetCoursesByTrainingPlanIdAsync(string trainingPlanId);
+
+        Task<Course?> GetCourseWithDetailsAsync(string courseId);
     }
 }

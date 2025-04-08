@@ -199,20 +199,30 @@ namespace OCMS_Services.Service
                 case RequestType.RelearnPlan:
                 case RequestType.PlanChange:
                 case RequestType.PlanDelete:
-                
+                    if (string.IsNullOrWhiteSpace(entityId))
+                        return false;
+
                     return await _unitOfWork.TrainingPlanRepository.ExistsAsync(tp => tp.PlanId == entityId);
+
                 case RequestType.CreateNew:
                 case RequestType.CreateRecurrent:
                 case RequestType.CreateRelearn:
-                    return true;
+                    
+                    return string.IsNullOrEmpty(entityId);
+
                 case RequestType.Complaint:
+                    if (string.IsNullOrWhiteSpace(entityId))
+                        return false;
+
                     return await _unitOfWork.SubjectRepository.ExistsAsync(s => s.SubjectId == entityId);
 
                 default:
-                    return false; // Invalid type
+                    return false;
             }
         }
-        
+
+
+
 
         #region Delete Request
         public async Task<bool> DeleteRequestAsync(string requestId)
@@ -268,6 +278,8 @@ namespace OCMS_Services.Service
                         foreach (var course in courses)
                         {
                             course.Status = CourseStatus.Approved;
+                            course.ApproveByUserId= approvedByUserId;
+                            course.ApprovalDate = DateTime.UtcNow;
                             await _unitOfWork.CourseRepository.UpdateAsync(course);
                         }
 
@@ -276,6 +288,7 @@ namespace OCMS_Services.Service
                         foreach (var schedule in schedules)
                         {
                             schedule.Status = ScheduleStatus.Incoming;
+                            schedule.ModifiedDate = DateTime.UtcNow;
                             await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
                         }
 
