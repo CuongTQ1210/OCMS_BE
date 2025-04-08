@@ -18,7 +18,6 @@ namespace OCMS_BOs.ViewModel
         public string InstructorID { get; set; }
         public string InstructorName { get; set; }
         public string CreatedBy { get; set; }
-        public string CreatedByUserName { get; set; }
         public DateTime CreatedDate { get; set; }
         public DateTime ModifiedDate { get; set; }
         public string Status { get; set; } // incoming, completed, cancelled

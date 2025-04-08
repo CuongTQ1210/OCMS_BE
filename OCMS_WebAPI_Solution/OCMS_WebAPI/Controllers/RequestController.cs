@@ -56,6 +56,32 @@ namespace OCMS_WebAPI.Controllers
 
             return Ok(request);
         }
+        [HttpGet("edu-officer/requests")]
+        [CustomAuthorize("Training staff")]
+        public async Task<IActionResult> GetRequestForEduOfficer()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = "User ID not found in token." });
+
+            try
+            {
+                var requests = await _requestService.GetRequestsForEducationOfficerAsync();
+
+                if (requests == null || !requests.Any())
+                    return NotFound(new { message = "No relevant requests found." });
+
+                return Ok(new
+                {
+                    message = "Requests retrieved successfully.",
+                    requests
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An unexpected error occurred.", error = ex.Message });
+            }
+        }
         // ✅ Get All Requests (Only for Admin & Director)
         [HttpGet]
         [CustomAuthorize("Admin", "HeadMaster")]

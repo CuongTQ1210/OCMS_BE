@@ -418,6 +418,30 @@ namespace OCMS_Services.Service
                     );
                 }
             }
+            // Check if instructor is already teaching at the same ClassTime on the same days
+            var instructorSchedules = await _unitOfWork.TrainingScheduleRepository
+                .GetAllAsync(s => s.InstructorID == dto.InstructorID
+                               && s.ClassTime == dto.ClassTime
+                               && s.ScheduleID != scheduleId); // Exclude self if updating
+
+            foreach (var schedule in instructorSchedules)
+            {
+                bool isDateOverlapping = dto.StartDay <= schedule.EndDateTime &&
+                                          dto.EndDay >= schedule.StartDateTime;
+
+                var existingDays = schedule.DaysOfWeek?.Select(d => (int)d) ?? new List<int>();
+                var newDays = dto.DaysOfWeek ?? new List<int>();
+                var overlappingDays = existingDays.Intersect(newDays).ToList();
+
+                if (isDateOverlapping && overlappingDays.Any())
+                {
+                    throw new ArgumentException(
+                        $"Instructor with ID {dto.InstructorID} already has a class on " +
+                        $"{string.Join(", ", overlappingDays.Select(d => ((DayOfWeek)d).ToString()))} " +
+                        $"at {dto.ClassTime:HH:mm}, from {schedule.StartDateTime:yyyy-MM-dd} to {schedule.EndDateTime:yyyy-MM-dd}."
+                    );
+                }
+            }
         }
 
     }
