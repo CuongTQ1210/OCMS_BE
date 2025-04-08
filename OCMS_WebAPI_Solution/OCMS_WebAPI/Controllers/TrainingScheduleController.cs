@@ -133,5 +133,31 @@ namespace OCMS_WebAPI.Controllers
                 return NotFound(new { message = ex.Message });
             }
         }
+        [HttpGet("trainee/subjects")]
+        [CustomAuthorize("Trainee")]
+        public async Task<IActionResult> GetTraineeSubjectsAndSchedules()
+        {
+            var traineeId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(traineeId))
+                return Unauthorized(new { message = "Trainee ID not found in token." });
+
+            try
+            {
+                var subjectSchedule = await _trainingScheduleService.GetSubjectsAndSchedulesForTraineeAsync(traineeId);
+                return Ok(new
+                {
+                    message = "Joined Subjects and Schedules retrieved successfully.",
+                    data = subjectSchedule
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An unexpected error occurred.", error = ex.Message });
+            }
+        }
     }
 }

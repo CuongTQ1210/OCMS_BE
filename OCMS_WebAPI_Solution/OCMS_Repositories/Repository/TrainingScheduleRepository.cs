@@ -29,6 +29,14 @@ namespace OCMS_Repositories.Repository
                 .ThenInclude(sub => sub.Course) 
                 .ToListAsync();
         }
-
+        public async Task<List<TraineeAssign>> GetTraineeAssignmentsWithSchedulesAsync(string traineeId)
+        {
+            return await _context.TraineeAssignments
+                .Where(ta => ta.TraineeId == traineeId)
+                .Include(ta => ta.Course)
+                    .ThenInclude(c => c.Subjects)
+                        .ThenInclude(s => s.Schedules)
+                .ToListAsync();
+        }
     }
 }

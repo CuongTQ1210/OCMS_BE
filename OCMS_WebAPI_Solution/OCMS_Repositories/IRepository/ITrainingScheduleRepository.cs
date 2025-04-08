@@ -11,5 +11,7 @@ namespace OCMS_Repositories.IRepository
     {
         Task<bool> ExistsAsync(string id);
         Task<IEnumerable<TrainingSchedule>> GetSchedulesByTrainingPlanIdAsync(string trainingPlanId);
+
+        Task<List<TraineeAssign>> GetTraineeAssignmentsWithSchedulesAsync(string traineeId);
     }
 }

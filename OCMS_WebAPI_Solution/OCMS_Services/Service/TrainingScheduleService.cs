@@ -4,6 +4,7 @@ using OCMS_BOs.Entities;
 using OCMS_BOs.RequestModel;
 using OCMS_BOs.ViewModel;
 using OCMS_Repositories;
+using OCMS_Repositories.IRepository;
 using OCMS_Services.IService;
 using System;
 using System.Collections.Generic;
@@ -19,6 +20,7 @@ namespace OCMS_Services.Service
     {
         private readonly UnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly ITrainingScheduleRepository _trainingScheduleRepository;
         private readonly IInstructorAssignmentService _instructorAssignmentService;
         private readonly IRequestService _requestService;
         private readonly Lazy<ITrainingScheduleService> _trainingScheduleService;
@@ -29,7 +31,8 @@ namespace OCMS_Services.Service
             IInstructorAssignmentService instructorAssignmentService,
             IRequestService requestService,
             Lazy<ITrainingScheduleService> trainingScheduleService,
-            Lazy<ITrainingPlanService> trainingPlanService)
+            Lazy<ITrainingPlanService> trainingPlanService,
+            ITrainingScheduleRepository trainingScheduleRepository)
         {
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
@@ -37,6 +40,7 @@ namespace OCMS_Services.Service
             _requestService = requestService;
             _trainingPlanService = trainingPlanService ?? throw new ArgumentNullException(nameof(trainingPlanService));
             _trainingScheduleService = trainingScheduleService ?? throw new ArgumentNullException(nameof(trainingScheduleService));
+            _trainingScheduleRepository = trainingScheduleRepository ?? throw new ArgumentNullException(nameof(trainingScheduleRepository));
         }
 
         /// <summary>
@@ -233,6 +237,46 @@ namespace OCMS_Services.Service
 
             return result;
         }
+
+        public async Task<List<TraineeSubjectScheduleModel>> GetSubjectsAndSchedulesForTraineeAsync(string traineeId)
+        {
+            var assignments = await _trainingScheduleRepository.GetTraineeAssignmentsWithSchedulesAsync(traineeId);
+
+
+            if (assignments == null || !assignments.Any())
+                throw new InvalidOperationException("No course assignments found for this trainee.");
+
+            var result = assignments
+                .Where(ta => ta.Course != null && ta.Course.Subjects != null)
+                .SelectMany(ta => ta.Course.Subjects
+                    .Where(s => s.Schedules != null))
+                .Select(subject => new TraineeSubjectScheduleModel
+                {
+                    SubjectId = subject.SubjectId,
+                    SubjectName = subject.SubjectName,
+                    Description = subject.Description,
+                    Schedules = subject.Schedules?
+                        .Select(s => new TrainingScheduleModel
+                        {
+                            ScheduleID = s.ScheduleID,
+                            DaysOfWeek = string.Join(",", s.DaysOfWeek),
+                            SubjectPeriod = s.SubjectPeriod,
+                            ClassTime = s.ClassTime,
+                            StartDateTime = s.StartDateTime,
+                            EndDateTime = s.EndDateTime,
+                            Location = s.Location,
+                            Room = s.Room,
+                            Status = s.Status.ToString(),
+                        }).ToList() ?? new List<TrainingScheduleModel>()
+                }).ToList();
+
+            if (!result.Any())
+                throw new InvalidOperationException("No subjects and schedules found for this trainee.");
+
+            return result;
+        }
+
+
         /// <summary>
         /// Deletes a training schedule by its ID and its related instructor assignment.
         /// If the related assignment is Approved, changes status to Deleting and creates a request.
