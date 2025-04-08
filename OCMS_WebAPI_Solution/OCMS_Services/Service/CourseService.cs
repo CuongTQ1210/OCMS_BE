@@ -61,10 +61,7 @@ namespace OCMS_Services.Service
 
         public async Task<CourseModel?> GetCourseByIdAsync(string id)
         {
-            var course = await _unitOfWork.CourseRepository.GetAsync(
-                p => p.CourseId == id,
-                p => p.Subjects,
-                p => p.Trainees);
+            var course = await _courseRepository.GetCourseWithDetailsAsync(id);
             return _mapper.Map<CourseModel>(course);
         }
 

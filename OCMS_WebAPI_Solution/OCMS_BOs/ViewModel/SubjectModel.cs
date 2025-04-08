@@ -14,7 +14,6 @@ namespace OCMS_BOs.ViewModel
         public string Description { get; set; }
         public int Credits { get; set; }
         public double PassingScore { get; set; }
-        public string Schedule { get; set; }
         public string CreateByUserId { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }

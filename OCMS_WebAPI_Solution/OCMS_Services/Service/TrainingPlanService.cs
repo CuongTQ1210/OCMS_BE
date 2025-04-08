@@ -3,6 +3,7 @@ using OCMS_BOs.Entities;
 using OCMS_BOs.RequestModel;
 using OCMS_BOs.ViewModel;
 using OCMS_Repositories;
+using OCMS_Repositories.IRepository;
 using OCMS_Repositories.Repository;
 using OCMS_Services.IService;
 using System;
@@ -19,12 +20,13 @@ namespace OCMS_Services.Service
         private readonly UnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly IRequestService _requestService; // Added for request creation
-
-        public TrainingPlanService(UnitOfWork unitOfWork, IMapper mapper, IRequestService requestService)
+        private readonly ITrainingPlanRepository _trainingPlanRepository;
+        public TrainingPlanService(UnitOfWork unitOfWork, IMapper mapper, IRequestService requestService, ITrainingPlanRepository trainingPlanRepository)
         {
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _requestService = requestService ?? throw new ArgumentNullException(nameof(requestService));
+            _trainingPlanRepository = trainingPlanRepository ?? throw new ArgumentNullException(nameof(trainingPlanRepository));
         }   
         #region Create Training
         public async Task<TrainingPlanModel> CreateTrainingPlanAsync(TrainingPlanDTO dto, string createUserId)
@@ -68,6 +70,7 @@ namespace OCMS_Services.Service
             return _mapper.Map<List<TrainingPlanModel>>(trainingPlans);
         }
         #endregion
+
         #region Get all
         public async Task<IEnumerable<TrainingPlanModel>> GetAllTrainingPlansAsync()
         {
@@ -85,11 +88,7 @@ namespace OCMS_Services.Service
 
         public async Task<TrainingPlanModel> GetTrainingPlanByIdAsync(string id)
         {
-            var plan = await _unitOfWork.TrainingPlanRepository.GetAsync(
-                p => p.PlanId == id,
-                p => p.CreateByUser,
-                p => p.Specialty
-            );
+            var plan = await _trainingPlanRepository.GetTrainingPlanWithDetailsAsync(id);
 
             return plan == null ? null : _mapper.Map<TrainingPlanModel>(plan);
         }

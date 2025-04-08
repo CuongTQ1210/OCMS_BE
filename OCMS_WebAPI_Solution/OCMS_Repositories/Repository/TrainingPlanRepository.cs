@@ -2,6 +2,7 @@
 using OCMS_BOs;
 using OCMS_BOs.Entities;
 using OCMS_Repositories.IRepository;
+using Org.BouncyCastle.Asn1;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,6 +30,22 @@ namespace OCMS_Repositories.Repository
                              tp.PlanLevel == planLevel)
                 .OrderByDescending(tp => tp.PlanId)
                 .FirstOrDefaultAsync();
+        }
+
+        public async Task<TrainingPlan> GetTrainingPlanWithDetailsAsync(string planId)
+        {
+            return await _context.TrainingPlans
+                .Include(p => p.CreateByUser)
+                .Include(p => p.Specialty)
+                .Include(p => p.Courses)
+                    .ThenInclude(c => c.Trainees)
+                .Include(p => p.Courses)
+                    .ThenInclude(c => c.Subjects)
+                        .ThenInclude(s => s.Instructors)
+                .Include(p => p.Courses)
+                    .ThenInclude(c => c.Subjects)
+                        .ThenInclude(s => s.Schedules)
+                .FirstOrDefaultAsync(p => p.PlanId == planId);
         }
     }
 }
