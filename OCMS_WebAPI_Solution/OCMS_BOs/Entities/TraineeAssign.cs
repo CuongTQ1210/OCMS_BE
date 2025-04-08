@@ -32,7 +32,7 @@ namespace OCMS_BOs.Entities
         [ForeignKey("Request")]
         public string RequestId { get; set; }
         public Request Request { get; set; }
-        public string Notes;
+        public string Notes { get; set; }
 
     }
 }
