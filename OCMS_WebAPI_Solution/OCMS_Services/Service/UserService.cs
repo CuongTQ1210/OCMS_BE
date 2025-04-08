@@ -5,6 +5,7 @@ using OCMS_BOs.Helper;
 using OCMS_BOs.RequestModel;
 using OCMS_BOs.ViewModel;
 using OCMS_Repositories;
+using OCMS_Repositories.IRepository;
 using OCMS_Services.IService;
 using StackExchange.Redis;
 using System.Globalization;
@@ -19,13 +20,15 @@ namespace OCMS_Services.Service
         private readonly IMapper _mapper;
         private readonly IEmailService _emailService;
         private readonly IDatabaseAsync _redis;
+        private readonly IUserRepository _userRepository;
 
-        public UserService(UnitOfWork unitOfWork, IMapper mapper, IEmailService emailService, IConnectionMultiplexer redis)
+        public UserService(UnitOfWork unitOfWork, IMapper mapper, IEmailService emailService, IConnectionMultiplexer redis, IUserRepository userRepository)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _emailService = emailService;
             _redis = redis.GetDatabase();
+            _userRepository = userRepository;
         }
 
         #region Get All Users
@@ -164,9 +167,9 @@ namespace OCMS_Services.Service
         #endregion
 
         #region Reset Password
-        public async Task ResetPasswordAsync(ResetPasswordDTO resetPasswordDto)
+        public async Task ResetPasswordAsync(string token, string newPassword)
         {
-            string userId = await _redis.StringGetAsync(resetPasswordDto.Token);
+            string userId = await _redis.StringGetAsync(token);
             if (string.IsNullOrEmpty(userId))
                 throw new Exception("Invalid or expired token.");
 
@@ -174,14 +177,24 @@ namespace OCMS_Services.Service
             if (user == null)
                 throw new Exception("User not found.");
 
-            user.PasswordHash = PasswordHasher.HashPassword(resetPasswordDto.NewPassword);
+            user.PasswordHash = PasswordHasher.HashPassword(newPassword);
             user.UpdatedAt = DateTime.UtcNow;
 
             await _unitOfWork.UserRepository.UpdateAsync(user);
             await _unitOfWork.SaveChangesAsync();
 
             // Invalidate the token
-            await _redis.KeyDeleteAsync(resetPasswordDto.Token);
+            await _redis.KeyDeleteAsync(token);
+        }
+        #endregion
+
+        #region Get Users By Role
+        public async Task<IEnumerable<UserModel>> GetUsersByRoleAsync(string roleId)
+        {
+            var users = await _userRepository.GetUsersByRoleAsync(roleId);
+            if (users == null || !users.Any())
+                throw new Exception("No users found for this role.");
+            return _mapper.Map<IEnumerable<UserModel>>(users);
         }
         #endregion
 

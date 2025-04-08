@@ -119,12 +119,12 @@ namespace OCMS_WebAPI.Controllers
         #endregion
 
         #region Reset Password
-        [HttpPost("reset-password")]
-        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDTO resetPasswordDto)
+        [HttpPost("reset-password/{token}")]
+        public async Task<IActionResult> ResetPassword([FromRoute] string token, [FromBody] string newPassword)
         {
             try
             {
-                await _userService.ResetPasswordAsync(resetPasswordDto);
+                await _userService.ResetPasswordAsync(token, newPassword);
                 return Ok("Password has been reset.");
             }
             catch (Exception ex)

@@ -18,6 +18,7 @@ namespace OCMS_Services.IService
         Task UpdateUserDetailsAsync(string userId, UserUpdateDTO updateDto);
         Task UpdatePasswordAsync(string userId, PasswordUpdateDTO passwordDto);
         Task ForgotPasswordAsync(ForgotPasswordDTO forgotPasswordDto);
-        Task ResetPasswordAsync(ResetPasswordDTO resetPasswordDto);
+        Task ResetPasswordAsync(string token, string newPassword);
+        Task<IEnumerable<UserModel>> GetUsersByRoleAsync(string roleId);
     }
 }
