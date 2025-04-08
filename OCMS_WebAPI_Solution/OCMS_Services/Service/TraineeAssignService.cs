@@ -304,7 +304,7 @@ namespace OCMS_Services.Service
                         // Read Notes from column B (2) - B3, B4, B5, ...
                         string notes = worksheet.Cells[row, 2].Text ?? "";
                         // Log the Notes being read
-                        //result.Errors.Add($"Debug: Row {row} - Notes (B{row}): '{notes}'");
+                        result.Errors.Add($"Debug: Row {row} - Notes (B{row}): '{notes}'");
 
                         lastIdNumber++;
                         string traineeAssignId = $"TA{lastIdNumber:D5}";

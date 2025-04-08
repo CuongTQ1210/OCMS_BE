@@ -17,6 +17,8 @@ namespace OCMS_Services.IService
         Task<TrainingScheduleModel> CreateTrainingScheduleAsync(TrainingScheduleDTO dto, string createdByUserId);
         Task<TrainingScheduleModel> UpdateTrainingScheduleAsync(string scheduleId, TrainingScheduleDTO dto);
         Task<bool> DeleteTrainingScheduleAsync(string scheduleId);
+
+        Task<List<TraineeSubjectScheduleModel>> GetSubjectsAndSchedulesForTraineeAsync(string traineeId);
         Task<List<InstructorSubjectScheduleModel>> GetSubjectsAndSchedulesForInstructorAsync(string instructorId);
         Task ManageInstructorAssignment(string subjectId, string instructorId, string assignByUserId);
     }
