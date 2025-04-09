@@ -28,7 +28,7 @@ namespace OCMS_Repositories
         private GenericRepository<ExternalCertificate> _externalCertificateRepository;
         private GenericRepository<InstructorAssignment> _instructorAssignmentRepository;
         private GenericRepository<CertificateTemplate> _certificateTemplateRepository;
-
+        private GenericRepository<Grade> _gradeRepository;
         public UnitOfWork(OCMSDbContext context)
         {
             _context = context;
@@ -108,7 +108,10 @@ namespace OCMS_Repositories
         {
             get => _externalCertificateRepository ??= new GenericRepository<ExternalCertificate>(_context);
         }
-
+        public GenericRepository<Grade> GradeRepository
+        {
+            get =>_gradeRepository ??= new GenericRepository<Grade>(_context);
+        }
         public async Task<IDbContextTransaction> BeginTransactionAsync()
         {
             _transaction = await _context.Database.BeginTransactionAsync();

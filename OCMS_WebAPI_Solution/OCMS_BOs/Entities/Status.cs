@@ -91,6 +91,17 @@ namespace OCMS_BOs.Entities
     {
         Pass=1, Fail=0
     }
+    public enum GradeComponentType
+    {
+        Participation,
+        ProgressTest,
+        Assignments,
+        GroupProject,
+        FinalExam,
+        PracticalExam,
+        FinalExamResit,
+        PracticalExamResit
+    }
 
     public enum DigitalSignatureStatus
     {
