@@ -97,9 +97,6 @@ namespace OCMS_Services.Service
                 Gender= candidate.Gender,
                 DateOfBirth= candidate.DateOfBirth,
                 PhoneNumber= candidate.PhoneNumber,
-                
-
-
             };
 
             await _unitOfWork.UserRepository.AddAsync(user);
