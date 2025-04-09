@@ -91,7 +91,7 @@ namespace OCMS_Services.Service
             }
             existing.UpdateDate = DateTime.UtcNow;
 
-            _unitOfWork.GradeRepository.UpdateAsync(existing);
+            await _unitOfWork.GradeRepository.UpdateAsync(existing);
             await _unitOfWork.SaveChangesAsync();
 
             return true;
@@ -103,7 +103,7 @@ namespace OCMS_Services.Service
             if (existing == null)
                 throw new KeyNotFoundException($"Grade with ID '{id}' not found.");
 
-            _unitOfWork.GradeRepository.DeleteAsync(id);
+            await _unitOfWork.GradeRepository.DeleteAsync(id);
             await _unitOfWork.SaveChangesAsync();
 
             return true;
@@ -214,6 +214,14 @@ namespace OCMS_Services.Service
                     };
                     grade.GradeId = $"G-{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
                     grade.TotalScore = CalculateTotalScore(grade);
+                    if (grade.ParticipantScore == 0 || grade.AssignmentScore == 0)
+                    {
+                        grade.gradeStatus = GradeStatus.Fail;
+                    }
+                    else
+                    {
+                        grade.gradeStatus = grade.TotalScore >= 5.0 ? GradeStatus.Pass : GradeStatus.Fail;
+                    }
 
                     newGrades.Add(grade);
                     result.SuccessCount++;
