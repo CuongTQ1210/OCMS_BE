@@ -20,8 +20,11 @@ namespace OCMS_BOs.Entities
         [ForeignKey("Subject")]
         public string SubjectId { get; set; }
         public Subject Subject { get; set; }
-        
-        public double Score { get; set; }
+        public double ParticipantScore { get; set; }
+        public double AssignmentScore    { get; set; }
+        public double FinalExamScore { get; set; }
+        public double? FinalResitScore { get; set; }
+        public double TotalScore { get; set; }
         public GradeStatus gradeStatus { get; set; }
         public string Remarks { get; set; }
 
@@ -33,6 +36,6 @@ namespace OCMS_BOs.Entities
         public DateTime EvaluationDate { get; set; }= DateTime.Now;
 
         public DateTime UpdateDate { get; set; }=DateTime.Now;
-       
+
     }
 }

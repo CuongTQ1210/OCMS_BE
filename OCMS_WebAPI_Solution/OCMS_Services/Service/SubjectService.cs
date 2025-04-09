@@ -62,6 +62,9 @@ namespace OCMS_Services.Service
             var subjectExisted = await _unitOfWork.SubjectRepository.ExistsAsync(c=> c.SubjectId == dto.SubjectId);
             if (subjectExisted)
                 throw new ArgumentException("Subject already existed.");
+            var subjectExisted2 = await _unitOfWork.SubjectRepository.ExistsAsync(c => c.SubjectName == dto.SubjectName);
+            if (subjectExisted2)
+                throw new ArgumentException("This Subject name already existed.");
             var userExists = await _unitOfWork.UserRepository.ExistsAsync(u => u.UserId == createdByUserId);
             if (!userExists)
             {
@@ -94,7 +97,9 @@ namespace OCMS_Services.Service
             var courseExists = await _unitOfWork.CourseRepository.ExistsAsync(c => c.CourseId == dto.CourseId);
             if (!courseExists)
                 throw new ArgumentException("Course does not exist.");
-
+            var subjectExisted2 = await _unitOfWork.SubjectRepository.ExistsAsync(c => c.SubjectName == dto.SubjectName);
+            if (subjectExisted2)
+                throw new ArgumentException("This Subject name already existed.");
             _mapper.Map(dto, subject);
             subject.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.SubjectRepository.UpdateAsync(subject);

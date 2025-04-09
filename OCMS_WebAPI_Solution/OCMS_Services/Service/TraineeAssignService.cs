@@ -178,6 +178,7 @@ namespace OCMS_Services.Service
                 RequestUserId=createdByUserId,
                 RequestDate=DateTime.UtcNow,
                 Status= RequestStatus.Pending,
+                Description= $"Assign trainee {dto.TraineeId} to Course {dto.CourseId}.",
                 Notes = $"Request to assign Trainee {dto.TraineeId} to Course {dto.CourseId}.",
             };
 

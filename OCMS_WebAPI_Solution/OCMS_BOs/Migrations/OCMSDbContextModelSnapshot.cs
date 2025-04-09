@@ -620,23 +620,35 @@ namespace OCMS_BOs.Migrations
                     b.Property<string>("GradeId")
                         .HasColumnType("text");
 
+                    b.Property<double>("AssignmentScore")
+                        .HasColumnType("double precision");
+
                     b.Property<DateTime>("EvaluationDate")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<double>("FinalExamScore")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("FinalResitScore")
+                        .HasColumnType("double precision");
 
                     b.Property<string>("GradedByInstructorId")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<double>("ParticipantScore")
+                        .HasColumnType("double precision");
+
                     b.Property<string>("Remarks")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<double>("Score")
-                        .HasColumnType("double precision");
-
                     b.Property<string>("SubjectId")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<double>("TotalScore")
+                        .HasColumnType("double precision");
 
                     b.Property<string>("TraineeAssignID")
                         .IsRequired()
@@ -937,12 +949,12 @@ namespace OCMS_BOs.Migrations
                         new
                         {
                             SpecialtyId = "SPEC-001",
-                            CreatedAt = new DateTime(2025, 4, 8, 6, 35, 7, 526, DateTimeKind.Utc).AddTicks(917),
+                            CreatedAt = new DateTime(2025, 4, 9, 9, 27, 47, 902, DateTimeKind.Utc).AddTicks(6440),
                             CreatedByUserId = "ADM-1",
                             Description = "Admin Specialty Description",
                             SpecialtyName = "Admin Specialty",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 8, 13, 35, 7, 526, DateTimeKind.Local).AddTicks(915)
+                            UpdatedAt = new DateTime(2025, 4, 9, 16, 27, 47, 902, DateTimeKind.Local).AddTicks(6438)
                         });
                 });
 
@@ -1253,144 +1265,144 @@ namespace OCMS_BOs.Migrations
                         {
                             UserId = "ADM-1",
                             Address = "123 Admin Street",
-                            CreatedAt = new DateTime(2025, 4, 8, 6, 35, 7, 778, DateTimeKind.Utc).AddTicks(7710),
+                            CreatedAt = new DateTime(2025, 4, 9, 9, 27, 48, 144, DateTimeKind.Utc).AddTicks(1664),
                             DateOfBirth = new DateTime(2000, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "admin@gmail.com",
                             FullName = "Admin User",
                             Gender = "Other",
                             IsDeleted = false,
-                            PasswordHash = "$2a$11$1U8FyZx3ibSXecKuRsvhxOrIRnTDbubv5UXACKWOItz7gMBLEEaSG",
+                            PasswordHash = "$2a$11$DgmbZsslMnVS8e8KbFX5A.7EkCFiWDKQpP6xgBQopV5QwPY7tfP2e",
                             PhoneNumber = "1234567890",
                             RoleId = 1,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 8, 6, 35, 7, 778, DateTimeKind.Utc).AddTicks(7711),
+                            UpdatedAt = new DateTime(2025, 4, 9, 9, 27, 48, 144, DateTimeKind.Utc).AddTicks(1665),
                             Username = "Admin"
                         },
                         new
                         {
                             UserId = "HM-1",
                             Address = "456 Headmaster Street",
-                            CreatedAt = new DateTime(2025, 4, 8, 6, 35, 7, 778, DateTimeKind.Utc).AddTicks(7718),
+                            CreatedAt = new DateTime(2025, 4, 9, 9, 27, 48, 144, DateTimeKind.Utc).AddTicks(1670),
                             DateOfBirth = new DateTime(1980, 5, 20, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "headmaster@gmail.com",
                             FullName = "Head Master User",
                             Gender = "Male",
                             IsDeleted = false,
-                            PasswordHash = "$2a$11$yebhjXOoqROVAPuYyYIFquHWCMqneWuP4q32v2l16z9s4tn2ERVmy",
+                            PasswordHash = "$2a$11$kQhGvVjiYNdLYClynw/ac.dW4d1LJyyQucwXTyMAl6HpgLZu0OZKm",
                             PhoneNumber = "0987654321",
                             RoleId = 2,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 8, 6, 35, 7, 778, DateTimeKind.Utc).AddTicks(7718),
+                            UpdatedAt = new DateTime(2025, 4, 9, 9, 27, 48, 144, DateTimeKind.Utc).AddTicks(1671),
                             Username = "HeadMaster"
                         },
                         new
                         {
                             UserId = "TS-1",
                             Address = "789 Training Staff Lane",
-                            CreatedAt = new DateTime(2025, 4, 8, 6, 35, 7, 778, DateTimeKind.Utc).AddTicks(7722),
+                            CreatedAt = new DateTime(2025, 4, 9, 9, 27, 48, 144, DateTimeKind.Utc).AddTicks(1674),
                             DateOfBirth = new DateTime(1992, 7, 10, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "trainingstaff@gmail.com",
                             FullName = "Training Staff User",
                             Gender = "Female",
                             IsDeleted = false,
-                            PasswordHash = "$2a$11$yebhjXOoqROVAPuYyYIFquHWCMqneWuP4q32v2l16z9s4tn2ERVmy",
+                            PasswordHash = "$2a$11$kQhGvVjiYNdLYClynw/ac.dW4d1LJyyQucwXTyMAl6HpgLZu0OZKm",
                             PhoneNumber = "1122334455",
                             RoleId = 3,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 8, 6, 35, 7, 778, DateTimeKind.Utc).AddTicks(7722),
+                            UpdatedAt = new DateTime(2025, 4, 9, 9, 27, 48, 144, DateTimeKind.Utc).AddTicks(1674),
                             Username = "TrainingStaff"
                         },
                         new
                         {
                             UserId = "HR-1",
                             Address = "101 HR Street",
-                            CreatedAt = new DateTime(2025, 4, 8, 6, 35, 7, 778, DateTimeKind.Utc).AddTicks(7725),
+                            CreatedAt = new DateTime(2025, 4, 9, 9, 27, 48, 144, DateTimeKind.Utc).AddTicks(1676),
                             DateOfBirth = new DateTime(1985, 3, 15, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "hrmanager@gmail.com",
                             FullName = "HR Manager",
                             Gender = "Male",
                             IsDeleted = false,
-                            PasswordHash = "$2a$11$yebhjXOoqROVAPuYyYIFquHWCMqneWuP4q32v2l16z9s4tn2ERVmy",
+                            PasswordHash = "$2a$11$kQhGvVjiYNdLYClynw/ac.dW4d1LJyyQucwXTyMAl6HpgLZu0OZKm",
                             PhoneNumber = "2233445566",
                             RoleId = 4,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 8, 6, 35, 7, 778, DateTimeKind.Utc).AddTicks(7726),
+                            UpdatedAt = new DateTime(2025, 4, 9, 9, 27, 48, 144, DateTimeKind.Utc).AddTicks(1677),
                             Username = "HRManager"
                         },
                         new
                         {
                             UserId = "INST-1",
                             Address = "202 Instructor Avenue",
-                            CreatedAt = new DateTime(2025, 4, 8, 6, 35, 7, 778, DateTimeKind.Utc).AddTicks(7729),
+                            CreatedAt = new DateTime(2025, 4, 9, 9, 27, 48, 144, DateTimeKind.Utc).AddTicks(1679),
                             DateOfBirth = new DateTime(1990, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "instructor@gmail.com",
                             FullName = "Instructor User",
                             Gender = "Female",
                             IsDeleted = false,
-                            PasswordHash = "$2a$11$yebhjXOoqROVAPuYyYIFquHWCMqneWuP4q32v2l16z9s4tn2ERVmy",
+                            PasswordHash = "$2a$11$kQhGvVjiYNdLYClynw/ac.dW4d1LJyyQucwXTyMAl6HpgLZu0OZKm",
                             PhoneNumber = "3344556677",
                             RoleId = 5,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 8, 6, 35, 7, 778, DateTimeKind.Utc).AddTicks(7729),
+                            UpdatedAt = new DateTime(2025, 4, 9, 9, 27, 48, 144, DateTimeKind.Utc).AddTicks(1680),
                             Username = "Instructor"
                         },
                         new
                         {
                             UserId = "REV-1",
                             Address = "303 Reviewer Blvd",
-                            CreatedAt = new DateTime(2025, 4, 8, 6, 35, 7, 778, DateTimeKind.Utc).AddTicks(7732),
+                            CreatedAt = new DateTime(2025, 4, 9, 9, 27, 48, 144, DateTimeKind.Utc).AddTicks(1682),
                             DateOfBirth = new DateTime(1993, 12, 5, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "reviewer@gmail.com",
                             FullName = "Reviewer User",
                             Gender = "Male",
                             IsDeleted = false,
-                            PasswordHash = "$2a$11$yebhjXOoqROVAPuYyYIFquHWCMqneWuP4q32v2l16z9s4tn2ERVmy",
+                            PasswordHash = "$2a$11$kQhGvVjiYNdLYClynw/ac.dW4d1LJyyQucwXTyMAl6HpgLZu0OZKm",
                             PhoneNumber = "4455667788",
                             RoleId = 6,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 8, 6, 35, 7, 778, DateTimeKind.Utc).AddTicks(7732),
+                            UpdatedAt = new DateTime(2025, 4, 9, 9, 27, 48, 144, DateTimeKind.Utc).AddTicks(1682),
                             Username = "Reviewer"
                         },
                         new
                         {
                             UserId = "TR-1",
                             Address = "404 Trainee Lane",
-                            CreatedAt = new DateTime(2025, 4, 8, 6, 35, 7, 778, DateTimeKind.Utc).AddTicks(7735),
+                            CreatedAt = new DateTime(2025, 4, 9, 9, 27, 48, 144, DateTimeKind.Utc).AddTicks(1685),
                             DateOfBirth = new DateTime(2002, 8, 18, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "trainee@gmail.com",
                             FullName = "Trainee User",
                             Gender = "Female",
                             IsDeleted = false,
-                            PasswordHash = "$2a$11$yebhjXOoqROVAPuYyYIFquHWCMqneWuP4q32v2l16z9s4tn2ERVmy",
+                            PasswordHash = "$2a$11$kQhGvVjiYNdLYClynw/ac.dW4d1LJyyQucwXTyMAl6HpgLZu0OZKm",
                             PhoneNumber = "5566778899",
                             RoleId = 7,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 8, 6, 35, 7, 778, DateTimeKind.Utc).AddTicks(7735),
+                            UpdatedAt = new DateTime(2025, 4, 9, 9, 27, 48, 144, DateTimeKind.Utc).AddTicks(1685),
                             Username = "Trainee"
                         },
                         new
                         {
                             UserId = "AOC-1",
                             Address = "505 AOC Street",
-                            CreatedAt = new DateTime(2025, 4, 8, 6, 35, 7, 778, DateTimeKind.Utc).AddTicks(7738),
+                            CreatedAt = new DateTime(2025, 4, 9, 9, 27, 48, 144, DateTimeKind.Utc).AddTicks(1687),
                             DateOfBirth = new DateTime(1975, 11, 30, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "aocmanager@gmail.com",
                             FullName = "AOC Manager User",
                             Gender = "Male",
                             IsDeleted = false,
-                            PasswordHash = "$2a$11$yebhjXOoqROVAPuYyYIFquHWCMqneWuP4q32v2l16z9s4tn2ERVmy",
+                            PasswordHash = "$2a$11$kQhGvVjiYNdLYClynw/ac.dW4d1LJyyQucwXTyMAl6HpgLZu0OZKm",
                             PhoneNumber = "6677889900",
                             RoleId = 8,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 8, 6, 35, 7, 778, DateTimeKind.Utc).AddTicks(7739),
+                            UpdatedAt = new DateTime(2025, 4, 9, 9, 27, 48, 144, DateTimeKind.Utc).AddTicks(1688),
                             Username = "AOCManager"
                         });
                 });

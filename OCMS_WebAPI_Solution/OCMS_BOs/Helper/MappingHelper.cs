@@ -182,6 +182,20 @@ namespace OCMS_BOs.Helper
             CreateMap<CourseParticipantDto, CourseParticipant>()
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => Enum.Parse<CourseParticipantStatus>(src.Status)))
                 .ReverseMap();
+            CreateMap<Grade, GradeModel>()
+    .ForMember(dest => dest.GradeStatus, opt => opt.MapFrom(src => src.gradeStatus.ToString()));
+
+            CreateMap<GradeDTO, Grade>()
+                .ForMember(dest => dest.GradeId, opt => opt.Ignore())
+                .ForMember(dest => dest.TotalScore, opt => opt.Ignore()) // Calculated separately
+                .ForMember(dest => dest.gradeStatus, opt => opt.Ignore()) // Determined based on TotalScore
+                .ForMember(dest => dest.GradedByInstructorId, opt => opt.Ignore())
+                .ForMember(dest => dest.GradedByInstructor, opt => opt.Ignore())
+                .ForMember(dest => dest.EvaluationDate, opt => opt.MapFrom(_ => DateTime.UtcNow))
+                .ForMember(dest => dest.UpdateDate, opt => opt.MapFrom(_ => DateTime.UtcNow));
+
+            CreateMap<Grade, GradeDTO>();
+
             CreateMap<ExternalCertificateModel, ExternalCertificate>()
                 .ForMember(dest => dest.CertificateCode, opt => opt.MapFrom(src => src.CertificateCode))
                 .ForMember(dest => dest.CertificateName, opt => opt.MapFrom(src => src.CertificateName))

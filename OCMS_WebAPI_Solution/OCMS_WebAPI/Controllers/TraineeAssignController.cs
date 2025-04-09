@@ -23,7 +23,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Import Trainee Assignments
         [HttpPost("import")]
-        [CustomAuthorize("Admin", "Training Staff")]
+        [CustomAuthorize("Admin", "Training staff")]
         public async Task<IActionResult> ImportTraineeAssignments(IFormFile file)
         {
             var importedByUserId = User.FindFirst(ClaimTypes.NameIdentifier).Value;
@@ -53,7 +53,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Create Trainee Assignment
         [HttpPost]
-        [CustomAuthorize("Admin", "Training Staff")]
+        [CustomAuthorize("Admin", "Training staff")]
         public async Task<IActionResult> CreateTraineeAssignment([FromBody] TraineeAssignDTO dto)
         {
             
@@ -73,7 +73,7 @@ namespace OCMS_WebAPI.Controllers
 
             #region Get All Trainee Assignments
             [HttpGet]
-            [CustomAuthorize("Admin", "Training Staff", "Reviewer")]
+            [CustomAuthorize("Admin", "Training staff", "Reviewer")]
             public async Task<IActionResult> GetAllTraineeAssignments()
             {
                 try
@@ -90,7 +90,7 @@ namespace OCMS_WebAPI.Controllers
 
             #region Get Trainee Assignment By Id
             [HttpGet("{id}")]
-            [CustomAuthorize("Admin", "Training Staff", "Reviewer")]
+            [CustomAuthorize("Admin", "Training staff", "Reviewer")]
             public async Task<IActionResult> GetTraineeAssignmentById(string id)
             {
                 try
@@ -107,7 +107,7 @@ namespace OCMS_WebAPI.Controllers
 
             #region Update Trainee Assignment
             [HttpPut("{id}")]
-            [CustomAuthorize("Admin", "Training Staff")]
+            [CustomAuthorize("Admin", "Training staff")]
             public async Task<IActionResult> UpdateTraineeAssignment(string id, [FromBody] TraineeAssignDTO updatedTraineeAssign)
             {
                 try
@@ -124,7 +124,7 @@ namespace OCMS_WebAPI.Controllers
 
             #region Delete Trainee Assignment
             [HttpDelete("{id}")]
-            [CustomAuthorize("Admin", "Training Staff")]
+            [CustomAuthorize("Admin", "Training staff")]
             public async Task<IActionResult> DeleteTraineeAssignment(string id)
             {
                 if (string.IsNullOrEmpty(id)) 
