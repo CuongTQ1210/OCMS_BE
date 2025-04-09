@@ -372,7 +372,10 @@ namespace OCMS_Services.Service
                     $"ClassTime must be one of the following: {string.Join(", ", allowedTimes.Select(t => t.ToString("HH:mm")))}. Provided time: {dto.ClassTime:HH:mm:ss}."
                 );
             }
-
+            //get plan start and end date to validate 
+            var subject = await _unitOfWork.SubjectRepository.FirstOrDefaultAsync(s => s.SubjectId == dto.SubjectID);
+            var course = await _unitOfWork.CourseRepository.FirstOrDefaultAsync(s => s.CourseId == subject.CourseId);
+            var plan = await _unitOfWork.TrainingPlanRepository.FirstOrDefaultAsync(s => s.PlanId == course.TrainingPlanId);
             // Validate StartDateTime and EndDateTime
             if (dto.StartDay == default)
                 throw new ArgumentException("StartDateTime is required.");
@@ -382,6 +385,8 @@ namespace OCMS_Services.Service
                 throw new ArgumentException("StartDateTime must be before EndDateTime.");
             if (dto.StartDay < DateTime.UtcNow)
                 throw new ArgumentException("StartDateTime cannot be in the past.");
+            if (dto.StartDay < plan.StartDate || dto.EndDay > plan.EndDate)
+                throw new ArgumentException("Start and end dates must be within the training plan's duration.");
 
             // Validate for overlapping schedules (excluding current schedule in case of update)
             var existingSchedules = await _unitOfWork.TrainingScheduleRepository
@@ -409,12 +414,24 @@ namespace OCMS_Services.Service
                 var newDays = dto.DaysOfWeek ?? new List<int>();
                 var overlappingDays = existingDays.Intersect(newDays).ToList();
 
-                if (isDateOverlapping && overlappingDays.Any())
+                // Calculate the time range of the current and existing schedules
+                var newStartTime = dto.ClassTime;
+                var newEndTime = dto.ClassTime.Add(dto.SubjectPeriod);
+
+
+                var existingStartTime = existingSchedule.ClassTime;
+                var existingEndTime = existingSchedule.ClassTime.Add(existingSchedule.SubjectPeriod);
+
+                // Check if time overlaps
+                bool isTimeOverlapping = newStartTime < existingEndTime && newEndTime > existingStartTime;
+
+                if (isDateOverlapping && overlappingDays.Any() && isTimeOverlapping)
                 {
                     throw new ArgumentException(
                         $"A subject is already scheduled in Room '{dto.Room}' at '{dto.Location}' on " +
                         $"{string.Join(", ", overlappingDays.Select(d => ((DayOfWeek)d).ToString()))} " +
-                        $"at {dto.ClassTime:HH:mm} during {existingSchedule.StartDateTime:yyyy-MM-dd} to {existingSchedule.EndDateTime:yyyy-MM-dd}."
+                        $"from {existingStartTime:hh\\:mm} to {existingEndTime:hh\\:mm} during " +
+                        $"{existingSchedule.StartDateTime:yyyy-MM-dd} to {existingSchedule.EndDateTime:yyyy-MM-dd}."
                     );
                 }
             }
