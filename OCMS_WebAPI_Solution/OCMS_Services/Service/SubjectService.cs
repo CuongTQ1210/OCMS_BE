@@ -63,7 +63,7 @@ namespace OCMS_Services.Service
             if (subjectExisted)
                 throw new ArgumentException("Subject already existed.");
             var subjectExisted2 = await _unitOfWork.SubjectRepository.ExistsAsync(c => c.SubjectName == dto.SubjectName);
-            if (subjectExisted)
+            if (subjectExisted2)
                 throw new ArgumentException("This Subject name already existed.");
             var userExists = await _unitOfWork.UserRepository.ExistsAsync(u => u.UserId == createdByUserId);
             if (!userExists)
