@@ -18,10 +18,8 @@ namespace OCMS_BOs.Helper
         {
             CreateMap<User, UserModel>()
                 .ForMember(dest => dest.RoleId, opt => opt.MapFrom(src => src.RoleId))
-                .ForMember(dest => dest.RoleName, opt => opt.MapFrom(src => src.Role.RoleName));
-            CreateMap<UserModel, User>()
-                .ForMember(dest => dest.RoleId, opt => opt.MapFrom(src => src.RoleId))
-                .ForMember(dest => dest.Role, opt => opt.Ignore());
+                .ForMember(dest => dest.RoleName, opt => opt.MapFrom(src => src.Role.RoleName))
+                .ReverseMap();
 
             CreateMap<UserUpdateDTO, User>()
                 .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.FullName))
