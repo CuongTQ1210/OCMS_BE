@@ -69,13 +69,11 @@ namespace OCMS_Services.Service
             User user = await _unitOfWork.UserRepository.GetByIdAsync(userId);
             if (user == null)
                 throw new Exception("User not found.");
-            if (!string.IsNullOrEmpty(requestDto.RequestEntityId))
-            {
+
                 bool isValidEntity = await ValidateRequestEntityIdAsync(requestDto.RequestType, requestDto.RequestEntityId);
                 if (!isValidEntity)
                     throw new ArgumentException("Invalid RequestEntityId for the given RequestType.");
-            }
-
+            
             var newRequest = new Request
             {
                 RequestId = GenerateRequestId(),
@@ -104,7 +102,6 @@ namespace OCMS_Services.Service
                 newRequest.RequestType == RequestType.Delete||
                 newRequest.RequestType== RequestType.AssignTrainee||
                 newRequest.RequestType == RequestType.AddTraineeAssign
-
                 )
             {
                 var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");

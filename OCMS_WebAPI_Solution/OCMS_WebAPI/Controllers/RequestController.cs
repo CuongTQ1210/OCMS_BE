@@ -119,13 +119,15 @@ namespace OCMS_WebAPI.Controllers
             return Ok("Request approved successfully");
         }
 
-        // ✅ Reject Request (Only for Director)
+        // ✅ Reject Request (Only for HeadMaster)
         [HttpPut("{id}/reject")]
         [CustomAuthorize("HeadMaster")]
-        public async Task<IActionResult> RejectRequest(string id, [FromBody]string rejectionReason)
+        public async Task<IActionResult> RejectRequest(string id, [FromBody] RejectRequestDTO dto)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
-            var success = await _requestService.RejectRequestAsync(id, rejectionReason);
+            var success = await _requestService.RejectRequestAsync(id, dto.RejectReason);
             if (!success)
                 return NotFound("Request not found");
 
