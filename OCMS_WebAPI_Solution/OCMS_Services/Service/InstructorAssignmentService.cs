@@ -92,7 +92,13 @@ namespace OCMS_Services.Service
             assignment.AssignByUserId = assignByUserId;
             assignment.AssignDate = DateTime.UtcNow;
             assignment.RequestStatus = RequestStatus.Pending; // Assuming RequestStatus is an enum
-
+            var user = await _unitOfWork.UserRepository.FirstOrDefaultAsync(u => u.UserId == dto.InstructorId);
+            if (user != null)
+            {
+                user.IsAssign = true;
+                _unitOfWork.UserRepository.UpdateAsync(user);
+                await _unitOfWork.SaveChangesAsync();
+            }
             await _unitOfWork.InstructorAssignmentRepository.AddAsync(assignment);
             await _unitOfWork.SaveChangesAsync();
 
@@ -131,7 +137,13 @@ namespace OCMS_Services.Service
 
             // Map DTO to existing entity
             _mapper.Map(dto, assignment);
-
+            var user = await _unitOfWork.UserRepository.FirstOrDefaultAsync(u => u.UserId == dto.InstructorId);
+            if (user != null)
+            {
+                user.IsAssign = true;
+                _unitOfWork.UserRepository.UpdateAsync(user);
+                await _unitOfWork.SaveChangesAsync();
+            }
             _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
             await _unitOfWork.SaveChangesAsync();
 
@@ -155,7 +167,13 @@ namespace OCMS_Services.Service
             var assignment = await _unitOfWork.InstructorAssignmentRepository.GetByIdAsync(assignmentId);
             if (assignment == null)
                 throw new KeyNotFoundException($"Instructor assignment with ID {assignmentId} not found.");
-
+            var user = await _unitOfWork.UserRepository.FirstOrDefaultAsync(u => u.UserId == assignment.InstructorId);
+            if (user != null)
+            {
+                user.IsAssign = false;
+                _unitOfWork.UserRepository.UpdateAsync(user);
+                await _unitOfWork.SaveChangesAsync();
+            }
             _unitOfWork.InstructorAssignmentRepository.DeleteAsync(assignmentId);
             await _unitOfWork.SaveChangesAsync();
             return true;
