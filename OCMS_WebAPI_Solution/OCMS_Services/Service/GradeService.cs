@@ -135,36 +135,54 @@ namespace OCMS_Services.Service
                     return result;
                 }
 
-                string subjectId = worksheet.Cells[1, 2].GetValue<string>();
-                if (string.IsNullOrEmpty(subjectId))
+                string subjectName = worksheet.Cells[1, 2].GetValue<string>();
+                if (string.IsNullOrEmpty(subjectName))
                 {
-                    result.Errors.Add("SubjectId is missing in cell B1.");
+                    result.Errors.Add("Subject name is missing in cell B1.");
                     return result;
                 }
 
+                // Get subject by name
+                var subject = await _unitOfWork.SubjectRepository.FirstOrDefaultAsync(s => s.SubjectName == subjectName);
+                if (subject == null)
+                {
+                    result.Errors.Add($"Subject '{subjectName}' not found.");
+                    return result;
+                }
+                string subjectId = subject.SubjectId;
+                string courseId = subject.CourseId;
+                // Get CourseId from subject
+                var course = await _unitOfWork.CourseRepository.FirstOrDefaultAsync(c => c.CourseId == courseId);
+                if (course == null)
+                {
+                    result.Errors.Add($"Course not found for Subject '{subjectName}'.");
+                    return result;
+                }
+                
                 var existingGrades = await _unitOfWork.GradeRepository.GetAllAsync();
                 var existingGradeKeys = existingGrades.Select(g => (g.TraineeAssignID, g.SubjectId)).ToHashSet();
 
                 var existingTraineeAssigns = await _unitOfWork.TraineeAssignRepository.GetAllAsync();
-                var validAssignIds = existingTraineeAssigns.Select(a => a.TraineeAssignId).ToHashSet();
-
+                var assignMap = existingTraineeAssigns
+                    .Where(a => a.CourseId == courseId)
+                    .ToDictionary(a => a.TraineeId, a => a.TraineeAssignId);
                 var newGrades = new List<Grade>();
                 int rowCount = worksheet.Dimension.Rows;
                 result.TotalRecords = rowCount - 2;
 
                 for (int row = 3; row <= rowCount; row++)
                 {
-                    string assignId = worksheet.Cells[row, 1].GetValue<string>();
-                    if (string.IsNullOrWhiteSpace(assignId))
+                    string traineeId = worksheet.Cells[row, 1].GetValue<string>();
+                    if (string.IsNullOrWhiteSpace(traineeId))
                     {
-                        result.Errors.Add($"Row {row}: TraineeAssignId is missing.");
+                        result.Errors.Add($"Row {row}: TraineeId is missing.");
                         result.FailedCount++;
                         continue;
                     }
 
-                    if (!validAssignIds.Contains(assignId))
+                    if (!assignMap.TryGetValue(traineeId, out string assignId))
                     {
-                        result.Errors.Add($"Row {row}: TraineeAssignId '{assignId}' does not exist.");
+                        result.Errors.Add($"Row {row}: No TraineeAssign found for TraineeId '{traineeId}' in Course '{courseId}'.");
                         result.FailedCount++;
                         continue;
                     }

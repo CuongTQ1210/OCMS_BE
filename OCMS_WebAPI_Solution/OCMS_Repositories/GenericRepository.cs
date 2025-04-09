@@ -146,6 +146,9 @@ namespace OCMS_Repositories
                                .OrderByDescending(orderByDesc)
                                .FirstOrDefaultAsync();
         }
-
+        public async Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate)
+        {
+            return await _dbSet.FirstOrDefaultAsync(predicate);
+        }
     }
 }
