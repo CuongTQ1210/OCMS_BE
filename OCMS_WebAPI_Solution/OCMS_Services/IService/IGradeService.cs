@@ -1,4 +1,6 @@
-﻿using OCMS_BOs.RequestModel;
+﻿using OCMS_BOs.Entities;
+using OCMS_BOs.RequestModel;
+using OCMS_BOs.ResponseModel;
 using OCMS_BOs.ViewModel;
 using System;
 using System.Collections.Generic;
@@ -15,5 +17,7 @@ namespace OCMS_Services.IService
         Task<string> CreateAsync(GradeDTO dto, string gradedByUserId);
         Task<bool> UpdateAsync(string id, GradeDTO dto);
         Task<bool> DeleteAsync(string id);
+        Task<List<GradeModel>> GetGradesByStatusAsync(GradeStatus status);
+        Task<ImportResult> ImportGradesFromExcelAsync(Stream fileStream, string importedByUserId);
     }
 }

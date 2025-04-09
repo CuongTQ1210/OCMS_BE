@@ -1,7 +1,10 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using OCMS_BOs.Entities;
 using OCMS_BOs.RequestModel;
+using OCMS_BOs.ResponseModel;
 using OCMS_Services.IService;
+using OCMS_Services.Service;
 using OCMS_WebAPI.AuthorizeSettings;
 using System.Security.Claims;
 
@@ -17,7 +20,35 @@ namespace OCMS_WebAPI.Controllers
         {
             _gradeService = gradeService;
         }
+        #region Import Grade Trainee
+        [HttpPost("import")]
+        [CustomAuthorize("Admin", "Instructor")]
+        public async Task<IActionResult> ImportGradeTrainees(IFormFile file)
+        {
+            var importedByUserId = User.FindFirst(ClaimTypes.NameIdentifier).Value;
+            try
+            {
+                using (var stream = new MemoryStream())
+                {
+                    await file.CopyToAsync(stream);
+                    stream.Position = 0;
 
+                    ImportResult result = await _gradeService.ImportGradesFromExcelAsync(stream, importedByUserId);
+
+                    if (result.Errors.Count > 0)
+                    {
+                        return Ok(new { Message = "Import completed with errors.", Result = result });
+                    }
+
+                    return Ok(new { Message = "Import successful.", Result = result });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+        #endregion
         #region Get All Grades
         [HttpGet]
         [CustomAuthorize("Admin", "Training staff", "Reviewer", "Instructor")]
@@ -33,6 +64,39 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        #endregion
+        #region Get Passed Grades
+        [HttpGet("passed")]
+        [CustomAuthorize("Admin", "Training staff", "Reviewer")]
+        public async Task<IActionResult> GetPassedGrades()
+        {
+            try
+            {
+                var grades = await _gradeService.GetGradesByStatusAsync(GradeStatus.Pass);
+            return Ok(grades);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        #endregion
+
+        #region Get Failed Grades
+        [HttpGet("failed")]
+        [CustomAuthorize("Admin", "Training staff", "Reviewer")]
+        public async Task<IActionResult> GetFailedGrades()
+        {
+            try
+                {
+                    var grades = await _gradeService.GetGradesByStatusAsync(GradeStatus.Fail);
+            return Ok(grades);
+                }
+                catch (Exception ex)
+                {
+                    return BadRequest(new { message = ex.Message });
+                }
+            }
         #endregion
 
         #region Get Grade By ID
@@ -115,5 +179,7 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
+
+
     }
 }
