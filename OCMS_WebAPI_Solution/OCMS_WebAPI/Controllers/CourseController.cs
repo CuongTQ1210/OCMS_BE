@@ -115,7 +115,7 @@ namespace OCMS_WebAPI.Controllers
         /// </summary>
         [HttpPut("update/{id}")]
         [CustomAuthorize("Admin", "Training staff")]
-        public async Task<IActionResult> UpdateCourse(string id, [FromBody] CourseDTO dto)
+        public async Task<IActionResult> UpdateCourse(string id, [FromBody] CourseUpdateDTO dto)
         {
             try
             {
