@@ -14,10 +14,14 @@ namespace OCMS_BOs.Helper
 {
     public class MappingHelper : Profile
     {
-        public MappingHelper() 
+        public MappingHelper()
         {
-            CreateMap<User, UserModel>();
-            CreateMap<UserModel, User>();
+            CreateMap<User, UserModel>()
+                .ForMember(dest => dest.RoleId, opt => opt.MapFrom(src => src.RoleId))
+                .ForMember(dest => dest.RoleName, opt => opt.MapFrom(src => src.Role.RoleName));
+            CreateMap<UserModel, User>()
+                .ForMember(dest => dest.RoleId, opt => opt.MapFrom(src => src.RoleId))
+                .ForMember(dest => dest.Role, opt => opt.Ignore());
 
             CreateMap<UserUpdateDTO, User>()
                 .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.FullName))
@@ -195,7 +199,7 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.TemplateFile, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
                 .ForMember(dest => dest.LastUpdatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
-                .ForMember(dest => dest.templateStatus, opt => opt.MapFrom(_ => TemplateStatus.active));
+                .ForMember(dest => dest.templateStatus, opt => opt.MapFrom(_ => TemplateStatus.Active));
 
             // Mapping for Create Certificate Template Response
             CreateMap<CertificateTemplate, CreateCertificateTemplateResponse>()
@@ -214,7 +218,7 @@ namespace OCMS_BOs.Helper
             CreateMap<CreateCertificateTemplateDTO, CertificateTemplate>()
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
                 .ForMember(dest => dest.LastUpdatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
-                .ForMember(dest => dest.templateStatus, opt => opt.MapFrom(src => TemplateStatus.active))
+                .ForMember(dest => dest.templateStatus, opt => opt.MapFrom(src => TemplateStatus.Active))
                 .ForMember(dest => dest.CertificateTemplateId, opt => opt.Ignore())
                 .ForMember(dest => dest.TemplateFile, opt => opt.Ignore())
                 .ForMember(dest => dest.TemplateName, opt => opt.Ignore());
@@ -235,6 +239,6 @@ namespace OCMS_BOs.Helper
         }
 
     }
-    
+
 }
 

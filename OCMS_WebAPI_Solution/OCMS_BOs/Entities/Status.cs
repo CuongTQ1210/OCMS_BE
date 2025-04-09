@@ -94,12 +94,12 @@ namespace OCMS_BOs.Entities
 
     public enum DigitalSignatureStatus
     {
-        active=1, expired =0 , revoked=2
+        Active=1, Expired =0 , Revoked=2
     }
 
     public enum TemplateStatus
     {
-        active=1,inactive=0
+        Active=1,Inactive=0
     }
     public enum RequestType
     {
