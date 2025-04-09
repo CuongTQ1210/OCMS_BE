@@ -69,7 +69,13 @@ namespace OCMS_Services.Service
             var existingAssignment = await _unitOfWork.TraineeAssignRepository.GetByIdAsync(id);
             if (existingAssignment == null)
                 throw new KeyNotFoundException($"Trainee Assignment with ID {id} not found.");
-
+            var user = await _unitOfWork.UserRepository.FirstOrDefaultAsync(u => u.UserId == dto.TraineeId);
+            if (user != null)
+            {
+                user.IsAssign = true;
+                _unitOfWork.UserRepository.UpdateAsync(user);
+                await _unitOfWork.SaveChangesAsync();
+            }
             // Ensure update is allowed only if status is "Pending" or "Rejected"
             if (existingAssignment.RequestStatus.ToString() != "Pending" && existingAssignment.RequestStatus.ToString() != "Rejected")
                 throw new InvalidOperationException($"Cannot update trainee assignment because its status is '{existingAssignment.RequestStatus.ToString()}'. Only 'Pending' or 'Rejected' can be updated.");
@@ -94,12 +100,19 @@ namespace OCMS_Services.Service
             var assignment = await _unitOfWork.TraineeAssignRepository.GetByIdAsync(id);
             if (assignment == null)
                 return (false, "Trainee Assignment not found.");
-
+            
             // Ensure deletion is allowed only if status is "Pending" or "Rejected"
             if (assignment.RequestStatus.ToString() != "Pending" && assignment.RequestStatus.ToString() != "Rejected")
                 return (false, $"Cannot delete trainee assignment because its status is '{assignment.RequestStatus.ToString()}'. Only 'Pending' or 'Rejected' can be deleted.");
 
             _unitOfWork.TraineeAssignRepository.DeleteAsync(id);
+            var user = await _unitOfWork.UserRepository.FirstOrDefaultAsync(u => u.UserId == assignment.TraineeId);
+            if (user != null)
+            {
+                user.IsAssign = false;
+                _unitOfWork.UserRepository.UpdateAsync(user);
+                await _unitOfWork.SaveChangesAsync();
+            }
             await _unitOfWork.SaveChangesAsync();
 
             return (true, "Trainee Assignment deleted successfully.");
@@ -196,7 +209,13 @@ namespace OCMS_Services.Service
                 ApproveByUserId = null,
                 Notes = dto.Notes
             };
-
+            var user = await _unitOfWork.UserRepository.FirstOrDefaultAsync(u => u.UserId == dto.TraineeId);
+            if (user != null)
+            {
+                user.IsAssign = true;
+                _unitOfWork.UserRepository.UpdateAsync(user);
+                await _unitOfWork.SaveChangesAsync();
+            }
             // ✅ Save both Request & TraineeAssign in a single transaction
             await _unitOfWork.RequestRepository.AddAsync(newRequest);
             await _unitOfWork.TraineeAssignRepository.AddAsync(traineeAssign);
@@ -322,7 +341,12 @@ namespace OCMS_Services.Service
                             ApprovalDate = null,
                             Notes = notes
                         };
-
+                        if (user != null)
+                        {
+                            user.IsAssign = true;
+                            _unitOfWork.UserRepository.UpdateAsync(user);
+                            await _unitOfWork.SaveChangesAsync();
+                        }
                         traineeAssignments.Add(traineeAssign);
                         existingAssignmentPairs.Add((userId, courseId));
                         processedUserIds.Add(userId);

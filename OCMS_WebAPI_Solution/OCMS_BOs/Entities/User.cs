@@ -35,8 +35,8 @@ namespace OCMS_BOs.Entities
 
         [ForeignKey("Department")]
         public string? DepartmentId { get; set; }
-        public bool IsDeleted { get; set; }
-
+        public bool IsDeleted { get; set; } = false;
+        public bool IsAssign {  get; set; } =false;
         public AccountStatus Status { get; set; } = AccountStatus.Active;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
