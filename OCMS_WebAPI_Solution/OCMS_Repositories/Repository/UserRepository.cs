@@ -38,5 +38,13 @@ namespace OCMS_Repositories.Repository
                 .Include(u => u.Role) 
                 .ToListAsync();
         }
+
+        public async Task<User> GetByIdAsync(string id)
+        {
+            return await _context.Users
+                                 .Include(u => u.Role)
+                                 .FirstOrDefaultAsync(u => u.UserId == id);
+        }
+
     }
 }

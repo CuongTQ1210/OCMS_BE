@@ -34,7 +34,7 @@ namespace OCMS_Services.Service
         #region Get All Users
         public async Task<IEnumerable<UserModel>> GetAllUsersAsync()
         {
-            var users = await _unitOfWork.UserRepository.GetAllAsync();
+            var users = await _userRepository.GetAllAsync();
             return _mapper.Map<IEnumerable<UserModel>>(users);
         }
         #endregion
@@ -42,7 +42,7 @@ namespace OCMS_Services.Service
         #region Get User By Id
         public async Task<UserModel> GetUserByIdAsync(string id)
         {
-            var user = await _unitOfWork.UserRepository.GetByIdAsync(id);
+            var user = await _userRepository.GetByIdAsync(id);
             if (user == null)
             {
                 throw new Exception("User not found!!");
