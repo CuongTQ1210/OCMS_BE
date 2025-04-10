@@ -156,11 +156,12 @@ namespace OCMS_Services.Service
             // Thêm certificate mới
             await _unitOfWork.CertificateRepository.AddAsync(certificate);
 
-            // Gửi request ký cho Director
-            await CreateSignatureRequestAsync(certificate.CertificateId, issuedByUserId);
 
             // Lưu thay đổi
             await _unitOfWork.SaveChangesAsync();
+
+            // Gửi request ký cho Director
+            await CreateSignatureRequestAsync(certificate.CertificateId, issuedByUserId);
 
             // Ánh xạ và trả về response
             return _mapper.Map<CertificateModel>(certificate);

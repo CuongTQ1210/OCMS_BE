@@ -75,7 +75,7 @@ namespace OCMS_Services.Service
             return true;
         }
 
-        public async Task<CourseModel> UpdateCourseAsync(string id, CourseDTO dto, string updatedByUserId)
+        public async Task<CourseModel> UpdateCourseAsync(string id, CourseUpdateDTO dto, string updatedByUserId)
         {
             var course = await _unitOfWork.CourseRepository.GetByIdAsync(id);
             if (course == null) throw new Exception("Course Id does not exist!!"); ;
@@ -84,6 +84,7 @@ namespace OCMS_Services.Service
                 throw new Exception("Training Plan ID does not exist. Please provide a valid Training Plan.");
             _mapper.Map(dto, course);
             course.TrainingPlanId = dto.TrainingPlanId;
+            course.CourseLevel = dto.CourseLevel;
             course.UpdatedAt = DateTime.UtcNow;
 
             _unitOfWork.CourseRepository.UpdateAsync(course);
