@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 
 namespace OCMS_Repositories.Repository
 {
@@ -16,6 +17,12 @@ namespace OCMS_Repositories.Repository
         {
             _context = context;
         }
-        
+
+        public async Task<IEnumerable<Grade>> GetGradesByTraineeAssignIdAsync(string traineeAssignId)
+        {
+            return await _context.Grades
+                .Where(g => g.TraineeAssignID == traineeAssignId)
+                .ToListAsync();
+        }
     }
 }

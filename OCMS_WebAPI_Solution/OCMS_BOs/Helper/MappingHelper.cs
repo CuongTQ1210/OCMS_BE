@@ -260,6 +260,9 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.CreatedByUserName, opt => opt.MapFrom(src => src.CreateByUser.FullName))
                 .ForMember(dest => dest.ApprovedByUserName, opt => opt.MapFrom(src => src.ApprovedByUser != null ? src.ApprovedByUser.FullName : null))
                 .ForMember(dest => dest.TemplateStatus, opt => opt.MapFrom(src => src.templateStatus));
+
+            CreateMap<Certificate, CertificateModel>()
+                .ForMember(dest => dest.TemplateId, opt => opt.MapFrom(src => src.CertificateTemplateId));
         }
 
     }

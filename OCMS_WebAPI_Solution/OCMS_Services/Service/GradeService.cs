@@ -26,12 +26,15 @@ namespace OCMS_Services.Service
             _mapper = mapper;
         }
 
+        #region Get All Grade
         public async Task<IEnumerable<GradeModel>> GetAllAsync()
         {
             var grades = await _unitOfWork.GradeRepository.GetAllAsync();
             return _mapper.Map<IEnumerable<GradeModel>>(grades);
         }
+        #endregion
 
+        #region Get Grade By ID
         public async Task<GradeModel> GetByIdAsync(string id)
         {
             var grade = await _unitOfWork.GradeRepository.GetByIdAsync(id);
@@ -40,7 +43,9 @@ namespace OCMS_Services.Service
 
             return _mapper.Map<GradeModel>(grade);
         }
+        #endregion
 
+        #region Get Grade By TraineeAssignID
         public async Task<string> CreateAsync(GradeDTO dto, string gradedByUserId)
         {
             // Check for existing grade with same TraineeAssignID and SubjectId
@@ -70,7 +75,9 @@ namespace OCMS_Services.Service
 
             return grade.GradeId;
         }
+        #endregion
 
+        #region Update Grade By Id
         public async Task<bool> UpdateAsync(string id, GradeDTO dto)
         {
             var existing = await _unitOfWork.GradeRepository.GetAsync(g => g.GradeId == id);
@@ -96,7 +103,9 @@ namespace OCMS_Services.Service
 
             return true;
         }
+        #endregion
 
+        #region Delete Grade By Id
         public async Task<bool> DeleteAsync(string id)
         {
             var existing = await _unitOfWork.GradeRepository.GetAsync(g => g.GradeId == id);
@@ -108,13 +117,17 @@ namespace OCMS_Services.Service
 
             return true;
         }
+        #endregion
 
+        #region Get Grade By Status
         public async Task<List<GradeModel>> GetGradesByStatusAsync(GradeStatus status)
         {
             var grades = await _unitOfWork.GradeRepository.FindAsync(g => g.gradeStatus == status);
             return _mapper.Map<List<GradeModel>>(grades);
         }
+        #endregion
 
+        #region Import Grades from Excel
         public async Task<ImportResult> ImportGradesFromExcelAsync(Stream fileStream, string importedByUserId)
         {
             var result = new ImportResult
@@ -254,6 +267,9 @@ namespace OCMS_Services.Service
 
             return result;
         }
+        #endregion
+
+        #region Helper Methods
         private double CalculateTotalScore(Grade grade)
         {
             double participant = grade.ParticipantScore * 0.1;
@@ -265,7 +281,6 @@ namespace OCMS_Services.Service
 
             return participant + assignment + final;
         }
-
 
         private async Task ValidateGradeDto(GradeDTO dto)
         {
@@ -300,5 +315,6 @@ namespace OCMS_Services.Service
             if (subject == null)
                 throw new InvalidOperationException("Subject not found.");
         }
+        #endregion
     }
 }
