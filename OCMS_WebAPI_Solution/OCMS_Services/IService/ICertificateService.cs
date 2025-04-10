@@ -12,5 +12,6 @@ namespace OCMS_Services.IService
     {
         Task<CertificateModel> CreateCertificateAsync(CreateCertificateDTO request, string issuedByUserId);
         Task<List<CertificateModel>> GetCertificatesByTraineeIdAsync(string traineeId);
+        Task<bool> DeleteCertificateAsync(string certificateId);
     }
 }
