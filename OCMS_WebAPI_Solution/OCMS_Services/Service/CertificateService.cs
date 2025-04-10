@@ -143,6 +143,7 @@ namespace OCMS_Services.Service
                 CertificateId = Guid.NewGuid().ToString(),
                 CertificateCode = certificateCode,
                 UserId = request.TraineeId,
+                User = trainee,
                 CourseId = request.CourseId,
                 Course = course,
                 CertificateTemplateId = templateId,
