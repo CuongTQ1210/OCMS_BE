@@ -67,6 +67,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Delete Certificate
         [HttpDelete("{certificateId}")]
+        [CustomAuthorize("Admin", "Training staff")]
         public async Task<IActionResult> DeleteCertificate(string certificateId)
         {
             try
