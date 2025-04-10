@@ -1,4 +1,5 @@
-﻿using System;
+﻿using OCMS_BOs.Entities;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,5 +9,6 @@ namespace OCMS_Repositories.IRepository
 {
     public interface IGradeRepository
     {
+        Task<IEnumerable<Grade>> GetGradesByTraineeAssignIdAsync(string traineeAssignId);
     }
 }
