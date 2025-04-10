@@ -459,7 +459,7 @@
             }
             #endregion
 
-                #region Helper Methods
+            #region Helper Methods
             private bool IsRowEmpty(ExcelWorksheet worksheet, int row)
             {
                 int totalColumns = worksheet.Dimension.Columns;
