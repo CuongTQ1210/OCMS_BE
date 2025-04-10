@@ -198,8 +198,12 @@ namespace OCMS_Services.Service
                 case RequestType.PlanDelete:
                     if (string.IsNullOrWhiteSpace(entityId))
                         return false;
-                    var plan = _unitOfWork.TrainingPlanRepository.GetByIdAsync(entityId);
-                    
+                    var plan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(entityId);
+                    if (plan != null && plan.TrainingPlanStatus == TrainingPlanStatus.Approved)
+                    {
+                        throw new InvalidOperationException("The request has already been approved and cannot send request.");
+                    }
+
                     return await _unitOfWork.TrainingPlanRepository.ExistsAsync(tp => tp.PlanId == entityId);
 
                 case RequestType.CreateNew:
