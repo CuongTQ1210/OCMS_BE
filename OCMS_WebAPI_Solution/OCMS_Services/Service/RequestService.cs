@@ -69,13 +69,11 @@ namespace OCMS_Services.Service
             User user = await _unitOfWork.UserRepository.GetByIdAsync(userId);
             if (user == null)
                 throw new Exception("User not found.");
-            if (!string.IsNullOrEmpty(requestDto.RequestEntityId))
-            {
+
                 bool isValidEntity = await ValidateRequestEntityIdAsync(requestDto.RequestType, requestDto.RequestEntityId);
                 if (!isValidEntity)
                     throw new ArgumentException("Invalid RequestEntityId for the given RequestType.");
-            }
-
+            
             var newRequest = new Request
             {
                 RequestId = GenerateRequestId(),
@@ -104,7 +102,6 @@ namespace OCMS_Services.Service
                 newRequest.RequestType == RequestType.Delete||
                 newRequest.RequestType== RequestType.AssignTrainee||
                 newRequest.RequestType == RequestType.AddTraineeAssign
-
                 )
             {
                 var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
@@ -201,6 +198,11 @@ namespace OCMS_Services.Service
                 case RequestType.PlanDelete:
                     if (string.IsNullOrWhiteSpace(entityId))
                         return false;
+                    var plan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(entityId);
+                    if (plan != null && plan.TrainingPlanStatus == TrainingPlanStatus.Approved)
+                    {
+                        throw new InvalidOperationException("The request has already been approved and cannot send request.");
+                    }
 
                     return await _unitOfWork.TrainingPlanRepository.ExistsAsync(tp => tp.PlanId == entityId);
 
@@ -244,13 +246,22 @@ namespace OCMS_Services.Service
             if (request == null || request.Status != RequestStatus.Pending)
                 return false;
 
-            request.Status = RequestStatus.Approved;
             request.ApprovedBy = approvedByUserId;
             request.ApprovedDate = DateTime.UtcNow;
             request.UpdatedAt = DateTime.UtcNow;
+            if (request != null && request.Status == RequestStatus.Pending)
+            {
+                request.Status = RequestStatus.Approved;
+            }
+            else if (request != null && request.Status == RequestStatus.Rejected)
+            {
+                throw new InvalidOperationException("The request has already been rejected and cannot be approved.");
+            }
+            else
+            {
+                throw new InvalidOperationException("The request cannot be approved in its current status.");
+            }
 
-            await _unitOfWork.RequestRepository.UpdateAsync(request);
-            await _unitOfWork.SaveChangesAsync();
 
             // Notify the requester
             await _notificationService.SendNotificationAsync(
@@ -299,6 +310,7 @@ namespace OCMS_Services.Service
                             assignment.RequestStatus = RequestStatus.Approved;
                             await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
                         }
+                        
                         if (!string.IsNullOrEmpty(request.RequestUserId))
                         {
                             await _notificationService.SendNotificationAsync(
@@ -320,6 +332,7 @@ namespace OCMS_Services.Service
                             await _unitOfWork.CandidateRepository.UpdateAsync(candidate);
                         }
                     }
+                    
                     var admins = await _userRepository.GetUsersByRoleAsync("Admin");
                     foreach (var admin in admins)
                     {
@@ -330,6 +343,7 @@ namespace OCMS_Services.Service
                             "CandidateImport"
                         );
                     }
+
                     break;
                 case RequestType.AssignTrainee:
                     var traineeAssigns = await _unitOfWork.TraineeAssignRepository.GetAllAsync(t => t.RequestId == requestId);
@@ -342,7 +356,7 @@ namespace OCMS_Services.Service
                         assign.ApprovalDate = DateTime.UtcNow;
                         assign.ApproveByUserId = approvedByUserId;
                         await _unitOfWork.TraineeAssignRepository.UpdateAsync(assign);
-
+                        
                         // ✅ Notify the trainee
                         await _notificationService.SendNotificationAsync(
                             assign.TraineeId,
@@ -362,6 +376,7 @@ namespace OCMS_Services.Service
                             );
                         }
                     }
+                    
                     break;
 
                 case RequestType.AddTraineeAssign:
@@ -373,7 +388,7 @@ namespace OCMS_Services.Service
                     traineeAssign.ApprovalDate = DateTime.UtcNow;
                     traineeAssign.ApproveByUserId = approvedByUserId;
                     await _unitOfWork.TraineeAssignRepository.UpdateAsync(traineeAssign);
-
+                    
                     // ✅ Notify the trainee
                     await _notificationService.SendNotificationAsync(
                         traineeAssign.TraineeId,
@@ -392,6 +407,7 @@ namespace OCMS_Services.Service
                             "TraineeAssign"
                         );
                     }
+                    
                     break;
                 case RequestType.Update:
                     var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
@@ -427,11 +443,13 @@ namespace OCMS_Services.Service
                     {
                         await _trainingPlanService.Value.DeleteTrainingPlanAsync(request.RequestEntityId);
                     }
+
                     break;
 
                     
             }
-
+            await _unitOfWork.RequestRepository.UpdateAsync(request);
+            await _unitOfWork.SaveChangesAsync();
             return true;
         }
         #endregion
@@ -440,14 +458,21 @@ namespace OCMS_Services.Service
         public async Task<bool> RejectRequestAsync(string requestId, string rejectionReason)
         {
             var request = await _unitOfWork.RequestRepository.GetByIdAsync(requestId);
-            if (request == null || request.Status != RequestStatus.Pending)
-                return false;
-
-            request.Status = RequestStatus.Rejected;
+            
             request.UpdatedAt = DateTime.UtcNow;
 
-            await _unitOfWork.RequestRepository.UpdateAsync(request);
-            await _unitOfWork.SaveChangesAsync();
+            if (request != null && request.Status == RequestStatus.Pending)
+            {
+                request.Status = RequestStatus.Rejected;
+            }
+            else if (request != null && request.Status == RequestStatus.Approved)
+            {
+                throw new InvalidOperationException("The request has already been approved and cannot be rejected.");
+            }
+            else
+            {
+                throw new InvalidOperationException("The request cannot be rejected in its current status.");
+            }
 
             // Tailor notification message based on RequestType
             string notificationTitle = "Request Rejected";
@@ -490,28 +515,52 @@ namespace OCMS_Services.Service
                             assignment.RequestStatus = RequestStatus.Rejected;
                             await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
                         }
+                        
                     }
 
                     notificationMessage = $"Your training plan request (ID: {request.RequestEntityId}) has been rejected. Reason: {rejectionReason}";
+                   
                     break;
 
                 case RequestType.Update:
+                    var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
+                    if (trainingPlan != null && trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Approved)
+                    {
+                        trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Approved;
+                    }
+                    
                     notificationMessage = $"Your request to update (ID: {request.RequestEntityId}) has been rejected. Reason: {rejectionReason}";
+                   
                     break;
                 case RequestType.Delete:
+                    var _trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
+                    if (_trainingPlan != null && _trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Approved)
+                    {
+                        _trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Approved;
+                    }
+                    
                     notificationMessage = $"Your request to delete (ID: {request.RequestEntityId}) has been rejected. Reason: {rejectionReason}";
+                    
                     break;
                 case RequestType.CandidateImport:
+                    
                     notificationMessage = $"Your candidate import request has been rejected. Reason: {rejectionReason}";
+                    
                     break;
                 case RequestType.AssignTrainee:
+                    
                     notificationMessage = $"Your request to assign trainee import has been rejected. Reason:{rejectionReason}";
+                    
                     break;
                 case RequestType.AddTraineeAssign:
+                    
                     notificationMessage = $"Your request to assign a trainee has been rejected. Reason: {rejectionReason}";
+                    
                     break;
                 default:
+                    
                     notificationMessage = $"Your request ({request.RequestType}) has been rejected. Reason: {rejectionReason}";
+                    
                     break;
             }
 
@@ -535,7 +584,7 @@ namespace OCMS_Services.Service
                         await _unitOfWork.CandidateRepository.UpdateAsync(candidate);
                     }
                 }
-
+                
                 var hrs = await _userRepository.GetUsersByRoleAsync("HR");
                 foreach (var hr in hrs)
                 {
@@ -547,7 +596,8 @@ namespace OCMS_Services.Service
                     );
                 }
             }
-
+            await _unitOfWork.RequestRepository.UpdateAsync(request);
+            await _unitOfWork.SaveChangesAsync();
             return true;
         }
         #endregion

@@ -17,10 +17,10 @@ namespace OCMS_BOs.Helper
         public MappingHelper()
         {
             CreateMap<User, UserModel>()
-                .ForMember(dest => dest.RoleId, opt => opt.MapFrom(src => src.RoleId))
-                .ForMember(dest => dest.RoleName, opt => opt.MapFrom(src => src.Role.RoleName))
-                .ReverseMap();
-
+    .ForMember(dest => dest.RoleId, opt => opt.MapFrom(src => src.RoleId))
+    .ForMember(dest => dest.RoleName, opt => opt.MapFrom(src => src.Role.RoleName))
+    .ForMember(dest => dest.AvatarUrl, opt => opt.MapFrom(src => src.AvatarUrl)) // ✅ Added mapping
+    .ReverseMap();
             CreateMap<UserUpdateDTO, User>()
                 .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.FullName))
                 .ForMember(dest => dest.Gender, opt => opt.MapFrom(src => src.Gender))
@@ -103,6 +103,18 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.Subjects, opt => opt.MapFrom(src => src.Subjects))
                 .ReverseMap();
             CreateMap<CourseDTO, Course>();
+            CreateMap<CourseUpdateDTO, Course>()
+            .ForMember(dest => dest.CourseId, opt => opt.Ignore()) 
+            .ForMember(dest => dest.Status, opt => opt.Ignore())
+            .ForMember(dest => dest.Progress, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
+            .ForMember(dest => dest.CreatedByUserId, opt => opt.Ignore())
+            .ForMember(dest => dest.ApproveByUserId, opt => opt.Ignore())
+            .ForMember(dest => dest.ApproveByUser, opt => opt.Ignore())
+            .ForMember(dest => dest.TrainingPlan, opt => opt.Ignore())
+            .ForMember(dest => dest.Subjects, opt => opt.Ignore())
+            .ForMember(dest => dest.Trainees, opt => opt.Ignore());
             CreateMap<Course, CourseDTO>();
             // Subject Mapping
             CreateMap<Subject, SubjectModel>()
@@ -250,7 +262,9 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.TemplateStatus, opt => opt.MapFrom(src => src.templateStatus));
 
             CreateMap<Certificate, CertificateModel>()
-                .ForMember(dest => dest.TemplateId, opt => opt.MapFrom(src => src.CertificateTemplateId));
+                .ForMember(dest => dest.TemplateId, opt => opt.MapFrom(src => src.CertificateTemplateId))
+            .ForMember(dest => dest.CourseName, opt => opt.MapFrom(src => src.Course.CourseName))
+            .ForMember(dest => dest.UserName, opt => opt.MapFrom(src => src.User.FullName));
         }
 
     }

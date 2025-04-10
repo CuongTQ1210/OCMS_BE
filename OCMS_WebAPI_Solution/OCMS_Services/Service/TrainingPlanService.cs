@@ -140,7 +140,9 @@ namespace OCMS_Services.Service
             trainingPlan.Desciption = dto.Desciption; // Fix typo to Description if needed
             trainingPlan.ModifyDate = DateTime.UtcNow;
             trainingPlan.CreateByUserId = updateUserId;
-
+            if (trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Updating){
+                trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Pending;
+            }
             _unitOfWork.TrainingPlanRepository.UpdateAsync(trainingPlan);
             await _unitOfWork.SaveChangesAsync();
 
@@ -177,8 +179,10 @@ namespace OCMS_Services.Service
                     Description = $"Request to delete training plan {id}",
                     Notes = "Awaiting HeadMaster approval"
                 };
+                
                 await _requestService.CreateRequestAsync(requestDto, trainingPlan.CreateByUserId);
                 throw new InvalidOperationException($"Cannot delete training plan {id} because it is Approved. A request has been sent to the HeadMaster for approval.");
+
             }
 
             // For other statuses (e.g., Rejected, Completed), block deletion

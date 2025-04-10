@@ -14,6 +14,6 @@ namespace OCMS_Services.IService
         Task<IEnumerable<CourseModel>> GetAllCoursesAsync();
         Task<CourseModel?> GetCourseByIdAsync(string id);
         Task<bool> DeleteCourseAsync(string id);
-        Task<CourseModel> UpdateCourseAsync(string id, CourseDTO dto, string updatedByUserId);
+        Task<CourseModel> UpdateCourseAsync(string id, CourseUpdateDTO dto, string updatedByUserId);
     }
 }

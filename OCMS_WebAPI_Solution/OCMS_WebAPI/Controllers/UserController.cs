@@ -2,6 +2,7 @@
 using OCMS_BOs.RequestModel;
 using OCMS_Services.IService;
 using OCMS_WebAPI.AuthorizeSettings;
+using System.Security.Claims;
 
 namespace OCMS_WebAPI.Controllers
 {
@@ -33,6 +34,27 @@ namespace OCMS_WebAPI.Controllers
         }
         #endregion
 
+        #region Get User Profile
+        [HttpGet("profile")]
+        [CustomAuthorize]
+        public async Task<IActionResult> GetUserProfile()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = "User identity not found." });
+
+            try
+            {
+                var user = await _userService.GetUserByIdAsync(userId);
+                return Ok(new { message = "User profile fetched successfully!", user });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        #endregion
+
         #region Get User By Id
         [HttpGet("{id}")]
         [CustomAuthorize]
@@ -49,7 +71,26 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
+        #region upload avatar 
+        [HttpPut("avatar")]
+        [CustomAuthorize]
+        public async Task<IActionResult> UpdateAvatar(IFormFile file)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = "User identity not found." });
 
+            try
+            {
+                var avatarUrl = await _userService.UpdateUserAvatarAsync(userId, file);
+                return Ok(new { message = "Avatar updated successfully!", avatarUrl });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+#endregion
         #region Create User from Candidate
         [HttpPost("create-from-candidate/{candidateId}")]
         [CustomAuthorize("Admin")]
