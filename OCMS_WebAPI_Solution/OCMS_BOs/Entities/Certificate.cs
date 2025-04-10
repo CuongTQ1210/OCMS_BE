@@ -45,7 +45,7 @@ namespace OCMS_BOs.Entities
 
         public string CertificateURL { get; set; }
         public bool IsRevoked { get; set; }
-        public string RevocationReason { get; set; }
+        public string? RevocationReason { get; set; }
        
 
         public DateTime? RevocationDate { get; set; }

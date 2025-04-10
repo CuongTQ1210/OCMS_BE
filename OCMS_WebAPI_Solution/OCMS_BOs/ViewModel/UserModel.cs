@@ -19,5 +19,8 @@ namespace OCMS_BOs.ViewModel
         public int RoleId { get; set; }
         public string RoleName { get; set; }
         public bool IsAssign { get; set; }
+
+        public string AvatarUrl { get; set; }
+
     }
 }

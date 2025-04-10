@@ -1,4 +1,5 @@
-﻿using OCMS_BOs.Entities;
+﻿using Microsoft.AspNetCore.Http;
+using OCMS_BOs.Entities;
 using OCMS_BOs.RequestModel;
 using OCMS_BOs.ResponseModel;
 using OCMS_BOs.ViewModel;
@@ -20,5 +21,7 @@ namespace OCMS_Services.IService
         Task ForgotPasswordAsync(ForgotPasswordDTO forgotPasswordDto);
         Task ResetPasswordAsync(string token, string newPassword);
         Task<IEnumerable<UserModel>> GetUsersByRoleAsync(string roleId);
+
+        Task<string> UpdateUserAvatarAsync(string userId, IFormFile file);
     }
 }

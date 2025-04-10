@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using OCMS_BOs.Entities;
 using OCMS_BOs.Helper;
@@ -21,14 +22,16 @@ namespace OCMS_Services.Service
         private readonly IEmailService _emailService;
         private readonly IDatabaseAsync _redis;
         private readonly IUserRepository _userRepository;
+        private readonly IBlobService _blobService;
 
-        public UserService(UnitOfWork unitOfWork, IMapper mapper, IEmailService emailService, IConnectionMultiplexer redis, IUserRepository userRepository)
+        public UserService(UnitOfWork unitOfWork, IMapper mapper, IEmailService emailService, IConnectionMultiplexer redis, IUserRepository userRepository, IBlobService blobService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _emailService = emailService;
             _redis = redis.GetDatabase();
             _userRepository = userRepository;
+            _blobService = blobService;
         }
 
         #region Get All Users
@@ -254,7 +257,41 @@ Trân trọng,
             }
 
             return stringBuilder.ToString().Normalize(NormalizationForm.FormC);
-        }        
+        }
+        #endregion
+
+        #region upload avatar
+        public async Task<string> UpdateUserAvatarAsync(string userId, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                throw new ArgumentException("No file uploaded.");
+
+            var user = await _unitOfWork.UserRepository.GetByIdAsync(userId);
+            if (user == null)
+                throw new KeyNotFoundException("User not found.");
+
+            // Delete old avatar if exists
+            if (!string.IsNullOrEmpty(user.AvatarUrl))
+            {
+                await _blobService.DeleteFileAsync(user.AvatarUrl);
+            }
+
+            // Upload new file
+            var blobName = $"{Guid.NewGuid()}_{file.FileName}";
+            var containerName = "avatars";
+
+            await using var stream = file.OpenReadStream();
+            var avatarUrl = await _blobService.UploadFileAsync(containerName, blobName, stream);
+
+            // Update user record
+            user.AvatarUrl = avatarUrl;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            _unitOfWork.UserRepository.UpdateAsync(user);
+            await _unitOfWork.SaveChangesAsync();
+
+            return avatarUrl;
+        }
         #endregion
     }
 
