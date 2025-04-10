@@ -194,6 +194,66 @@ namespace OCMS_Services.Service
         }
         #endregion
 
+        #region Delete Certificate
+        /// <summary>
+        /// Deletes a certificate by its ID and removes the associated file from Blob storage
+        /// </summary>
+        /// <param name="certificateId">The ID of the certificate to delete</param>
+        /// <returns>True if successfully deleted, otherwise false</returns>
+        public async Task<bool> DeleteCertificateAsync(string certificateId)
+        {
+            if (string.IsNullOrEmpty(certificateId))
+            {
+                throw new ArgumentException("CertificateId is required");
+            }
+
+            bool result = false;
+
+            await _unitOfWork.ExecuteWithStrategyAsync(async () =>
+            {
+                // Start a transaction to ensure consistency
+                await _unitOfWork.BeginTransactionAsync();
+                try
+                {
+                    // Get the certificate to be deleted
+                    var certificate = await _unitOfWork.CertificateRepository.GetByIdAsync(certificateId);
+                    if (certificate == null)
+                    {
+                        throw new KeyNotFoundException($"Certificate with ID {certificateId} not found");
+                    }
+
+                    // Store the certificate file URL for deletion
+                    string certificateFileURL = certificate.CertificateURL;
+
+                    // Delete the certificate record from the database
+                    await _unitOfWork.CertificateRepository.DeleteAsync(certificateId);
+                    await _unitOfWork.SaveChangesAsync();
+
+                    // Delete the certificate file from Blob storage if it exists
+                    if (!string.IsNullOrEmpty(certificateFileURL))
+                    {
+                        await _blobService.DeleteFileAsync(certificateFileURL);
+                        _logger.LogInformation($"Certificate file deleted from blob storage: {certificateFileURL}");
+                    }
+
+                    // Commit the transaction if everything is successful
+                    await _unitOfWork.CommitTransactionAsync();
+                    result = true;
+                    _logger.LogInformation($"Certificate with ID {certificateId} successfully deleted");
+                }
+                catch (Exception ex)
+                {
+                    // Rollback the transaction if an error occurs
+                    await _unitOfWork.RollbackTransactionAsync();
+                    _logger.LogError(ex, $"Error deleting certificate with ID {certificateId}");
+                    throw new Exception($"Error deleting certificate", ex);
+                }
+            });
+
+            return result;
+        }
+        #endregion
+
         #region Helper Methods       
         private string GenerateCertificateCode(Course course, User trainee)
         {
@@ -317,9 +377,10 @@ namespace OCMS_Services.Service
                 @"ngày\s+\d+\s+tháng\s+\d+\s+năm\s+\d+",
                 $"ngày {currentDate.Day} tháng {currentDate.Month} năm {currentDate.Year}");
 
-            result = Regex.Replace(templateHtml,
+            // Replace the image tag with appropriate 3x4 aspect ratio dimensions
+            result = Regex.Replace(result,
                 "<img src=\"placeholder-photo.jpg\".*?>",
-                $"<img src=\"{avatarBase64}\" alt=\"{trainee.FullName}\">");
+                $"<img src=\"{avatarBase64}\" alt=\"{trainee.FullName}\" style=\"width: 300px; height: 400px; object-fit: cover;\">");
 
             return result;
         }

@@ -64,5 +64,29 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
+
+        #region Delete Certificate
+        [HttpDelete("{certificateId}")]
+        public async Task<IActionResult> DeleteCertificate(string certificateId)
+        {
+            try
+            {
+                var result = await _certificateService.DeleteCertificateAsync(certificateId);
+                if (result)
+                {
+                    return Ok("Certificate deleted successfully");
+                }
+                else
+                {
+                    return NotFound("Certificate not found");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Xử lý exception
+                return StatusCode(500, ex.Message);
+            }
+        }
+        #endregion
     }
 }
