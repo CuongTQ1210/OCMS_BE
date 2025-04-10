@@ -72,6 +72,7 @@ builder.Services.AddScoped<ITrainingScheduleRepository, TrainingScheduleReposito
 builder.Services.AddScoped<IInstructorAssignmentRepository, InstructorAssignmentRepository>();
 builder.Services.AddScoped<ITraineeAssignRepository, TraineeAssignRepository>();
 builder.Services.AddScoped<IGradeRepository, GradeRepository>();
+builder.Services.AddScoped<ICertificateRepository, CertificateRepository>();
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
@@ -90,6 +91,7 @@ builder.Services.AddScoped<IInstructorAssignmentService, InstructorAssignmentSer
 builder.Services.AddScoped<ITraineeAssignService, TraineeAssignService>();
 builder.Services.AddScoped<ICertificateTemplateService, CertificateTemplateService>();
 builder.Services.AddScoped<IGradeService, GradeService>();
+builder.Services.AddScoped<ICertificateService, CertificateService>();
 // Register Lazy<T> factories
 builder.Services.AddScoped(provider => new Lazy<ITrainingScheduleService>(() => provider.GetRequiredService<ITrainingScheduleService>()));
 builder.Services.AddScoped(provider => new Lazy<ITrainingPlanService>(() => provider.GetRequiredService<ITrainingPlanService>()));

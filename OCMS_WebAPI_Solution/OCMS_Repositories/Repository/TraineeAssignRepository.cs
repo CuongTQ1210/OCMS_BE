@@ -10,17 +10,25 @@ using System.Threading.Tasks;
 
 namespace OCMS_Repositories.Repository
 {
-    public class TraineeAssignRepository:GenericRepository<TraineeAssign>, ITraineeAssignRepository
+    public class TraineeAssignRepository : GenericRepository<TraineeAssign>, ITraineeAssignRepository
     {
         private readonly OCMSDbContext _context;
-    public TraineeAssignRepository(OCMSDbContext context) : base(context)
-    {
-        _context = context;
-    }
-    public async Task<bool> ExistsAsync(string id)
-    {
-        return await _context.TrainingPlans.AnyAsync(tp => tp.PlanId == id);
-    }
-    
+        public TraineeAssignRepository(OCMSDbContext context) : base(context)
+        {
+            _context = context;
+        }
+
+        public async Task<bool> ExistsAsync(string id)
+        {
+            return await _context.TrainingPlans.AnyAsync(tp => tp.PlanId == id);
+        }
+
+        public async Task<TraineeAssign> GetTraineeAssignmentAsync(string courseId, string traineeId)
+        {
+            return await _context.TraineeAssignments
+                .Include(ta => ta.Course)
+                .Include(ta => ta.Trainee)
+                .FirstOrDefaultAsync(ta => ta.CourseId == courseId && ta.TraineeId == traineeId);
+        }
     }
 }
