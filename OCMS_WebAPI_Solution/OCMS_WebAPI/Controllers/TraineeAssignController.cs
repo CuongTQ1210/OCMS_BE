@@ -157,7 +157,31 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-    }
+        [HttpGet("subject/{subjectId}/trainees")]
+        [CustomAuthorize("Admin", "Instructor")]
+        public async Task<IActionResult> GetTraineesBySubjectId(string subjectId)
+        {
+            try
+            {
+                var trainees = await _traineeAssignService.GetTraineesBySubjectIdAsync(subjectId);
+                return Ok(trainees);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An unexpected error occurred.", details = ex.Message });
+            }
+        }
+
 
     }
+
+}
 
