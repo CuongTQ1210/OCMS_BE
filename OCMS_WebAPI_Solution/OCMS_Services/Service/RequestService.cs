@@ -584,18 +584,7 @@ namespace OCMS_Services.Service
                         await _unitOfWork.CandidateRepository.UpdateAsync(candidate);
                     }
                 }
-                if (request != null && request.Status == RequestStatus.Pending)
-                {
-                    request.Status = RequestStatus.Rejected;
-                }
-                else if (request != null && request.Status == RequestStatus.Approved)
-                {
-                    throw new InvalidOperationException("The request has already been approved and cannot be rejected.");
-                }
-                else
-                {
-                    throw new InvalidOperationException("The request cannot be rejected in its current status.");
-                }
+                
                 var hrs = await _userRepository.GetUsersByRoleAsync("HR");
                 foreach (var hr in hrs)
                 {
