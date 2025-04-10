@@ -46,5 +46,7 @@ namespace OCMS_BOs.Entities
         public Role Role { get; set; }
         public Department? Department { get; set; }
         public Specialties? Specialty { get; set; }
+
+        public string? AvatarUrl { get; set; } = string.Empty;
     }
 }

@@ -71,7 +71,26 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
+        #region upload avatar 
+        [HttpPut("avatar")]
+        [CustomAuthorize]
+        public async Task<IActionResult> UpdateAvatar(IFormFile file)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = "User identity not found." });
 
+            try
+            {
+                var avatarUrl = await _userService.UpdateUserAvatarAsync(userId, file);
+                return Ok(new { message = "Avatar updated successfully!", avatarUrl });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+#endregion
         #region Create User from Candidate
         [HttpPost("create-from-candidate/{candidateId}")]
         [CustomAuthorize("Admin")]
