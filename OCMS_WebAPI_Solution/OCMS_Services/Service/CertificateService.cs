@@ -273,24 +273,38 @@ namespace OCMS_Services.Service
             var templates = await _unitOfWork.CertificateTemplateRepository.GetAllAsync(
                 t => t.templateStatus == TemplateStatus.Active);
 
-            string templateId = null;
+            // Filter templates based on course level
+            var matchingTemplates = new List<CertificateTemplate>();
+
             switch (courseLevel)
             {
                 case CourseLevel.Initial:
-                    templateId = templates.FirstOrDefault(t => t.TemplateName.Contains("Initial"))?.CertificateTemplateId;
+                    matchingTemplates = templates.Where(t => t.TemplateName.Contains("Initial")).ToList();
                     break;
                 case CourseLevel.Recurrent:
-                    templateId = templates.FirstOrDefault(t => t.TemplateName.Contains("Recurrent"))?.CertificateTemplateId;
+                    matchingTemplates = templates.Where(t => t.TemplateName.Contains("Recurrent")).ToList();
                     break;
                 case CourseLevel.Relearn:
-                    templateId = templates.FirstOrDefault(t => t.TemplateName.Contains("Initial"))?.CertificateTemplateId;
+                    matchingTemplates = templates.Where(t => t.TemplateName.Contains("Initial")).ToList();
                     break;
                 default:
-                    templateId = templates.FirstOrDefault()?.CertificateTemplateId;
-                    break;
+                    return templates.FirstOrDefault()?.CertificateTemplateId;
             }
 
-            return templateId;
+            if (!matchingTemplates.Any())
+                return null;
+
+            // If multiple matching templates exist, select the one with the highest sequence number
+            // Template IDs follow the format: TEMP-XXX-NNN where XXX is the type and NNN is the sequence
+            return matchingTemplates
+                .OrderByDescending(t => {
+                    // Extract the sequence number (last 3 digits after last dash)
+                    var parts = t.CertificateTemplateId.Split('-');
+                    if (parts.Length >= 3 && int.TryParse(parts[2], out int sequenceNumber))
+                        return sequenceNumber;
+                    return 0;
+                })
+                .FirstOrDefault()?.CertificateTemplateId;
         }
 
         private async Task<string> GetTemplateHtmlFromBlobAsync(string templateFileUrl)
@@ -380,7 +394,7 @@ namespace OCMS_Services.Service
             // Replace the image tag with appropriate 3x4 aspect ratio dimensions
             result = Regex.Replace(result,
                 "<img src=\"placeholder-photo.jpg\".*?>",
-                $"<img src=\"{avatarBase64}\" alt=\"{trainee.FullName}\" style=\"width: 300px; height: 400px; object-fit: cover;\">");
+                $"<img src=\"{avatarBase64}\" alt=\"{trainee.FullName}\" style=\"width: 150px; height: 204.8px; object-fit: cover;\">");
 
             return result;
         }
