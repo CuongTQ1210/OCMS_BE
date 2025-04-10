@@ -17,7 +17,7 @@ namespace OCMS_Services.IService
         Task<RequestModel> GetRequestByIdAsync(string requestId);
         Task<bool> DeleteRequestAsync(string requestId);
         Task<bool> ApproveRequestAsync(string requestId, string approvedByUserId);
-        Task<bool> RejectRequestAsync(string requestId, string rejectionReason);
+        Task<bool> RejectRequestAsync(string requestId, string rejectionReason, string rejectByUserId);
         Task<List<RequestModel>> GetRequestsForEducationOfficerAsync();
     }
 }

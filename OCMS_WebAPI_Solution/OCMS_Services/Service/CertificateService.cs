@@ -380,7 +380,7 @@ namespace OCMS_Services.Service
             // Replace the image tag with appropriate 3x4 aspect ratio dimensions
             result = Regex.Replace(result,
                 "<img src=\"placeholder-photo.jpg\".*?>",
-                $"<img src=\"{avatarBase64}\" alt=\"{trainee.FullName}\" style=\"width: 300px; height: 400px; object-fit: cover;\">");
+                $"<img src=\"{avatarBase64}\" alt=\"{trainee.FullName}\" style=\"width: 150px; height: 204.8px; object-fit: cover;\">");
 
             return result;
         }

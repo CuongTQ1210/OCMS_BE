@@ -107,7 +107,7 @@ namespace OCMS_WebAPI.Controllers
 
         // ✅ Approve Request (Only for Director)
         [HttpPut("{id}/approve")]
-        [CustomAuthorize("HeadMaster")]
+        [CustomAuthorize("HeadMaster", "Training staff")]
         public async Task<IActionResult> ApproveRequest(string id)
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -121,13 +121,13 @@ namespace OCMS_WebAPI.Controllers
 
         // ✅ Reject Request (Only for HeadMaster)
         [HttpPut("{id}/reject")]
-        [CustomAuthorize("HeadMaster")]
+        [CustomAuthorize("HeadMaster", "Training staff")]
         public async Task<IActionResult> RejectRequest(string id, [FromBody] RejectRequestDTO dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
-
-            var success = await _requestService.RejectRequestAsync(id, dto.RejectReason);
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var success = await _requestService.RejectRequestAsync(id, dto.RejectReason, userId);
             if (!success)
                 return NotFound("Request not found");
 
