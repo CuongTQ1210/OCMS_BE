@@ -2,6 +2,7 @@
 using OCMS_BOs.RequestModel;
 using OCMS_Services.IService;
 using OCMS_WebAPI.AuthorizeSettings;
+using System.Security.Claims;
 
 namespace OCMS_WebAPI.Controllers
 {
@@ -25,6 +26,27 @@ namespace OCMS_WebAPI.Controllers
             {
                 var users = await _userService.GetAllUsersAsync();
                 return Ok(users);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        #endregion
+
+        #region Get User Profile
+        [HttpGet("profile")]
+        [CustomAuthorize]
+        public async Task<IActionResult> GetUserProfile()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = "User identity not found." });
+
+            try
+            {
+                var user = await _userService.GetUserByIdAsync(userId);
+                return Ok(new { message = "User profile fetched successfully!", user });
             }
             catch (Exception ex)
             {
