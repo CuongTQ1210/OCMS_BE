@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Azure.Identity;
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Logging;
 using OCMS_BOs.Entities;
 using OCMS_BOs.RequestModel;
@@ -156,13 +157,9 @@ namespace OCMS_Services.Service
 
             // Thêm certificate mới
             await _unitOfWork.CertificateRepository.AddAsync(certificate);
-            
 
             // Lưu thay đổi
             await _unitOfWork.SaveChangesAsync();
-
-            // Gửi request ký cho Director
-            //await CreateSignatureRequestAsync(certificate.CertificateId, issuedByUserId);
 
             // Ánh xạ và trả về response
             return _mapper.Map<CertificateModel>(certificate);
@@ -197,69 +194,7 @@ namespace OCMS_Services.Service
         }
         #endregion
 
-        #region Helper Methods
-        /// <summary>
-        /// Creates a signature request for directors to sign a certificate
-        /// </summary>
-        /// <param name="certificateId">The ID of the certificate to be signed</param>
-        /// <param name="requestedByUserId">The ID of the user requesting the signature</param>
-        /// <returns>Request ID of the created signature request</returns>
-        private async Task<string> CreateSignatureRequestAsync(string certificateId, string requestedByUserId)
-        {
-            try
-            {
-                // Get certificate details for notification message
-                var certificate = await _unitOfWork.CertificateRepository.GetAsync(
-                    c => c.CertificateId == certificateId,
-                    c => c.User, c => c.Course);
-
-                if (certificate == null)
-                {
-                    throw new ArgumentException($"Certificate with ID {certificateId} not found");
-                }
-
-                // Create signature request
-                var request = new Request
-                {
-                    RequestId = Guid.NewGuid().ToString(),
-                    RequestUserId = requestedByUserId,
-                    RequestEntityId = certificateId,
-                    RequestType = RequestType.CreateNew, // Use appropriate request type for certificate signing
-                    RequestDate = DateTime.UtcNow,
-                    Description = $"Certificate signature request for {certificate.User.FullName} - Course: {certificate.Course.CourseName}",
-                    Notes = "Please review and sign this certificate",
-                    Status = RequestStatus.Pending,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-
-                await _unitOfWork.RequestRepository.AddAsync(request);
-
-                // Find all directors to notify for signing
-                var directors = await _userRepository.GetUsersByRoleAsync("Director");
-
-                // Send notifications to all directors
-                foreach (var director in directors)
-                {
-                    await _notificationService.SendNotificationAsync(
-                        director.UserId,
-                        "Certificate Pending Signature",
-                        $"A new certificate has been created for {certificate.User.FullName} for the course '{certificate.Course.CourseName}' and is pending your signature.",
-                        "Certificate"
-                    );
-                }
-
-                _logger.LogInformation($"Signature request created for certificate {certificateId}");
-
-                return request.RequestId;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error creating signature request for certificate {certificateId}");
-                throw;
-            }
-        }
-
+        #region Helper Methods       
         private string GenerateCertificateCode(Course course, User trainee)
         {
             // Create a unique code format like: VJA-{CourseLevel}-{Year}-{Month}-{Sequential Number}
@@ -288,7 +223,7 @@ namespace OCMS_Services.Service
                     templateId = templates.FirstOrDefault(t => t.TemplateName.Contains("Recurrent"))?.CertificateTemplateId;
                     break;
                 case CourseLevel.Relearn:
-                    templateId = templates.FirstOrDefault(t => t.TemplateName.Contains("Professional"))?.CertificateTemplateId;
+                    templateId = templates.FirstOrDefault(t => t.TemplateName.Contains("Initial"))?.CertificateTemplateId;
                     break;
                 default:
                     templateId = templates.FirstOrDefault()?.CertificateTemplateId;
@@ -339,10 +274,12 @@ namespace OCMS_Services.Service
         {
             // Lấy thông tin chung
             var schedules = await _unitOfWork.TrainingScheduleRepository.GetAllAsync(s => s.Subject.CourseId == course.CourseId);
-            var startDate = schedules.Min(s => s.StartDateTime).ToString("dd/MM/yyyy");
-            var endDate = schedules.Max(s => s.EndDateTime).ToString("dd/MM/yyyy");
+            var startDate = issueDate.ToString("dd/MM/yyyy");
+            var endDate = issueDate.AddYears(3).ToString("dd/MM/yyyy");
             double averageScore = grades.Average(g => g.TotalScore);
             string gradeResult = DetermineGradeResult(averageScore); // Hàm giả định để xác định loại tốt nghiệp
+            string avatarBase64 = await GetBase64AvatarAsync(trainee.AvatarUrl);
+
 
             // Thay thế các placeholder chung
             var result = templateHtml
@@ -380,6 +317,10 @@ namespace OCMS_Services.Service
                 @"ngày\s+\d+\s+tháng\s+\d+\s+năm\s+\d+",
                 $"ngày {currentDate.Day} tháng {currentDate.Month} năm {currentDate.Year}");
 
+            result = Regex.Replace(templateHtml,
+                "<img src=\"placeholder-photo.jpg\".*?>",
+                $"<img src=\"{avatarBase64}\" alt=\"{trainee.FullName}\">");
+
             return result;
         }
 
@@ -390,6 +331,73 @@ namespace OCMS_Services.Service
             if (averageScore >= 7) return "Khá / Good";
             if (averageScore >= 6) return "Trung Bình / Average";
             return "Đạt / Pass";
+        }
+
+        private async Task<string> GetBase64AvatarAsync(string avatarUrl)
+        {
+            if (string.IsNullOrEmpty(avatarUrl))
+                return await GetDefaultBase64AvatarAsync();
+
+            try
+            {
+                // Parse URL để lấy container name và blob name
+                Uri blobUri = new Uri(avatarUrl);
+                string accountUrl = $"{blobUri.Scheme}://{blobUri.Host}";
+                string containerName = blobUri.Segments[1].TrimEnd('/');
+                string blobName = blobUri.AbsolutePath.Substring(blobUri.AbsolutePath.IndexOf(containerName) + containerName.Length + 1);
+
+                // Tạo BlobServiceClient
+                BlobServiceClient blobServiceClient = new BlobServiceClient(
+                    new Uri(accountUrl),
+                    new DefaultAzureCredential());
+
+                // Lấy container client và blob client
+                BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+                BlobClient blobClient = containerClient.GetBlobClient(blobName);
+
+                // Tải blob content
+                BlobDownloadInfo download = await blobClient.DownloadAsync();
+
+                // Đọc nội dung vào memory stream
+                using var memoryStream = new MemoryStream();
+                await download.Content.CopyToAsync(memoryStream);
+
+                // Chuyển đổi thành Base64
+                byte[] bytes = memoryStream.ToArray();
+                string base64String = Convert.ToBase64String(bytes);
+
+                // Xác định Content-Type của file (hoặc bạn có thể lưu Content-Type của avatar khi upload)
+                string contentType = download.ContentType;
+                if (string.IsNullOrEmpty(contentType))
+                {
+                    contentType = "image/jpeg"; // Mặc định là JPEG
+                }
+
+                // Trả về đường dẫn Data URL có thể dùng trong src của thẻ img
+                return $"data:{contentType};base64,{base64String}";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating base64 for avatar");
+                return await GetDefaultBase64AvatarAsync();
+            }
+        }
+
+        private async Task<string> GetDefaultBase64AvatarAsync()
+        {
+            // Tạo một avatar mặc định dạng Base64
+            string defaultAvatarPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "default-avatar.jpg");
+
+            if (File.Exists(defaultAvatarPath))
+            {
+                byte[] bytes = await File.ReadAllBytesAsync(defaultAvatarPath);
+                string base64String = Convert.ToBase64String(bytes);
+                return $"data:image/jpeg;base64,{base64String}";
+            }
+
+            // Nếu không có file mặc định, trả về một ảnh đơn giản dạng Base64
+            // Đây là một ảnh đơn giản màu xám với biểu tượng người dùng
+            return "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNlMGUwZTAiLz48Y2lyY2xlIGN4PSI1MCIgY3k9IjM1IiByPSIyMCIgZmlsbD0iIzlFOUU5RSIvPjxwYXRoIGQ9Ik0yNSw4NSBDMjUsNjAgNzUsNjAgNzUsODUgWiIgZmlsbD0iIzlFOUU5RSIvPjwvc3ZnPg==";
         }
         #endregion
     }
