@@ -45,7 +45,7 @@ namespace OCMS_Services.Service
         }
         #endregion
 
-        #region Get Grade By TraineeAssignID
+        #region Create grade TraineeAssignID
         public async Task<string> CreateAsync(GradeDTO dto, string gradedByUserId)
         {
             // Check for existing grade with same TraineeAssignID and SubjectId
@@ -59,7 +59,12 @@ namespace OCMS_Services.Service
             var grade = _mapper.Map<Grade>(dto);
             grade.GradeId = $"G-{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
             grade.GradedByInstructorId = gradedByUserId;
-
+            var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(dto.SubjectId);
+            if (subject == null)
+            {
+                throw new Exception("Subject not found.");
+            }
+            var passScore = subject.PassingScore;
             grade.TotalScore = CalculateTotalScore(grade);
 
             if (grade.ParticipantScore == 0 || grade.AssignmentScore == 0)
@@ -68,7 +73,7 @@ namespace OCMS_Services.Service
             }
             else
             {
-                grade.gradeStatus = grade.TotalScore >= 5.0 ? GradeStatus.Pass : GradeStatus.Fail;
+                grade.gradeStatus = grade.TotalScore >= passScore ? GradeStatus.Pass : GradeStatus.Fail;
             }
             await _unitOfWork.GradeRepository.AddAsync(grade);
             await _unitOfWork.SaveChangesAsync();
@@ -123,6 +128,22 @@ namespace OCMS_Services.Service
         public async Task<List<GradeModel>> GetGradesByStatusAsync(GradeStatus status)
         {
             var grades = await _unitOfWork.GradeRepository.FindAsync(g => g.gradeStatus == status);
+            return _mapper.Map<List<GradeModel>>(grades);
+        }
+        #endregion
+        #region Get Grade By UserId (TraineeId)
+        public async Task<List<GradeModel>> GetGradesByUserIdAsync(string userId)
+        {
+            var grades = await _unitOfWork.GradeRepository
+                .FindIncludeAsync(g => g.TraineeAssign.TraineeId == userId, include => include.TraineeAssign);
+
+            return _mapper.Map<List<GradeModel>>(grades);
+        }
+        #endregion
+        #region Get Grade By SubjectId
+        public async Task<List<GradeModel>> GetGradesBySubjectIdAsync(string subjectId)
+        {
+            var grades = await _unitOfWork.GradeRepository.FindAsync(g => g.SubjectId == subjectId);
             return _mapper.Map<List<GradeModel>>(grades);
         }
         #endregion
@@ -244,14 +265,16 @@ namespace OCMS_Services.Service
                         Remarks = remarks
                     };
                     grade.GradeId = $"G-{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
+                    var passScore = subject.PassingScore;
                     grade.TotalScore = CalculateTotalScore(grade);
+
                     if (grade.ParticipantScore == 0 || grade.AssignmentScore == 0)
                     {
                         grade.gradeStatus = GradeStatus.Fail;
                     }
                     else
                     {
-                        grade.gradeStatus = grade.TotalScore >= 5.0 ? GradeStatus.Pass : GradeStatus.Fail;
+                        grade.gradeStatus = grade.TotalScore >= passScore ? GradeStatus.Pass : GradeStatus.Fail;
                     }
 
                     newGrades.Add(grade);

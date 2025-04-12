@@ -49,6 +49,18 @@ namespace OCMS_Services.Service
             return _mapper.Map<SubjectModel>(subject);
         }
 
+        public async Task<List<SubjectModel>> GetSubjectsByCourseIdAsync(string courseId)
+        {
+            var subjects = await _unitOfWork.SubjectRepository.FindAsync(
+                s => s.CourseId == courseId
+            );
+
+            if (subjects == null || !subjects.Any())
+                throw new KeyNotFoundException("No subjects found for the given course ID.");
+
+            return _mapper.Map<List<SubjectModel>>(subjects);
+        }
+
         public async Task<SubjectModel> CreateSubjectAsync(SubjectDTO dto, string createdByUserId)
         {
             // Validate PassingScore (0-10)
