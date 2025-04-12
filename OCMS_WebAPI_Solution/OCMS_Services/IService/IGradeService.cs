@@ -18,6 +18,8 @@ namespace OCMS_Services.IService
         Task<bool> UpdateAsync(string id, GradeDTO dto);
         Task<bool> DeleteAsync(string id);
         Task<List<GradeModel>> GetGradesByStatusAsync(GradeStatus status);
+        Task<List<GradeModel>> GetGradesByUserIdAsync(string userId);
+        Task<List<GradeModel>> GetGradesBySubjectIdAsync(string subjectId);
         Task<ImportResult> ImportGradesFromExcelAsync(Stream fileStream, string importedByUserId);
     }
 }

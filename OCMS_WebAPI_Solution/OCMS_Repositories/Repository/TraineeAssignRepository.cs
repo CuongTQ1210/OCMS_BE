@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using OCMS_BOs;
 using OCMS_BOs.Entities;
+using OCMS_BOs.ViewModel;
 using OCMS_Repositories.IRepository;
 using System;
 using System.Collections.Generic;
@@ -37,6 +38,29 @@ namespace OCMS_Repositories.Repository
                 .Include(ta => ta.Trainee)
                 .Where(ta => ta.CourseId == courseId && ta.RequestStatus == RequestStatus.Approved)
                 .ToListAsync();
+        }
+
+        public async Task<List<TraineeAssignModel>> GetTraineeAssignsBySubjectIdAsync(string subjectId)
+        {
+            var subject = await _context.Subjects.FindAsync(subjectId);
+            if (subject == null)
+                return new List<TraineeAssignModel>();
+
+            return await _context.TraineeAssignments
+                .Where(ta => ta.CourseId == subject.CourseId)
+                .Select(ta => new TraineeAssignModel
+                {
+                    TraineeAssignId = ta.TraineeAssignId,
+                    TraineeId = ta.TraineeId,
+                    CourseId = ta.CourseId,
+                    Notes = ta.Notes,
+                    RequestStatus = ta.RequestStatus.ToString(),
+                    AssignByUserId = ta.AssignByUserId,
+                    AssignDate = ta.AssignDate,
+                    ApproveByUserId = ta.ApproveByUserId,
+                    ApprovalDate = ta.ApprovalDate,
+                    RequestId = ta.RequestId
+                }).ToListAsync();
         }
     }
 }

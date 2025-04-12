@@ -150,5 +150,19 @@ namespace OCMS_Repositories
         {
             return await _dbSet.FirstOrDefaultAsync(predicate);
         }
+
+        public async Task<List<T>> FindIncludeAsync(
+        Expression<Func<T, bool>> predicate,
+        params Expression<Func<T, object>>[] includes)
+        {
+            IQueryable<T> query = _dbSet;
+
+            foreach (var include in includes)
+            {
+                query = query.Include(include);
+            }
+
+            return await query.Where(predicate).ToListAsync();
+        }
     }
 }

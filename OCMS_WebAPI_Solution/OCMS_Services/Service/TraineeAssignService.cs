@@ -12,6 +12,7 @@ using System.Text;
 using System.Threading.Tasks;
 using OCMS_BOs.ViewModel;
 using OCMS_BOs.RequestModel;
+using Microsoft.EntityFrameworkCore;
 
 namespace OCMS_Services.Service
 {
@@ -23,14 +24,15 @@ namespace OCMS_Services.Service
         private readonly IUserRepository _userRepository;
         private readonly ICandidateRepository _candidateRepository;
         private readonly ICourseRepository _courseRepository;
-
+        private readonly ITraineeAssignRepository _traineeAssignRepository;
         public TraineeAssignService(
             UnitOfWork unitOfWork,
             IMapper mapper,
             INotificationService notificationService,
             IUserRepository userRepository,
             ICandidateRepository candidateRepository,
-            ICourseRepository courseRepository)
+            ICourseRepository courseRepository,
+            ITraineeAssignRepository traineeAssignRepository)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
@@ -38,6 +40,7 @@ namespace OCMS_Services.Service
             _userRepository = userRepository;
             _candidateRepository = candidateRepository;
             _courseRepository = courseRepository;
+            _traineeAssignRepository = traineeAssignRepository;
         }
         #region Get All Trainee Assignments
         public async Task<IEnumerable<TraineeAssignModel>> GetAllTraineeAssignmentsAsync()
@@ -406,6 +409,20 @@ namespace OCMS_Services.Service
             return result;
         }
         #endregion
+
+        public async Task<List<TraineeAssignModel>> GetTraineesBySubjectIdAsync(string subjectId)
+        {
+            if (string.IsNullOrWhiteSpace(subjectId))
+                throw new ArgumentException("Subject ID cannot be null or empty.");
+
+             var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(subjectId);
+
+            if (subject == null)
+                throw new KeyNotFoundException($"Subject with ID '{subjectId}' was not found.");
+
+            return await _traineeAssignRepository.GetTraineeAssignsBySubjectIdAsync(subjectId);
+        }
+
 
         #region Helper Methods
         private async Task<string> GetLastTraineeAssignIdAsync()

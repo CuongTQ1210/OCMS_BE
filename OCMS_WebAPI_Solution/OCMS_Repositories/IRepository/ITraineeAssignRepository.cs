@@ -1,4 +1,5 @@
 ﻿using OCMS_BOs.Entities;
+using OCMS_BOs.ViewModel;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,6 +12,8 @@ namespace OCMS_Repositories.IRepository
     {
         Task<bool> ExistsAsync(string id);
         Task<TraineeAssign> GetTraineeAssignmentAsync(string courseId, string traineeId);
+
+        Task<List<TraineeAssignModel>> GetTraineeAssignsBySubjectIdAsync(string subjectId);
         Task<IEnumerable<TraineeAssign>> GetTraineeAssignmentsByCourseIdAsync(string courseId);
     }
 }

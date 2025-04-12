@@ -81,6 +81,38 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
+        #region Get Grades By SubjectId
+        [HttpGet("subject/{subjectId}")]
+        [CustomAuthorize("Admin", "Training staff", "Reviewer")]
+        public async Task<IActionResult> GetGradesBySubjectId(string subjectId)
+        {
+            try
+            {
+                var grades = await _gradeService.GetGradesBySubjectIdAsync(subjectId);
+                return Ok(grades);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        #endregion
+        #region Get Grades By UserId
+        [HttpGet("user/{userId}")]
+        [CustomAuthorize("Admin", "Training staff", "Reviewer", "Trainee")]
+        public async Task<IActionResult> GetGradesByUserId(string userId)
+        {
+            try
+            {
+                var grades = await _gradeService.GetGradesByUserIdAsync(userId);
+                return Ok(grades);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        #endregion
 
         #region Get Failed Grades
         [HttpGet("failed")]
