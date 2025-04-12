@@ -135,7 +135,7 @@ namespace OCMS_Services.Service
 
             if (newRequest.RequestType == RequestType.CandidateImport)
             {
-                var admins = await _userRepository.GetUsersByRoleAsync("HeadMaster");
+                var admins = await _userRepository.GetUsersByRoleAsync("Training staff");
                 foreach (var admin in admins)
                 {
                     await _notificationService.SendNotificationAsync(
@@ -270,13 +270,18 @@ namespace OCMS_Services.Service
                 $"Your request ({request.RequestType}) has been approved.",
                 "Request"
             );
-
+            var approver = await _userRepository.GetByIdAsync(approvedByUserId);
             // Handle request type-specific actions
             switch (request.RequestType)
             {
                 case RequestType.NewPlan:
                 case RequestType.RecurrentPlan:
                 case RequestType.RelearnPlan:
+                    
+                    if (approver == null || approver.RoleId != 2)
+                    {
+                        throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
+                    }
                     var plan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
                     if (plan != null)
                     {
@@ -323,6 +328,10 @@ namespace OCMS_Services.Service
                     }
                     break;
                 case RequestType.CandidateImport:
+                    if (approver == null || approver.RoleId != 3)
+                    {
+                        throw new UnauthorizedAccessException("Only Training Staff can approve candidate import requests.");
+                    }
                     var candidates = await _candidateRepository.GetCandidatesByImportRequestIdAsync(requestId);
                     if (candidates != null && candidates.Any())
                     {
@@ -346,6 +355,11 @@ namespace OCMS_Services.Service
 
                     break;
                 case RequestType.AssignTrainee:
+
+                    if (approver == null || approver.RoleId != 2)
+                    {
+                        throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
+                    }
                     var traineeAssigns = await _unitOfWork.TraineeAssignRepository.GetAllAsync(t => t.RequestId == requestId);
                     if (traineeAssigns == null || !traineeAssigns.Any())
                         return false;
@@ -380,6 +394,11 @@ namespace OCMS_Services.Service
                     break;
 
                 case RequestType.AddTraineeAssign:
+
+                    if (approver == null || approver.RoleId != 2)
+                    {
+                        throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
+                    }
                     var traineeAssign = await _unitOfWork.TraineeAssignRepository.GetAsync(t => t.RequestId == requestId);
                     if (traineeAssign == null)
                         return false;
@@ -410,6 +429,11 @@ namespace OCMS_Services.Service
                     
                     break;
                 case RequestType.Update:
+
+                    if (approver == null || approver.RoleId != 2)
+                    {
+                        throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
+                    }
                     var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
                     if (trainingPlan != null && trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Approved)
                     {
@@ -437,7 +461,11 @@ namespace OCMS_Services.Service
                     break;
 
                 case RequestType.Delete:
-                    
+
+                    if (approver == null || approver.RoleId != 2)
+                    {
+                        throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
+                    }
                     var trainingPlanToDelete = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
                     if (trainingPlanToDelete != null)
                     {
@@ -455,7 +483,7 @@ namespace OCMS_Services.Service
         #endregion
 
         #region Reject Request
-        public async Task<bool> RejectRequestAsync(string requestId, string rejectionReason)
+        public async Task<bool> RejectRequestAsync(string requestId, string rejectionReason, string rejectByUserId)
         {
             var request = await _unitOfWork.RequestRepository.GetByIdAsync(requestId);
             
@@ -477,12 +505,17 @@ namespace OCMS_Services.Service
             // Tailor notification message based on RequestType
             string notificationTitle = "Request Rejected";
             string notificationMessage;
-
+            var rejecter = await _userRepository.GetByIdAsync(rejectByUserId);
             switch (request.RequestType)
             {
                 case RequestType.NewPlan:
                 case RequestType.RecurrentPlan:
                 case RequestType.RelearnPlan:
+
+                    if (rejecter == null || rejecter.RoleId != 2)
+                    {
+                        throw new UnauthorizedAccessException("Only HeadMaster can reject this request.");
+                    }
                     var plan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
                     if (plan != null)
                     {
@@ -523,6 +556,11 @@ namespace OCMS_Services.Service
                     break;
 
                 case RequestType.Update:
+
+                    if (rejecter == null || rejecter.RoleId != 2)
+                    {
+                        throw new UnauthorizedAccessException("Only HeadMaster can reject this request.");
+                    }
                     var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
                     if (trainingPlan != null && trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Approved)
                     {
@@ -533,6 +571,11 @@ namespace OCMS_Services.Service
                    
                     break;
                 case RequestType.Delete:
+
+                    if (rejecter == null || rejecter.RoleId != 2)
+                    {
+                        throw new UnauthorizedAccessException("Only HeadMaster can reject this request.");
+                    }
                     var _trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
                     if (_trainingPlan != null && _trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Approved)
                     {
@@ -543,17 +586,30 @@ namespace OCMS_Services.Service
                     
                     break;
                 case RequestType.CandidateImport:
-                    
+
+                    if (rejecter == null || rejecter.RoleId != 3)
+                    {
+                        throw new UnauthorizedAccessException("Only TrainingStaff can reject this request.");
+                    }
+
                     notificationMessage = $"Your candidate import request has been rejected. Reason: {rejectionReason}";
                     
                     break;
                 case RequestType.AssignTrainee:
-                    
+
+                    if (rejecter == null || rejecter.RoleId != 2)
+                    {
+                        throw new UnauthorizedAccessException("Only HeadMaster can reject this request.");
+                    }
+
                     notificationMessage = $"Your request to assign trainee import has been rejected. Reason:{rejectionReason}";
                     
                     break;
                 case RequestType.AddTraineeAssign:
-                    
+                    if (rejecter == null || rejecter.RoleId != 2)
+                    {
+                        throw new UnauthorizedAccessException("Only HeadMaster can reject this request.");
+                    }
                     notificationMessage = $"Your request to assign a trainee has been rejected. Reason: {rejectionReason}";
                     
                     break;
