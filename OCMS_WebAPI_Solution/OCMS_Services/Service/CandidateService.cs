@@ -260,7 +260,7 @@
                                 string blobName = $"{candidateId}_{certificateCode}_{DateTime.UtcNow.Ticks}.jpg";
                                 using (var stream = new MemoryStream(picture.Image.ImageBytes))
                                 {
-                                    certificateFileURL = await blobService.UploadFileAsync("externalcertificates", blobName, stream);
+                                    certificateFileURL = await blobService.UploadFileAsync("externalcertificates", blobName, stream, "image/jpeg");
                                 }
                             }
                             else

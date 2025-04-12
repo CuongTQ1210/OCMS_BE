@@ -370,7 +370,9 @@ namespace OCMS_Services.Service
         private async Task<string> SaveCertificateToBlob(string htmlContent, string fileName)
         {
             using var stream = new MemoryStream(Encoding.UTF8.GetBytes(htmlContent));
-            return await _blobService.UploadFileAsync("certificates", fileName, stream);
+            var blobUrl = await _blobService.UploadFileAsync("certificates", fileName, stream, "text/html");
+            // Trả về URL gốc không có SAS token
+            return _blobService.GetBlobUrlWithoutSasToken(blobUrl);
         }
 
         private async Task<string> PopulateTemplateAsync(
@@ -450,46 +452,24 @@ namespace OCMS_Services.Service
                     return cachedAvatar;
                 }
 
-                // Parse URL to get container name and blob name
-                Uri blobUri = new Uri(avatarUrl);
-                string accountUrl = $"{blobUri.Scheme}://{blobUri.Host}";
-                string containerName = blobUri.Segments[1].TrimEnd('/');
-                string blobName = blobUri.AbsolutePath.Substring(blobUri.AbsolutePath.IndexOf(containerName) + containerName.Length + 1);
+                // Đảm bảo URL có SAS token cập nhật
+                var urlWithSasToken = await _blobService.GetBlobUrlWithSasTokenAsync(avatarUrl, TimeSpan.FromMinutes(5));
 
-                // Create BlobServiceClient
-                BlobServiceClient blobServiceClient = new BlobServiceClient(
-                    new Uri(accountUrl),
-                    new DefaultAzureCredential());
-
-                // Get container client and blob client
-                BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(containerName);
-                BlobClient blobClient = containerClient.GetBlobClient(blobName);
-
-                // Download blob content
-                var downloadInfo = await blobClient.DownloadAsync();
-
-                // Read content into memory stream
-                using var memoryStream = new MemoryStream();
-                await downloadInfo.Value.Content.CopyToAsync(memoryStream);
-
-                // Convert to Base64
-                byte[] bytes = memoryStream.ToArray();
-                string base64String = Convert.ToBase64String(bytes);
-
-                // Determine Content-Type of file
-                string contentType = downloadInfo.Value.ContentType;
-                if (string.IsNullOrEmpty(contentType))
+                // Sử dụng HttpClient để tải avatar từ URL với SAS token
+                using (var httpClient = new HttpClient())
                 {
-                    contentType = "image/jpeg"; // Default to JPEG
+                    var response = await httpClient.GetAsync(urlWithSasToken);
+                    response.EnsureSuccessStatusCode();
+
+                    var contentType = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
+                    var bytes = await response.Content.ReadAsByteArrayAsync();
+                    string base64String = Convert.ToBase64String(bytes);
+                    string result = $"data:{contentType};base64,{base64String}";
+
+                    // Cache và trả về kết quả
+                    _memoryCache.Set(cacheKey, result, TimeSpan.FromMinutes(60));
+                    return result;
                 }
-
-                // Create data URL path that can be used in img src
-                string result = $"data:{contentType};base64,{base64String}";
-
-                // Cache the result for 60 minutes
-                _memoryCache.Set(cacheKey, result, TimeSpan.FromMinutes(60));
-
-                return result;
             }
             catch (Exception ex)
             {

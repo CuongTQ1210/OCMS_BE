@@ -19,5 +19,7 @@ namespace OCMS_BOs.ResponseModel
         public string ApprovedByUserName { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime LastUpdatedAt { get; set; }
+        public string TemplateFileWithSas { get; set; }
+
     }
 }

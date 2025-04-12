@@ -68,7 +68,9 @@ namespace OCMS_Services.Service
                     string blobName = $"{candidateId}_{certificateDto.CertificateCode}_{DateTime.UtcNow.Ticks}.jpg";
                     using (var stream = certificateImage.OpenReadStream())
                     {
-                        certificate.CertificateFileURL = await blobService.UploadFileAsync("externalcertificates", blobName, stream);
+                        var fileUrl = await blobService.UploadFileAsync("externalcertificates", blobName, stream, "image/jpeg");
+                        // Lưu URL gốc (không có SAS token)
+                        certificate.CertificateFileURL = blobService.GetBlobUrlWithoutSasToken(fileUrl);
                     }
 
                     // Thêm vào repository và lưu
@@ -83,7 +85,16 @@ namespace OCMS_Services.Service
                 }
             });
 
-            return _mapper.Map<ExternalCertificateModel>(certificate);
+            var result = _mapper.Map<ExternalCertificateModel>(certificate);
+
+            // Thêm SAS token cho URL trong response
+            if (!string.IsNullOrEmpty(certificate.CertificateFileURL))
+            {
+                result.CertificateFileURLWithSas = await blobService.GetBlobUrlWithSasTokenAsync(
+                    certificate.CertificateFileURL, TimeSpan.FromHours(1));
+            }
+
+            return result;
         }
         #endregion
 
@@ -138,7 +149,16 @@ namespace OCMS_Services.Service
         public async Task<IEnumerable<ExternalCertificateModel>> GetExternalCertificatesByCandidateIdAsync(string candidateId)
         {
             var certificates = await _unitOfWork.ExternalCertificateRepository.FindAsync(c => c.CandidateId == candidateId);
-            return _mapper.Map<IEnumerable<ExternalCertificateModel>>(certificates);
+            var certificateModels = _mapper.Map<IEnumerable<ExternalCertificateModel>>(certificates);
+            foreach (var cert in certificateModels)
+            {
+                if (!string.IsNullOrEmpty(cert.CertificateFileURL))
+                {
+                    cert.CertificateFileURLWithSas = await _blobService.GetBlobUrlWithSasTokenAsync(
+                        cert.CertificateFileURL, TimeSpan.FromHours(1));
+                }
+            }
+            return certificateModels;
         }
         #endregion
 
@@ -176,7 +196,7 @@ namespace OCMS_Services.Service
                         string blobName = $"{existingCertificate.CandidateId}_{updatedCertificateDto.CertificateCode}_{DateTime.UtcNow.Ticks}.jpg";
                         using (var stream = updatedCertificateDto.CertificateImage.OpenReadStream())
                         {
-                            existingCertificate.CertificateFileURL = await blobService.UploadFileAsync("externalcertificates", blobName, stream);
+                            existingCertificate.CertificateFileURL = await blobService.UploadFileAsync("externalcertificates", blobName, stream, "image/jpeg");
                         }
                     }
 
