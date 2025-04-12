@@ -12,6 +12,7 @@ namespace OCMS_Repositories.IRepository
         Task<IEnumerable<User>> GetUsersByRoleAsync(string roleName);
         Task<User> GetByIdAsync(string id);
         Task<List<User>> GetAllAsync();
+        Task<IEnumerable<User>> GetUsersByIdsAsync(IEnumerable<string> userIds);
     }
 
 }

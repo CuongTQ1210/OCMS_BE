@@ -24,5 +24,13 @@ namespace OCMS_Repositories.Repository
                 .Where(g => g.TraineeAssignID == traineeAssignId)
                 .ToListAsync();
         }
+        public async Task<IEnumerable<Grade>> GetGradesByCourseIdAsync(string courseId)
+        {
+            return await _context.Grades
+                .Include(g => g.TraineeAssign)
+                .ThenInclude(ta => ta.Trainee)
+                .Where(g => g.TraineeAssign.CourseId == courseId)
+                .ToListAsync();
+        }
     }
 }

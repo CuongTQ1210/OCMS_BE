@@ -1,15 +1,12 @@
 ﻿using AutoMapper;
 using Azure.Identity;
 using Azure.Storage.Blobs;
-using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Caching.Memory;
 using OCMS_BOs.Entities;
 using OCMS_BOs.RequestModel;
 using OCMS_BOs.ViewModel;
 using OCMS_Repositories;
-using OCMS_Repositories.IRepository;
-using OCMS_Repositories.Repository;
-using OCMS_Services.IService;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -17,6 +14,8 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using OCMS_Services.IService;
+using OCMS_Repositories.IRepository;
 
 namespace OCMS_Services.Service
 {
@@ -25,309 +24,295 @@ namespace OCMS_Services.Service
         private readonly UnitOfWork _unitOfWork;
         private readonly IBlobService _blobService;
         private readonly INotificationService _notificationService;
-        private readonly ILogger<CertificateService> _logger;
         private readonly IUserRepository _userRepository;
-        private readonly ICourseRepository _courseRepository;
         private readonly ITraineeAssignRepository _traineeAssignRepository;
         private readonly IGradeRepository _gradeRepository;
-        private readonly ICertiTempRepository _certificateTemplateRepository;
-        private readonly IRequestRepository _requestRepository;
+        private readonly ICourseRepository _courseRepository;
+        private readonly ILogger<CertificateService> _logger;
+        private readonly IMemoryCache _memoryCache;
         private readonly IMapper _mapper;
+
+        // Cache keys
+        private const string TEMPLATE_HTML_CACHE_KEY = "template_html_{0}";
+        private const int TEMPLATE_CACHE_MINUTES = 60;
 
         public CertificateService(
             UnitOfWork unitOfWork,
             IBlobService blobService,
             INotificationService notificationService,
-            ILogger<CertificateService> logger,
             IUserRepository userRepository,
-            ICourseRepository courseRepository,
             ITraineeAssignRepository traineeAssignRepository,
             IGradeRepository gradeRepository,
-            ICertiTempRepository certificateTemplateRepository,
-            IRequestRepository requestRepository,
+            ICourseRepository courseRepository,
+            ILogger<CertificateService> logger,
+            IMemoryCache memoryCache,
             IMapper mapper)
         {
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _blobService = blobService ?? throw new ArgumentNullException(nameof(blobService));
             _notificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
-            _courseRepository = courseRepository ?? throw new ArgumentNullException(nameof(courseRepository));
             _traineeAssignRepository = traineeAssignRepository ?? throw new ArgumentNullException(nameof(traineeAssignRepository));
             _gradeRepository = gradeRepository ?? throw new ArgumentNullException(nameof(gradeRepository));
-            _certificateTemplateRepository = certificateTemplateRepository ?? throw new ArgumentNullException(nameof(certificateTemplateRepository));
-            _requestRepository = requestRepository ?? throw new ArgumentNullException(nameof(requestRepository));
-            _mapper = mapper;
+            _courseRepository = courseRepository ?? throw new ArgumentNullException(nameof(courseRepository));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
-        #region Create Certificate For Single Trainee
+        #region Auto Generate Certificates for Passed Trainees
         /// <summary>
-        /// Creates a certificate for a specific trainee who has completed a course
+        /// Automatically generates certificates for all trainees who have passed all subjects in a course
+        /// and sends notifications to the HeadMaster for digital signature approval
         /// </summary>
         /// <param name="courseId">The ID of the course</param>
-        /// <param name="traineeId">The ID of the trainee</param>
-        /// <param name="issuedByUserId">The ID of the user issuing the certificate</param>
-        /// <returns>Certificate DTO of the created certificate</returns>
-        public async Task<CertificateModel> CreateCertificateAsync(CreateCertificateDTO request, string issuedByUserId)
+        /// <param name="issuedByUserId">The ID of the user issuing the certificates (typically a training staff)</param>
+        /// <returns>A list of created certificate models</returns>
+        public async Task<List<CertificateModel>> AutoGenerateCertificatesForPassedTraineesAsync(string courseId, string issuedByUserId)
         {
-            // Validate inputs
-            if (string.IsNullOrEmpty(request.CourseId) || string.IsNullOrEmpty(request.TraineeId) || string.IsNullOrEmpty(issuedByUserId))
+            if (string.IsNullOrEmpty(courseId) || string.IsNullOrEmpty(issuedByUserId))
+                throw new ArgumentException("CourseId and IssuedByUserId are required");
+
+            var createdCertificates = new List<CertificateModel>();
+
+            _logger.LogInformation($"Starting auto-generation of certificates for course {courseId}");
+
+            try
             {
-                throw new ArgumentException("CourseId, TraineeId, và IssuedByUserId là bắt buộc.");
-            }
-
-            // Kiểm tra xem chứng chỉ đã tồn tại chưa
-            var existingCertificate = await _unitOfWork.CertificateRepository.GetAsync(
-                c => c.UserId == request.TraineeId && c.CourseId == request.CourseId);
-            if (existingCertificate != null)
-            {
-                throw new InvalidOperationException("Chứng chỉ đã tồn tại cho Trainee và Course này.");
-            }
-
-            // Lấy thông tin TraineeAssign để xác nhận Trainee tham gia khóa học
-            var traineeAssign = await _traineeAssignRepository.GetTraineeAssignmentAsync(request.CourseId, request.TraineeId);
-            if (traineeAssign == null)
-            {
-                throw new ArgumentException("Trainee không được assign vào khóa học này.");
-            }
-
-            // Lấy tất cả subjects của khóa học
-            var course = await _courseRepository.GetCourseWithDetailsAsync(request.CourseId);
-            if (course == null)
-            {
-                throw new ArgumentException("Không tìm thấy khóa học.");
-            }
-
-            // Lấy grades của Trainee
-            var grades = await _gradeRepository.GetGradesByTraineeAssignIdAsync(traineeAssign.TraineeAssignId);
-
-            // Kiểm tra Trainee đã Pass tất cả subjects chưa
-            if (course.Subjects.Count != grades.Count() || !grades.All(g => g.gradeStatus == GradeStatus.Pass))
-            {
-                throw new InvalidOperationException("Trainee chưa hoàn thành hoặc chưa Pass tất cả subjects trong khóa học.");
-            }
-
-            // Chọn template phù hợp với loại khóa học
-            var templateId = await GetTemplateIdByCourseLevelAsync(course.CourseLevel);
-            if (string.IsNullOrEmpty(templateId))
-            {
-                throw new InvalidOperationException("Không tìm thấy template chứng chỉ phù hợp.");
-            }
-
-            var certificateTemplate = await _unitOfWork.CertificateTemplateRepository.GetByIdAsync(templateId);
-
-            // Lấy HTML template từ Blob Storage
-            string templateHtml = await GetTemplateHtmlFromBlobAsync(certificateTemplate.TemplateFile);
-
-            // Lấy thông tin Trainee
-            var trainee = await _unitOfWork.UserRepository.GetByIdAsync(request.TraineeId);
-            if (trainee == null)
-            {
-                throw new ArgumentException("Không tìm thấy Trainee.");
-            }
-
-            // Tạo mã chứng chỉ và ngày phát hành
-            var issueDate = DateTime.UtcNow;
-            string certificateCode = GenerateCertificateCode(course, trainee);
-
-            // Thay thế dữ liệu vào template
-            string templateType = GetTemplateTypeFromName(certificateTemplate.TemplateName);
-            var modifiedHtml = await PopulateTemplateAsync(templateHtml, trainee, course, issueDate, certificateCode, grades, templateType);
-
-            // Lưu file chứng chỉ vào Blob storage
-            string certificateFileName = $"certificate_{certificateCode}_{DateTime.UtcNow:yyyyMMddHHmmss}.html";
-            string certificateUrl = await SaveCertificateToBlob(modifiedHtml, certificateFileName);
-
-            // Tạo entity Certificate
-            var certificate = new Certificate
-            {
-                CertificateId = Guid.NewGuid().ToString(),
-                CertificateCode = certificateCode,
-                UserId = request.TraineeId,
-                CourseId = request.CourseId,
-                Course = course,
-                CertificateTemplateId = templateId,
-                IssueByUserId = issuedByUserId,
-                IssueDate = issueDate,
-                Status = CertificateStatus.Active,
-                CertificateURL = certificateUrl,
-                IsRevoked = false,
-                SignDate = DateTime.UtcNow
-            };
-
-            // Thêm certificate mới
-            await _unitOfWork.CertificateRepository.AddAsync(certificate);
-
-            // Lưu thay đổi
-            await _unitOfWork.SaveChangesAsync();
-
-            // Ánh xạ và trả về response
-            return _mapper.Map<CertificateModel>(certificate);
-        }
-        #endregion
-
-        #region Get Trainee Certificates
-        public async Task<List<CertificateModel>> GetCertificatesByTraineeIdAsync(string traineeId)
-        {
-            if (string.IsNullOrEmpty(traineeId))
-            {
-                throw new ArgumentException("TraineeId is required");
-            }
-
-            // Kiểm tra trainee có tồn tại không
-            var trainee = await _unitOfWork.UserRepository.GetByIdAsync(traineeId);
-            if (trainee == null)
-            {
-                throw new ArgumentException($"Trainee with ID {traineeId} not found");
-            }
-
-            // Lấy tất cả certificate của trainee
-            var certificates = await _unitOfWork.CertificateRepository.GetAllAsync(
-                c => c.UserId == traineeId,
-                c => c.Course,
-                c => c.CertificateTemplate,
-                c => c.IssueByUser
-            );
-
-            // Ánh xạ các certificate thành certificate models
-            return _mapper.Map<List<CertificateModel>>(certificates);
-        }
-        #endregion
-
-        #region Delete Certificate
-        /// <summary>
-        /// Deletes a certificate by its ID and removes the associated file from Blob storage
-        /// </summary>
-        /// <param name="certificateId">The ID of the certificate to delete</param>
-        /// <returns>True if successfully deleted, otherwise false</returns>
-        public async Task<bool> DeleteCertificateAsync(string certificateId)
-        {
-            if (string.IsNullOrEmpty(certificateId))
-            {
-                throw new ArgumentException("CertificateId is required");
-            }
-
-            bool result = false;
-
-            await _unitOfWork.ExecuteWithStrategyAsync(async () =>
-            {
-                // Start a transaction to ensure consistency
-                await _unitOfWork.BeginTransactionAsync();
-                try
+                // 1. Get course data efficiently
+                var course = await _courseRepository.GetCourseWithDetailsAsync(courseId);
+                if (course == null || !course.Subjects.Any())
                 {
-                    // Get the certificate to be deleted
-                    var certificate = await _unitOfWork.CertificateRepository.GetByIdAsync(certificateId);
-                    if (certificate == null)
-                    {
-                        throw new KeyNotFoundException($"Certificate with ID {certificateId} not found");
-                    }
-
-                    // Store the certificate file URL for deletion
-                    string certificateFileURL = certificate.CertificateURL;
-
-                    // Delete the certificate record from the database
-                    await _unitOfWork.CertificateRepository.DeleteAsync(certificateId);
-                    await _unitOfWork.SaveChangesAsync();
-
-                    // Delete the certificate file from Blob storage if it exists
-                    if (!string.IsNullOrEmpty(certificateFileURL))
-                    {
-                        await _blobService.DeleteFileAsync(certificateFileURL);
-                        _logger.LogInformation($"Certificate file deleted from blob storage: {certificateFileURL}");
-                    }
-
-                    // Commit the transaction if everything is successful
-                    await _unitOfWork.CommitTransactionAsync();
-                    result = true;
-                    _logger.LogInformation($"Certificate with ID {certificateId} successfully deleted");
+                    _logger.LogWarning($"Course with ID {courseId} not found or has no subjects");
+                    return createdCertificates;
                 }
-                catch (Exception ex)
+
+                int subjectCount = course.Subjects.Count;
+                _logger.LogInformation($"Course {courseId} has {subjectCount} subjects");
+
+                // 2. Get template data with caching
+                var templateId = await GetTemplateIdByCourseLevelAsync(course.CourseLevel);
+                if (string.IsNullOrEmpty(templateId))
                 {
-                    // Rollback the transaction if an error occurs
-                    await _unitOfWork.RollbackTransactionAsync();
-                    _logger.LogError(ex, $"Error deleting certificate with ID {certificateId}");
-                    throw new Exception($"Error deleting certificate", ex);
+                    _logger.LogWarning($"No active template for course level {course.CourseLevel}");
+                    return createdCertificates;
                 }
-            });
 
-            return result;
+                var certificateTemplate = await _unitOfWork.CertificateTemplateRepository.GetByIdAsync(templateId);
+                var templateHtml = await GetCachedTemplateHtmlAsync(certificateTemplate.TemplateFile);
+                var templateType = GetTemplateTypeFromName(certificateTemplate.TemplateName);
+
+                // 3. Get all data needed for certificate generation in bulk
+                var traineeAssignmentsTask = _traineeAssignRepository.GetTraineeAssignmentsByCourseIdAsync(courseId);
+                var existingCertificatesTask = _unitOfWork.CertificateRepository.GetAllAsync(c => c.CourseId == courseId);
+                var allGradesTask = _gradeRepository.GetGradesByCourseIdAsync(courseId);
+
+                // Execute all tasks in parallel
+                await Task.WhenAll(traineeAssignmentsTask, existingCertificatesTask, allGradesTask);
+
+                var traineeAssignments = await traineeAssignmentsTask;
+                var existingCertificates = await existingCertificatesTask;
+                var allGrades = await allGradesTask;
+
+                // 4. Process data
+                var traineeWithCerts = new HashSet<string>(existingCertificates.Select(c => c.UserId));
+                var traineeIds = traineeAssignments.Select(ta => ta.TraineeId).Distinct().ToList();
+
+                _logger.LogInformation($"Found {traineeIds.Count()} trainees enrolled in course, {traineeWithCerts.Count} already have certificates");
+
+                // 5. Get trainee data efficiently
+                var trainees = await _userRepository.GetUsersByIdsAsync(traineeIds);
+                var traineeDict = trainees.ToDictionary(t => t.UserId);
+
+                // 6. Process grades
+                var gradesByTraineeAssign = allGrades
+                    .GroupBy(g => g.TraineeAssignID)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+
+                var issueDate = DateTime.UtcNow;
+
+                // 7. Find eligible trainees efficiently using parallel processing
+                var eligibleTrainees = traineeAssignments
+                    .Where(ta => !traineeWithCerts.Contains(ta.TraineeId))
+                    .AsParallel()
+                    .Where(ta =>
+                    {
+                        if (!gradesByTraineeAssign.TryGetValue(ta.TraineeAssignId, out var grades))
+                            return false;
+
+                        return grades.Count() == subjectCount && grades.All(g => g.gradeStatus == GradeStatus.Pass);
+                    })
+                    .ToList();
+
+                _logger.LogInformation($"Found {eligibleTrainees.Count()} eligible trainees for new certificates");
+
+                if (!eligibleTrainees.Any())
+                {
+                    return createdCertificates;
+                }
+
+                // 8. Generate certificates in batch with efficient processing
+                var certToCreate = new List<Certificate>();
+                var generationTasks = eligibleTrainees.Select(async ta =>
+                {
+                    if (!traineeDict.TryGetValue(ta.TraineeId, out var trainee))
+                        return null;
+
+                    try
+                    {
+                        var grades = gradesByTraineeAssign[ta.TraineeAssignId];
+                        return await GenerateCertificateAsync(
+                            trainee, course, templateId, templateHtml, templateType, grades, issuedByUserId, issueDate);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Failed to create certificate for trainee {ta.TraineeId}");
+                        return null;
+                    }
+                });
+
+                var certificates = (await Task.WhenAll(generationTasks))
+                    .Where(c => c != null)
+                    .ToList();
+
+                certToCreate.AddRange(certificates);
+
+                // 9. Save to database with transaction
+                if (certToCreate.Any())
+                {
+                    _logger.LogInformation($"Saving {certToCreate.Count} new certificates to database");
+
+                    await _unitOfWork.ExecuteWithStrategyAsync(async () =>
+                    {
+                        await _unitOfWork.BeginTransactionAsync();
+                        try
+                        {
+                            await _unitOfWork.CertificateRepository.AddRangeAsync(certToCreate);
+                            await _unitOfWork.SaveChangesAsync();
+                            await _unitOfWork.CommitTransactionAsync();
+
+                            createdCertificates = _mapper.Map<List<CertificateModel>>(certToCreate);
+
+                            // 10. Notify HeadMasters efficiently
+                            await NotifyHeadMastersAsync(createdCertificates.Count, course.CourseName);
+
+                            _logger.LogInformation($"Successfully created {createdCertificates.Count} certificates for course {courseId}");
+                        }
+                        catch (Exception ex)
+                        {
+                            await _unitOfWork.RollbackTransactionAsync();
+                            _logger.LogError(ex, "Transaction failed during certificate creation");
+                            throw;
+                        }
+                    });
+                }
+
+                return createdCertificates;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error in AutoGenerateCertificatesForPassedTraineesAsync for course {courseId}");
+                throw new Exception("Failed to auto-generate certificates", ex);
+            }
         }
         #endregion
 
-        #region Helper Methods       
-        private string GenerateCertificateCode(Course course, User trainee)
+        #region Helper Methods
+        private async Task<string> GetCachedTemplateHtmlAsync(string templateFileUrl)
         {
-            // Create a unique code format like: VJA-{CourseLevel}-{Year}-{Month}-{Sequential Number}
-            string courseLevel = course.CourseLevel.ToString().Substring(0, 3).ToUpper();
-            string year = DateTime.UtcNow.Year.ToString();
-            string month = DateTime.UtcNow.Month.ToString("D2");
+            string cacheKey = string.Format(TEMPLATE_HTML_CACHE_KEY, templateFileUrl.GetHashCode());
 
-            // Generate a hash from trainee ID + course ID
-            string hash = (trainee.UserId + course.CourseId).GetHashCode().ToString("X").Substring(0, 5);
-
-            return $"OCMS-{courseLevel}-{year}-{month}-{hash}";
-        }
-
-        private async Task<string> GetTemplateIdByCourseLevelAsync(CourseLevel courseLevel)
-        {
-            var templates = await _unitOfWork.CertificateTemplateRepository.GetAllAsync(
-                t => t.templateStatus == TemplateStatus.Active);
-
-            // Filter templates based on course level
-            var matchingTemplates = new List<CertificateTemplate>();
-
-            switch (courseLevel)
+            if (!_memoryCache.TryGetValue(cacheKey, out string templateHtml))
             {
-                case CourseLevel.Initial:
-                    matchingTemplates = templates.Where(t => t.TemplateName.Contains("Initial")).ToList();
-                    break;
-                case CourseLevel.Recurrent:
-                    matchingTemplates = templates.Where(t => t.TemplateName.Contains("Recurrent")).ToList();
-                    break;
-                case CourseLevel.Relearn:
-                    matchingTemplates = templates.Where(t => t.TemplateName.Contains("Initial")).ToList();
-                    break;
-                default:
-                    return templates.FirstOrDefault()?.CertificateTemplateId;
+                _logger.LogInformation($"Template cache miss for {templateFileUrl}, loading from blob storage");
+                templateHtml = await GetTemplateHtmlFromBlobAsync(templateFileUrl);
+
+                // Cache the template HTML for future use
+                _memoryCache.Set(cacheKey, templateHtml, TimeSpan.FromMinutes(TEMPLATE_CACHE_MINUTES));
             }
 
-            if (!matchingTemplates.Any())
-                return null;
-
-            // If multiple matching templates exist, select the one with the highest sequence number
-            // Template IDs follow the format: TEMP-XXX-NNN where XXX is the type and NNN is the sequence
-            return matchingTemplates
-                .OrderByDescending(t => {
-                    // Extract the sequence number (last 3 digits after last dash)
-                    var parts = t.CertificateTemplateId.Split('-');
-                    if (parts.Length >= 3 && int.TryParse(parts[2], out int sequenceNumber))
-                        return sequenceNumber;
-                    return 0;
-                })
-                .FirstOrDefault()?.CertificateTemplateId;
+            return templateHtml;
         }
 
         private async Task<string> GetTemplateHtmlFromBlobAsync(string templateFileUrl)
         {
-            // Phân tích URL để lấy endpoint của account
-            Uri blobUri = new Uri(templateFileUrl);
-            string accountUrl = $"{blobUri.Scheme}://{blobUri.Host}";
-            string containerName = blobUri.Segments[1].TrimEnd('/');
-            string blobName = blobUri.AbsolutePath.Substring(blobUri.AbsolutePath.IndexOf(containerName) + containerName.Length + 1);
+            try
+            {
+                // Parse URL to get account endpoint
+                Uri blobUri = new Uri(templateFileUrl);
+                string accountUrl = $"{blobUri.Scheme}://{blobUri.Host}";
+                string containerName = blobUri.Segments[1].TrimEnd('/');
+                string blobName = blobUri.AbsolutePath.Substring(blobUri.AbsolutePath.IndexOf(containerName) + containerName.Length + 1);
 
-            // Sử dụng DefaultAzureCredential (sẽ sử dụng Managed Identity khi chạy trên Azure)
-            BlobServiceClient blobServiceClient = new BlobServiceClient(
-                new Uri(accountUrl),
-                new DefaultAzureCredential());
-            BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(containerName);
-            BlobClient blobClient = containerClient.GetBlobClient(blobName);
+                // Use DefaultAzureCredential (will use Managed Identity when running on Azure)
+                BlobServiceClient blobServiceClient = new BlobServiceClient(
+                    new Uri(accountUrl),
+                    new DefaultAzureCredential());
+                BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+                BlobClient blobClient = containerClient.GetBlobClient(blobName);
 
-            using var memoryStream = new MemoryStream();
-            await blobClient.DownloadToAsync(memoryStream);
-            memoryStream.Position = 0;
+                using var memoryStream = new MemoryStream();
+                var downloadOperation = await blobClient.DownloadToAsync(memoryStream);
+                memoryStream.Position = 0;
 
-            using var reader = new StreamReader(memoryStream);
-            return await reader.ReadToEndAsync();
+                using var reader = new StreamReader(memoryStream);
+                return await reader.ReadToEndAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error loading template from blob: {templateFileUrl}");
+                throw new Exception($"Failed to load certificate template", ex);
+            }
+        }
+
+        private async Task<string> GetTemplateIdByCourseLevelAsync(CourseLevel courseLevel)
+        {
+            string cacheKey = $"template_id_{courseLevel}";
+
+            if (!_memoryCache.TryGetValue(cacheKey, out string templateId))
+            {
+                var templates = await _unitOfWork.CertificateTemplateRepository.GetAllAsync(
+                    t => t.templateStatus == TemplateStatus.Active);
+
+                // Filter templates based on course level
+                var matchingTemplates = new List<CertificateTemplate>();
+
+                switch (courseLevel)
+                {
+                    case CourseLevel.Initial:
+                        matchingTemplates = templates.Where(t => t.TemplateName.Contains("Initial")).ToList();
+                        break;
+                    case CourseLevel.Recurrent:
+                        matchingTemplates = templates.Where(t => t.TemplateName.Contains("Recurrent")).ToList();
+                        break;
+                    case CourseLevel.Relearn:
+                        matchingTemplates = templates.Where(t => t.TemplateName.Contains("Initial")).ToList();
+                        break;
+                    default:
+                        matchingTemplates = templates.ToList();
+                        break;
+                }
+
+                if (!matchingTemplates.Any())
+                    return null;
+
+                // If multiple matching templates exist, select the one with the highest sequence number
+                templateId = matchingTemplates
+                    .OrderByDescending(t => {
+                        // Extract the sequence number (last 3 digits after last dash)
+                        var parts = t.CertificateTemplateId.Split('-');
+                        if (parts.Length >= 3 && int.TryParse(parts[2], out int sequenceNumber))
+                            return sequenceNumber;
+                        return 0;
+                    })
+                    .FirstOrDefault()?.CertificateTemplateId;
+
+                // Cache the template ID for 30 minutes
+                if (templateId != null)
+                    _memoryCache.Set(cacheKey, templateId, TimeSpan.FromMinutes(30));
+            }
+
+            return templateId;
         }
 
         private string GetTemplateTypeFromName(string templateName)
@@ -338,24 +323,73 @@ namespace OCMS_Services.Service
             return "Standard";
         }
 
+        private async Task<Certificate> GenerateCertificateAsync(
+            User trainee,
+            Course course,
+            string templateId,
+            string templateHtml,
+            string templateType,
+            List<Grade> grades,
+            string issuedByUserId,
+            DateTime issueDate)
+        {
+            string certificateCode = GenerateCertificateCode(course, trainee);
+            string modifiedHtml = await PopulateTemplateAsync(templateHtml, trainee, course, issueDate, certificateCode, grades, templateType);
+            string certificateFileName = $"certificate_{certificateCode}_{DateTime.UtcNow:yyyyMMddHHmmss}.html";
+            string certificateUrl = await SaveCertificateToBlob(modifiedHtml, certificateFileName);
+
+            return new Certificate
+            {
+                CertificateId = Guid.NewGuid().ToString(),
+                CertificateCode = certificateCode,
+                UserId = trainee.UserId,
+                CourseId = course.CourseId,
+                CertificateTemplateId = templateId,
+                IssueByUserId = issuedByUserId,
+                IssueDate = issueDate,
+                Status = CertificateStatus.Active,
+                CertificateURL = certificateUrl,
+                IsRevoked = false,
+                SignDate = DateTime.UtcNow
+            };
+        }
+
+        private string GenerateCertificateCode(Course course, User trainee)
+        {
+            // Create a unique code format like: OCMS-{CourseLevel}-{Year}-{Month}-{Hash}
+            string courseLevel = course.CourseLevel.ToString().Substring(0, 3).ToUpper();
+            string year = DateTime.UtcNow.Year.ToString();
+            string month = DateTime.UtcNow.Month.ToString("D2");
+
+            // Generate a hash from trainee ID + course ID
+            string hash = (trainee.UserId + course.CourseId).GetHashCode().ToString("X").Substring(0, 5);
+
+            return $"OCMS-{courseLevel}-{year}-{month}-{hash}";
+        }
+
         private async Task<string> SaveCertificateToBlob(string htmlContent, string fileName)
         {
             using var stream = new MemoryStream(Encoding.UTF8.GetBytes(htmlContent));
             return await _blobService.UploadFileAsync("certificates", fileName, stream);
         }
 
-        private async Task<string> PopulateTemplateAsync(string templateHtml, User trainee, Course course, DateTime issueDate, string certificateCode, IEnumerable<Grade> grades, string templateType)
+        private async Task<string> PopulateTemplateAsync(
+            string templateHtml,
+            User trainee,
+            Course course,
+            DateTime issueDate,
+            string certificateCode,
+            IEnumerable<Grade> grades,
+            string templateType)
         {
-            // Lấy thông tin chung
-            var schedules = await _unitOfWork.TrainingScheduleRepository.GetAllAsync(s => s.Subject.CourseId == course.CourseId);
+            // Get general info
             var startDate = issueDate.ToString("dd/MM/yyyy");
             var endDate = issueDate.AddYears(3).ToString("dd/MM/yyyy");
             double averageScore = grades.Average(g => g.TotalScore);
-            string gradeResult = DetermineGradeResult(averageScore); // Hàm giả định để xác định loại tốt nghiệp
+            string gradeResult = DetermineGradeResult(averageScore);
             string avatarBase64 = await GetBase64AvatarAsync(trainee.AvatarUrl);
 
-
-            // Thay thế các placeholder chung
+            // Replace common placeholders
             var result = templateHtml
                 .Replace("[HỌ VÀ TÊN]", trainee.FullName)
                 .Replace("[Họ tên]", trainee.FullName)
@@ -373,19 +407,13 @@ namespace OCMS_Services.Service
                 .Replace("[MÃ CHỨNG CHỈ]", certificateCode)
                 .Replace("[Mã chứng chỉ]", certificateCode);
 
-            // Thay thế placeholder đặc biệt theo loại template
+            // Replace template-specific placeholders
             if (templateType == "Initial")
             {
                 result = result.Replace("[LOẠI TỐT NGHIỆP]", gradeResult);
             }
-            else if (templateType == "Professional")
-            {
-                // Professional có field "Tốt nghiệp loại" cố định là "Đạt / Pass" trong template
-                // Nếu cần tính toán dựa trên điểm, bạn có thể thay đổi logic ở đây
-            }
-            // Recurrent không có placeholder đặc biệt nào khác
 
-            // Cập nhật ngày tháng trong chữ ký
+            // Update date in signature
             var currentDate = DateTime.UtcNow;
             result = Regex.Replace(result,
                 @"ngày\s+\d+\s+tháng\s+\d+\s+năm\s+\d+",
@@ -415,41 +443,53 @@ namespace OCMS_Services.Service
 
             try
             {
-                // Parse URL để lấy container name và blob name
+                // Check cache first
+                string cacheKey = $"avatar_base64_{avatarUrl.GetHashCode()}";
+                if (_memoryCache.TryGetValue(cacheKey, out string cachedAvatar))
+                {
+                    return cachedAvatar;
+                }
+
+                // Parse URL to get container name and blob name
                 Uri blobUri = new Uri(avatarUrl);
                 string accountUrl = $"{blobUri.Scheme}://{blobUri.Host}";
                 string containerName = blobUri.Segments[1].TrimEnd('/');
                 string blobName = blobUri.AbsolutePath.Substring(blobUri.AbsolutePath.IndexOf(containerName) + containerName.Length + 1);
 
-                // Tạo BlobServiceClient
+                // Create BlobServiceClient
                 BlobServiceClient blobServiceClient = new BlobServiceClient(
                     new Uri(accountUrl),
                     new DefaultAzureCredential());
 
-                // Lấy container client và blob client
+                // Get container client and blob client
                 BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(containerName);
                 BlobClient blobClient = containerClient.GetBlobClient(blobName);
 
-                // Tải blob content
-                BlobDownloadInfo download = await blobClient.DownloadAsync();
+                // Download blob content
+                var downloadInfo = await blobClient.DownloadAsync();
 
-                // Đọc nội dung vào memory stream
+                // Read content into memory stream
                 using var memoryStream = new MemoryStream();
-                await download.Content.CopyToAsync(memoryStream);
+                await downloadInfo.Value.Content.CopyToAsync(memoryStream);
 
-                // Chuyển đổi thành Base64
+                // Convert to Base64
                 byte[] bytes = memoryStream.ToArray();
                 string base64String = Convert.ToBase64String(bytes);
 
-                // Xác định Content-Type của file (hoặc bạn có thể lưu Content-Type của avatar khi upload)
-                string contentType = download.ContentType;
+                // Determine Content-Type of file
+                string contentType = downloadInfo.Value.ContentType;
                 if (string.IsNullOrEmpty(contentType))
                 {
-                    contentType = "image/jpeg"; // Mặc định là JPEG
+                    contentType = "image/jpeg"; // Default to JPEG
                 }
 
-                // Trả về đường dẫn Data URL có thể dùng trong src của thẻ img
-                return $"data:{contentType};base64,{base64String}";
+                // Create data URL path that can be used in img src
+                string result = $"data:{contentType};base64,{base64String}";
+
+                // Cache the result for 60 minutes
+                _memoryCache.Set(cacheKey, result, TimeSpan.FromMinutes(60));
+
+                return result;
             }
             catch (Exception ex)
             {
@@ -460,19 +500,70 @@ namespace OCMS_Services.Service
 
         private async Task<string> GetDefaultBase64AvatarAsync()
         {
-            // Tạo một avatar mặc định dạng Base64
+            string cacheKey = "default_avatar_base64";
+
+            if (_memoryCache.TryGetValue(cacheKey, out string cachedAvatar))
+            {
+                return cachedAvatar;
+            }
+
+            // Create a default avatar in Base64 format
             string defaultAvatarPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "default-avatar.jpg");
 
             if (File.Exists(defaultAvatarPath))
             {
                 byte[] bytes = await File.ReadAllBytesAsync(defaultAvatarPath);
                 string base64String = Convert.ToBase64String(bytes);
-                return $"data:image/jpeg;base64,{base64String}";
+                string result = $"data:image/jpeg;base64,{base64String}";
+
+                // Cache the result indefinitely (it won't change)
+                _memoryCache.Set(cacheKey, result, TimeSpan.FromDays(365));
+
+                return result;
             }
 
-            // Nếu không có file mặc định, trả về một ảnh đơn giản dạng Base64
-            // Đây là một ảnh đơn giản màu xám với biểu tượng người dùng
-            return "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNlMGUwZTAiLz48Y2lyY2xlIGN4PSI1MCIgY3k9IjM1IiByPSIyMCIgZmlsbD0iIzlFOUU5RSIvPjxwYXRoIGQ9Ik0yNSw4NSBDMjUsNjAgNzUsNjAgNzUsODUgWiIgZmlsbD0iIzlFOUU5RSIvPjwvc3ZnPg==";
+            // If no default file exists, return a simple SVG image in Base64
+            string svgBase64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNlMGUwZTAiLz48Y2lyY2xlIGN4PSI1MCIgY3k9IjM1IiByPSIyMCIgZmlsbD0iIzlFOUU5RSIvPjxwYXRoIGQ9Ik0yNSw4NSBDMjUsNjAgNzUsNjAgNzUsODUgWiIgZmlsbD0iIzlFOUU5RSIvPjwvc3ZnPg==";
+            _memoryCache.Set(cacheKey, svgBase64, TimeSpan.FromDays(365));
+
+            return svgBase64;
+        }
+
+        private async Task NotifyHeadMastersAsync(int certificateCount, string courseName)
+        {
+            if (certificateCount <= 0)
+                return;
+
+            try
+            {
+                var headMasters = await _userRepository.GetUsersByRoleAsync("HeadMaster");
+
+                if (!headMasters.Any())
+                {
+                    _logger.LogWarning("No HeadMasters found to notify about certificates");
+                    return;
+                }
+
+                // Create a more detailed notification message
+                string title = "Certificates Pending Digital Signature";
+                string message = $"{certificateCount} new certificate(s) for course '{courseName}' have been generated and require your digital signature. " +
+                                 $"Please review and sign these certificates at your earliest convenience.";
+
+                var notificationTasks = headMasters.Select(hm => _notificationService.SendNotificationAsync(
+                    hm.UserId,
+                    title,
+                    message,
+                    "CertificateSignature"
+                ));
+
+                await Task.WhenAll(notificationTasks);
+                _logger.LogInformation($"Notification sent to {headMasters.Count()} HeadMasters for {certificateCount} certificates");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending notifications to HeadMasters");
+                // We don't throw here as notification failure shouldn't break certificate generation
+            }
         }
         #endregion
     }

@@ -9,6 +9,7 @@ namespace OCMS_Services.IService
     public interface IBlobService
     {
         Task<string> UploadFileAsync(string containerName, string blobName, Stream fileStream);
-        Task DeleteFileAsync(string certificateFileUrl);
+        Task DeleteFileAsync(string blobFileUrl);
+
     }
 }

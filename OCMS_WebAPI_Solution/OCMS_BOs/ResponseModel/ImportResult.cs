@@ -12,5 +12,7 @@ namespace OCMS_BOs.ResponseModel
         public int SuccessCount { get; set; }
         public int FailedCount { get; set; }
         public List<string> Errors { get; set; }
+        public string AdditionalInfo { get; set; } // Added property to fix CS1061  
+        public List<string> Warnings { get; set; } // Added property to handle warnings if needed  
     }
 }
