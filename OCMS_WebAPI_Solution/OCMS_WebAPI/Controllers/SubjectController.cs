@@ -41,7 +41,24 @@ namespace OCMS_WebAPI.Controllers
                 return NotFound(new { message = ex.Message });
             }
         }
-
+        [HttpGet("course/{courseId}")]
+        [Authorize]
+        public async Task<IActionResult> GetSubjectsByCourseId(string courseId)
+        {
+            try
+            {
+                var subjects = await _subjectService.GetSubjectsByCourseIdAsync(courseId);
+                return Ok(new { message = "Subjects retrieved successfully.", subjects });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
         [HttpPost]
         [CustomAuthorize("Admin", "Training staff")]
         public async Task<IActionResult> CreateSubject([FromBody] SubjectDTO dto)
