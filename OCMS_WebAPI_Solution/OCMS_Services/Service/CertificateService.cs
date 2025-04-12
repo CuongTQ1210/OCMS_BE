@@ -103,16 +103,10 @@ namespace OCMS_Services.Service
                 var templateType = GetTemplateTypeFromName(certificateTemplate.TemplateName);
 
                 // 3. Get all data needed for certificate generation in bulk
-                var traineeAssignmentsTask = _traineeAssignRepository.GetTraineeAssignmentsByCourseIdAsync(courseId);
-                var existingCertificatesTask = _unitOfWork.CertificateRepository.GetAllAsync(c => c.CourseId == courseId);
-                var allGradesTask = _gradeRepository.GetGradesByCourseIdAsync(courseId);
+                var traineeAssignments = await _traineeAssignRepository.GetTraineeAssignmentsByCourseIdAsync(courseId);
+                var existingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.CourseId == courseId);
+                var allGrades = await _gradeRepository.GetGradesByCourseIdAsync(courseId);
 
-                // Execute all tasks in parallel
-                await Task.WhenAll(traineeAssignmentsTask, existingCertificatesTask, allGradesTask);
-
-                var traineeAssignments = await traineeAssignmentsTask;
-                var existingCertificates = await existingCertificatesTask;
-                var allGrades = await allGradesTask;
 
                 // 4. Process data
                 var traineeWithCerts = new HashSet<string>(existingCertificates.Select(c => c.UserId));
