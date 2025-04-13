@@ -15,7 +15,6 @@ namespace OCMS_Services.IService
         Task<SubjectModel> CreateSubjectAsync(SubjectDTO dto, string createdByUserId);
         Task<SubjectModel> UpdateSubjectAsync(string subjectId, SubjectDTO dto);
         Task<bool> DeleteSubjectAsync(string subjectId);
-
         Task<List<SubjectModel>> GetSubjectsByCourseIdAsync(string courseId);
     }
 }

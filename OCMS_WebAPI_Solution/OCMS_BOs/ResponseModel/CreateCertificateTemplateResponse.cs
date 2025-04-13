@@ -14,5 +14,6 @@ namespace OCMS_BOs.ResponseModel
         public DateTime CreatedAt { get; set; }
         public DateTime LastUpdatedAt { get; set; }
         public string TemplateStatus { get; set; }
+        public string TemplateFileWithSas { get; set; }
     }
 }

@@ -46,13 +46,16 @@ namespace OCMS_Services.Service
             // Upload template lên Blob Storage
             using (var stream = request.HtmlTemplate.OpenReadStream())
             {
-                string templateUrl = await _blobService.UploadFileAsync("certificate-templates", blobName, stream);
+                string templateUrl = await _blobService.UploadFileAsync("certificate-templates", blobName, stream, "text/html");
+
+                // Lưu URL gốc (không có SAS token)
+                string baseTemplateUrl = _blobService.GetBlobUrlWithoutSasToken(templateUrl);
 
                 // Tạo đối tượng template
                 var template = _mapper.Map<CertificateTemplate>(request);
-                template.CreatedByUserId = currentUserId; // Gán giá trị này
+                template.CreatedByUserId = currentUserId;
                 template.CertificateTemplateId = templateId;
-                template.TemplateFile = templateUrl;
+                template.TemplateFile = baseTemplateUrl;
                 template.TemplateName = templateName;
 
                 // Thêm template vào database
@@ -60,7 +63,12 @@ namespace OCMS_Services.Service
                 await _unitOfWork.SaveChangesAsync();
 
                 // Mapping response
-                return _mapper.Map<CreateCertificateTemplateResponse>(template);
+                var response = _mapper.Map<CreateCertificateTemplateResponse>(template);
+
+                // Trả về URL có SAS token trong response
+                response.TemplateFileWithSas = await _blobService.GetBlobUrlWithSasTokenAsync(baseTemplateUrl, TimeSpan.FromHours(1));
+
+                return response;
             }
         }
         #endregion
@@ -78,7 +86,12 @@ namespace OCMS_Services.Service
                 return null;
 
             // Mapping response sử dụng AutoMapper
-            return _mapper.Map<GetCertificateTemplateResponse>(template);
+            var response = _mapper.Map<GetCertificateTemplateResponse>(template);
+
+            // Thêm SAS token vào URL template file
+            response.TemplateFileWithSas = await _blobService.GetBlobUrlWithSasTokenAsync(template.TemplateFile, TimeSpan.FromHours(1));
+
+            return response;
         }
         #endregion
 
@@ -161,7 +174,7 @@ namespace OCMS_Services.Service
 
                     using (var stream = request.HtmlTemplate.OpenReadStream())
                     {
-                        string templateUrl = await _blobService.UploadFileAsync("certificate-templates", blobName, stream);
+                        string templateUrl = await _blobService.UploadFileAsync("certificate-templates", blobName, stream, "text/html");
                         template.TemplateFile = templateUrl;
                     }
                     await _unitOfWork.SaveChangesAsync();

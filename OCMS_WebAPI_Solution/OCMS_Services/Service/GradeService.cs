@@ -19,11 +19,13 @@ namespace OCMS_Services.Service
     {
         private readonly UnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly ICertificateService _certificateService;
 
-        public GradeService(UnitOfWork unitOfWork, IMapper mapper)
+        public GradeService(UnitOfWork unitOfWork, IMapper mapper, ICertificateService certificateService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _certificateService = certificateService;
         }
 
         #region Get All Grade
@@ -285,6 +287,23 @@ namespace OCMS_Services.Service
                 {
                     await _unitOfWork.GradeRepository.AddRangeAsync(newGrades);
                     await _unitOfWork.SaveChangesAsync();
+
+                    // Improve logging before certificate generation
+                    // Check and automatically generate certificates for eligible trainees
+                    try
+                    {
+                        var certificates = await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(courseId, importedByUserId);
+                        if (certificates.Any())
+                        {
+                            result.AdditionalInfo = $"Successfully generated {certificates.Count} certificates for passing trainees.";
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log error but don't fail the grade import process
+                        result.Warnings = result.Warnings ?? new List<string>();
+                        result.Warnings.Add($"Grades were imported successfully but certificate generation failed: {ex.Message}");
+                    }
                 }
             }
 

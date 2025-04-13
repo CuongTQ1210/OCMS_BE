@@ -25,5 +25,7 @@ namespace OCMS_BOs.ViewModel
         public string CandidateId { get; set; }
         [Required(ErrorMessage = "CertificateImage is required")]
         public IFormFile CertificateImage { get; set; }
+        public string CertificateFileURLWithSas { get; set; }
+
     }
 }

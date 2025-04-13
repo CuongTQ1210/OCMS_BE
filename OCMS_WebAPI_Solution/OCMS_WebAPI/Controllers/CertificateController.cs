@@ -21,72 +21,27 @@ namespace OCMS_WebAPI.Controllers
             _blobService = blobService;
         }
 
-        #region Create Certificate
-        [HttpPost("create")]
+        #region AutoGenerateCertificatesForPassedTrainees
+        [HttpPost("AutoGenerateCertificatesForPassedTrainees")]
+        [ValidateAntiForgeryToken]
         [CustomAuthorize("Admin", "Training staff")]
-        public async Task<IActionResult> CreateCertificate([FromBody] CreateCertificateDTO dto)
+        public async Task<IActionResult> AutoGenerateCertificatesForPassedTrainees([FromBody] string courseId)
         {
-            try
+            if (string.IsNullOrEmpty(courseId))
             {
-                // Lấy UserId từ Claims
-                var issuedByUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-                if (string.IsNullOrEmpty(issuedByUserId))
-                {
-                    return Unauthorized("User identity not found");
-                }
-
-                var result = await _certificateService.CreateCertificateAsync(dto, issuedByUserId);
-                return Ok(result);
+                return BadRequest("Course ID cannot be null or empty.");
             }
-            catch (Exception ex)
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
             {
-                // Xử lý exception
-                return StatusCode(500, ex.Message);
+                return Unauthorized("User ID not found in claims.");
             }
-        }
-        #endregion
-
-        #region Get Certificates by TraineeId
-        [HttpGet("trainee/{traineeId}")]
-        [CustomAuthorize("Admin", "Training staff", "Trainee", "AOC Manager")]
-        public async Task<IActionResult> GetCertificatesByTraineeId(string traineeId)
-        {
-            try
+            var result = await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(courseId, userId);
+            if (result == null || result.Count == 0)
             {
-                var result = await _certificateService.GetCertificatesByTraineeIdAsync(traineeId);
-                return Ok(result);
+                return NotFound("No certificates generated.");
             }
-            catch (Exception ex)
-            {
-                // Xử lý exception
-                return StatusCode(500, ex.Message);
-            }
-        }
-        #endregion
-
-        #region Delete Certificate
-        [HttpDelete("{certificateId}")]
-        [CustomAuthorize("Admin", "Training staff")]
-        public async Task<IActionResult> DeleteCertificate(string certificateId)
-        {
-            try
-            {
-                var result = await _certificateService.DeleteCertificateAsync(certificateId);
-                if (result)
-                {
-                    return Ok("Certificate deleted successfully");
-                }
-                else
-                {
-                    return NotFound("Certificate not found");
-                }
-            }
-            catch (Exception ex)
-            {
-                // Xử lý exception
-                return StatusCode(500, ex.Message);
-            }
+            return Ok(result);
         }
         #endregion
     }
