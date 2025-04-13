@@ -21,8 +21,8 @@ namespace OCMS_BOs.ViewModel
             public string Notes { get; set; }
 
             public string Status { get; set; }
-            public string? ApprovedById { get; set; } 
-            public DateTime? ApprovedDate { get; set; }
+            public string? ActionByUserId { get; set; } 
+            public DateTime? ActionDate { get; set; }
             public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
             public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         

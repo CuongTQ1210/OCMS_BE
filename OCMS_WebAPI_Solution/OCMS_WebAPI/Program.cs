@@ -92,6 +92,9 @@ builder.Services.AddScoped<ITraineeAssignService, TraineeAssignService>();
 builder.Services.AddScoped<ICertificateTemplateService, CertificateTemplateService>();
 builder.Services.AddScoped<IGradeService, GradeService>();
 builder.Services.AddScoped<ICertificateService, CertificateService>();
+builder.Services.AddHttpClient<IHsmAuthService, HsmAuthService>();
+builder.Services.AddHttpClient<IPdfSignerService, PdfSignerService>();
+
 // Register Lazy<T> factories
 builder.Services.AddScoped(provider => new Lazy<ITrainingScheduleService>(() => provider.GetRequiredService<ITrainingScheduleService>()));
 builder.Services.AddScoped(provider => new Lazy<ITrainingPlanService>(() => provider.GetRequiredService<ITrainingPlanService>()));
