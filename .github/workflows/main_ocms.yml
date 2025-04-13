@@ -5,6 +5,10 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '**.md'
+      - '.github/workflows/*.md'
+      - 'docs/**'
   workflow_dispatch:
 
 jobs:
@@ -26,7 +30,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
           restore-keys: ${{ runner.os }}-nuget-
       
       - name: Restore dependencies
@@ -54,12 +58,23 @@ jobs:
           Remove-Item -Path "${{env.DOTNET_ROOT}}/myapp/*.pdb" -Force -ErrorAction SilentlyContinue
           Remove-Item -Path "${{env.DOTNET_ROOT}}/myapp/ref" -Recurse -Force -ErrorAction SilentlyContinue
       
+      - name: Optimize artifact size
+        run: |
+          # Find and remove any test assemblies as they're not needed in production
+          Get-ChildItem -Path "${{env.DOTNET_ROOT}}/myapp" -Filter "*.Tests.dll" -Recurse | Remove-Item -Force
+          # Compress any JSON files to save space
+          Get-ChildItem -Path "${{env.DOTNET_ROOT}}/myapp" -Filter "*.json" -Recurse | ForEach-Object {
+            $content = Get-Content $_.FullName -Raw | ConvertFrom-Json
+            $content | ConvertTo-Json -Depth 100 -Compress | Set-Content $_.FullName -Force
+          }
+      
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: .net-app
           path: ${{env.DOTNET_ROOT}}/myapp
           retention-days: 5
+          compression-level: 9 # Use maximum compression to reduce size
 
   deploy-production:
     runs-on: windows-latest
@@ -85,12 +100,56 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_B07DDFD930AD4287BD101A0957068C04 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_FBE1CF4B226B4E5A8B25FF5C1AABC326 }}
 
+      # Clean up disk space on Azure Web App before deployment
+      - name: Clean up Azure Web App disk space
+        run: |
+          # Get publishing credentials for the web app
+          $publishProfile = az webapp deployment list-publishing-profiles --resource-group ocms-resourse --name ocms --query "[?publishMethod=='MSDeploy'].{userName:userName,userPWD:userPWD,publishUrl:publishUrl}[0]" | ConvertFrom-Json
+          
+          # Construct the Kudu API URL
+          $kuduApiUrl = "https://$($publishProfile.userName):$($publishProfile.userPWD)@ocms-bea4aagveeejawff.scm.southeastasia-01.azurewebsites.net/api"
+          
+          # Clean up log files
+          Write-Host "Cleaning up log files..."
+          $command = @"
+          try {
+            # Remove old deployment logs
+            Get-ChildItem -Path D:\home\LogFiles -Recurse -File | Where-Object {$_.LastWriteTime -lt (Get-Date).AddDays(-7)} | Remove-Item -Force
+            
+            # Clean up temp folder
+            Get-ChildItem -Path D:\local\Temp -Recurse -File | Remove-Item -Force -ErrorAction SilentlyContinue
+            
+            # Remove old deployment artifacts
+            Get-ChildItem -Path D:\home\site\deployments -Recurse | Where-Object {$_.LastWriteTime -lt (Get-Date).AddDays(-3)} | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+            
+            Write-Output "Cleanup completed successfully"
+          } catch {
+            Write-Output "Error during cleanup: $_"
+            exit 1
+          }
+          "@
+          
+          $commandBytes = [System.Text.Encoding]::UTF8.GetBytes($command)
+          $commandBase64 = [Convert]::ToBase64String($commandBytes)
+          
+          try {
+            # Run the cleanup command via Kudu API
+            $response = Invoke-RestMethod -Uri "$kuduApiUrl/command" -Method POST -Body (@{ command = "powershell.exe -EncodedCommand $commandBase64" } | ConvertTo-Json) -ContentType "application/json" -ErrorAction Stop
+            Write-Host "Cleanup result: $($response.Output)"
+          }
+          catch {
+            Write-Host "Warning: Failed to clean up disk space: $_"
+            # Continue with deployment even if cleanup fails
+          }
+
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'ocms'
           package: .net-app
+          # Add deployment timeout to handle large deployments
+          timeout: 600 # 10 minutes
       
       - name: Health check production
         run: |
@@ -100,7 +159,7 @@ jobs:
           
           do {
             try {
-              $response = Invoke-WebRequest -Uri "${{ steps.deploy-to-webapp.outputs.webapp-url }}/swagger/index.html" -UseBasicParsing
+              $response = Invoke-WebRequest -Uri "${{ steps.deploy-to-webapp.outputs.webapp-url }}/swagger/index.html" -UseBasicParsing -TimeoutSec 30
               if ($response.StatusCode -eq 200) {
                 $success = $true
                 Write-Host "Health check passed!"
@@ -110,6 +169,7 @@ jobs:
             catch {
               $retryCount++
               Write-Host "Health check failed. Retrying in 10 seconds... ($retryCount/$maxRetries)"
+              Write-Host "Error: $($_.Exception.Message)"
               Start-Sleep -Seconds 10
             }
           } while ($retryCount -lt $maxRetries -and -not $success)
@@ -131,3 +191,25 @@ jobs:
           echo "Triggered by: ${{ github.actor }}"
           echo "Commit: ${{ github.sha }}"
           echo "======================================================"
+      
+      # Add disk space usage report after deployment
+      - name: Report disk space usage
+        if: always()
+        run: |
+          $publishProfile = az webapp deployment list-publishing-profiles --resource-group ocms-resourse --name ocms --query "[?publishMethod=='MSDeploy'].{userName:userName,userPWD:userPWD,publishUrl:publishUrl}[0]" | ConvertFrom-Json
+          
+          $kuduApiUrl = "https://$($publishProfile.userName):$($publishProfile.userPWD)@ocms-bea4aagveeejawff.scm.southeastasia-01.azurewebsites.net/api"
+          
+          $command = "Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Root -eq 'D:\'} | Select-Object Name, Used, Free, @{Name='UsedGB';Expression={$_.Used/1GB}}, @{Name='FreeGB';Expression={$_.Free/1GB}}"
+          
+          $commandBytes = [System.Text.Encoding]::UTF8.GetBytes($command)
+          $commandBase64 = [Convert]::ToBase64String($commandBytes)
+          
+          try {
+            $response = Invoke-RestMethod -Uri "$kuduApiUrl/command" -Method POST -Body (@{ command = "powershell.exe -EncodedCommand $commandBase64" } | ConvertTo-Json) -ContentType "application/json" -ErrorAction Stop
+            Write-Host "Disk Space Report:"
+            Write-Host $response.Output
+          }
+          catch {
+            Write-Host "Failed to get disk space report: $_"
+          }
