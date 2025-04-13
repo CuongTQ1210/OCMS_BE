@@ -75,8 +75,6 @@ namespace OCMS_Services.Service
 
             var createdCertificates = new List<CertificateModel>();
 
-            _logger.LogInformation($"Starting auto-generation of certificates for course {courseId}");
-
             try
             {
                 // 1. Get course data efficiently
@@ -208,6 +206,22 @@ namespace OCMS_Services.Service
                 _logger.LogError(ex, $"Error in AutoGenerateCertificatesForPassedTraineesAsync for course {courseId}");
                 throw new Exception("Failed to auto-generate certificates", ex);
             }
+        }
+        #endregion
+
+        #region Get all certificate with Pending status
+        public async Task<List<CertificateModel>> GetAllPendingCertificatesAsync()
+        {
+            var pendingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.Status == CertificateStatus.Pending);
+            return _mapper.Map<List<CertificateModel>>(pendingCertificates);
+        }
+        #endregion
+
+        #region Get all certificate with Active status
+        public async Task<List<CertificateModel>> GetAllActiveCertificatesAsync()
+        {
+            var activeCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.Status == CertificateStatus.Active);
+            return _mapper.Map<List<CertificateModel>>(activeCertificates);
         }
         #endregion
 

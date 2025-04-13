@@ -88,6 +88,23 @@ namespace OCMS_WebAPI.Controllers
         }
         #endregion
 
+        #region Get Candidates By Request Id
+        [HttpGet("candidate/{requestId}")]
+        [CustomAuthorize("Admin", "Training staff", "HeadMaster")]
+        public async Task<IActionResult> GetCandidatesByRequestId(string requestId)
+        {
+            try
+            {
+                var candidates = await _candidateService.GetCandidatesByRequestIdAsync(requestId);
+                return Ok(candidates);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        #endregion
+
         #region Update Candidate
         [HttpPut("{id}")]
         [CustomAuthorize("Admin", "HR")]
