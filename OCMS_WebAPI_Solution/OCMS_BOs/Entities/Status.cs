@@ -18,7 +18,7 @@ namespace OCMS_BOs.Entities
         Active = 1,
         Expired = 2,
         Revoked = 3,
-        Returned=4
+        Pending=0
     }
 
     public enum CourseStatus

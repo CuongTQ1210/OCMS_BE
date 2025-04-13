@@ -90,7 +90,12 @@ namespace OCMS_Services.Service
             var existing = await _unitOfWork.GradeRepository.GetAsync(g => g.GradeId == id);
             if (existing == null)
                 throw new KeyNotFoundException($"Grade with ID '{id}' not found.");
-
+            var assignTrainee = await _unitOfWork.TraineeAssignRepository.GetByIdAsync(dto.TraineeAssignID);
+            var course = await _unitOfWork.CourseRepository.GetByIdAsync(assignTrainee.CourseId);
+            var existingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.CourseId == course.CourseId);
+            var traineeWithCerts = new HashSet<string>(existingCertificates.Select(c => c.UserId));
+            if (traineeWithCerts.Any())
+                throw new InvalidOperationException($"Cannot update grade for TraineeAssignID '{existing.TraineeAssignID}' because a certificate has already been issued.");
             await ValidateGradeDto(dto);
 
             _mapper.Map(dto, existing);
@@ -118,7 +123,12 @@ namespace OCMS_Services.Service
             var existing = await _unitOfWork.GradeRepository.GetAsync(g => g.GradeId == id);
             if (existing == null)
                 throw new KeyNotFoundException($"Grade with ID '{id}' not found.");
-
+            var assignTrainee = await _unitOfWork.TraineeAssignRepository.GetByIdAsync(existing.TraineeAssignID);
+            var course = await _unitOfWork.CourseRepository.GetByIdAsync(assignTrainee.CourseId);
+            var existingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.CourseId == course.CourseId);
+            var traineeWithCerts = new HashSet<string>(existingCertificates.Select(c => c.UserId));
+            if (traineeWithCerts.Any())
+                throw new InvalidOperationException($"Cannot update grade for TraineeAssignID '{existing.TraineeAssignID}' because a certificate has already been issued.");
             await _unitOfWork.GradeRepository.DeleteAsync(id);
             await _unitOfWork.SaveChangesAsync();
 

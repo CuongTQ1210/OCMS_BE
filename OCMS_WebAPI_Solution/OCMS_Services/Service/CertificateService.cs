@@ -341,7 +341,7 @@ namespace OCMS_Services.Service
                 CertificateTemplateId = templateId,
                 IssueByUserId = issuedByUserId,
                 IssueDate = issueDate,
-                Status = CertificateStatus.Active,
+                Status = CertificateStatus.Pending,
                 CertificateURL = certificateUrl,
                 IsRevoked = false,
                 SignDate = DateTime.UtcNow
