@@ -50,7 +50,7 @@ namespace OCMS_Services.Service
         }
         #endregion
 
-        #region Get Candididate by RequestId
+        #region Get Candidate by RequestId
         public async Task<IEnumerable<Candidate>> GetCandidatesByRequestIdAsync(string requestId)
         {
             return await _candidateRepository.GetCandidatesByImportRequestIdAsync(requestId);
