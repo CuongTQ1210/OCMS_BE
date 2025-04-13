@@ -1,7 +1,10 @@
 ﻿using IronPdf;
 using OCMS_Services.IService;
+using PuppeteerSharp;
+using SixLabors.ImageSharp.Drawing.Processing;
 using System;
 using System.Collections.Generic;
+using System.Drawing.Printing;
 using System.Linq;
 using System.Net.Http.Headers;
 using System.Text;
@@ -33,7 +36,7 @@ namespace OCMS_Services.Service
                     PAGENO = 1,
                     POSITIONIDENTIFIER = "Xác nhận của đơn vị cung cấp dịch vụ",
                     RECTANGLESIZE = "230,60",
-                    RECTANGLEOFFSET = "120,80",
+                    RECTANGLEOFFSET = "-424,-20",
                     VISIBLESIGNATURE = true,
                     VISUALSTATUS = false,
                     SHOWSIGNERINFO = true,
@@ -63,26 +66,77 @@ namespace OCMS_Services.Service
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadAsStringAsync();
         }
-        private byte[] ConvertHtmlToPdf(string htmlContent)
+        private async Task<byte[]> ConvertHtmlToPdf(string htmlContent)
         {
-            // Initialize IronPDF renderer
-            var renderer = new ChromePdfRenderer();
+            // Wrap HTML to ensure consistent sizing
+            htmlContent = $$"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {
+                    margin: 0;
+                    font-size: 10pt;
+                    width: 100%;
+                }
+                .pdf-container {
+                    width: 190mm;
+                    min-height: 277mm;
+                    box-sizing: border-box;
+                }
+                img {
+                    max-width: 100%;
+                    height: auto;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="pdf-container">
+                {{htmlContent}}
+            </div>
+        </body>
+        </html>
+        """;
 
-            // Render HTML to PDF
-            using var pdfDocument = renderer.RenderHtmlAsPdf(htmlContent);
+            // Initialize Puppeteer
+            await new BrowserFetcher().DownloadAsync();
+            var launchOptions = new LaunchOptions { Headless = true };
+            using var browser = await Puppeteer.LaunchAsync(launchOptions);
+            using var page = await browser.NewPageAsync();
 
-            // Get PDF as byte array
-            return pdfDocument.BinaryData;
+            // Set HTML content
+            await page.SetContentAsync(htmlContent);
+
+            // Generate PDF
+            var pdfOptions = new PdfOptions
+            {
+                Format = PuppeteerSharp.Media.PaperFormat.A4,
+                MarginOptions = new PuppeteerSharp.Media.MarginOptions
+                {
+                    Top = "10mm",
+                    Bottom = "10mm",
+                    Left = "10mm",
+                    Right = "10mm"
+                },
+                Scale = 1m, // Adjust to enlarge content
+                PrintBackground = true
+            };
+            byte[] pdfBytes = await page.PdfDataAsync(pdfOptions);
+
+            // Save for debugging
+            await File.WriteAllBytesAsync("debug_output.pdf", pdfBytes);
+
+            return pdfBytes;
         }
         public async Task<string> SignPdfAsync(string htmlContent)
         {
             // Step 1: Convert HTML to PDF
-            byte[] pdfBytes = ConvertHtmlToPdf(htmlContent);
+            byte[] pdfBytes = await ConvertHtmlToPdf(htmlContent); // Added 'await'
 
             // Step 2: Convert PDF to Base64
             string pdfBase64 = Convert.ToBase64String(pdfBytes);
 
-            // Step 3: Sign the PDF using the existing logic
+            // Step 3: Sign the PDF
             return await SignPdfBase64Async(pdfBase64);
         }
     }
