@@ -1,68 +1,149 @@
 # Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
 # More GitHub Actions for Azure: https://github.com/Azure/actions
-
 name: Build and deploy ASP.Net Core app to Azure Web App - ocms
-
 on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
+    timeout-minutes: 15
     permissions:
-      contents: read #This is required for actions/checkout
-
+      contents: read
+      security-events: write
     steps:
-      - uses: actions/checkout@v4
-
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Better for CodeQL analysis
+      
       - name: Set up .NET Core
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.x'
-
+          dotnet-quality: 'ga' # Ensures stable .NET version
+          cache: true # Enable built-in .NET caching
+      
+      - name: Cache NuGet packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+          restore-keys: ${{ runner.os }}-nuget-
+      
+      - name: Restore dependencies
+        run: dotnet restore ./OCMS_WebAPI_Solution/OCMS_WebAPI_Solution.sln
+      
+      - name: Run tests in parallel
+        run: dotnet test ./OCMS_WebAPI_Solution/OCMS_WebAPI_Solution.sln --no-restore --verbosity normal --parallel
+      
+      - name: Security scan with CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: csharp
+      
       - name: Build with dotnet
-        run: dotnet build --configuration Release
-
-      - name: dotnet publish
-        run: dotnet publish -c Release -o "${{env.DOTNET_ROOT}}/myapp"
-
+        run: dotnet build ./OCMS_WebAPI_Solution/OCMS_WebAPI_Solution.sln --configuration Release --no-restore
+      
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+      
+      - name: dotnet publish with optimizations
+        run: dotnet publish ./OCMS_WebAPI_Solution/OCMS_WebAPI_Solution.sln -c Release -o "${{env.DOTNET_ROOT}}/myapp" /p:DebugSymbols=false /p:DebugType=None /p:PublishReadyToRun=true
+      
+      - name: Remove unnecessary files
+        run: |
+          Remove-Item -Path "${{env.DOTNET_ROOT}}/myapp/*.pdb" -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "${{env.DOTNET_ROOT}}/myapp/ref" -Recurse -Force -ErrorAction SilentlyContinue
+      
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: .net-app
           path: ${{env.DOTNET_ROOT}}/myapp
+          retention-days: 5
+          compression-level: 9 # Maximum compression
 
-  deploy:
+  deploy-production:
     runs-on: windows-latest
     needs: build
+    timeout-minutes: 10
     environment:
       name: 'Production'
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
     permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
-
+      id-token: write
+      contents: read
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
           name: .net-app
+          path: .net-app
       
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_9539F4CBEEB146DE99A0A866D56B71B7 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_B07DDFD930AD4287BD101A0957068C04 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_FBE1CF4B226B4E5A8B25FF5C1AABC326 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_732105261D164349B2E0977D88C3FD5D }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_D06877F8E0E841BBB49ADAE59F6AFC3F }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_5B05FF6D6C474567A76EEF82FEB59479 }}
 
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'ocms'
-          slot-name: 'Production'
-          package: .
+          package: .net-app
+      
+      - name: Enhanced health check production
+        run: |
+          $maxRetries = 5
+          $retryDelay = 10
+          $retryCount = 0
+          $success = $false
+          $url = "${{ steps.deploy-to-webapp.outputs.webapp-url }}/swagger/index.html"
           
+          Write-Host "Starting health check for: $url"
+          
+          do {
+            try {
+              $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 30
+              if ($response.StatusCode -eq 200) {
+                $success = $true
+                Write-Host "Health check passed! Status code: $($response.StatusCode)"
+                break
+              } else {
+                Write-Host "Health check returned status code: $($response.StatusCode)"
+              }
+            }
+            catch {
+              $retryCount++
+              Write-Host "Health check failed: $($_.Exception.Message)"
+              Write-Host "Retrying in $retryDelay seconds... ($retryCount/$maxRetries)"
+              Start-Sleep -Seconds $retryDelay
+            }
+          } while ($retryCount -lt $maxRetries -and -not $success)
+          
+          if (-not $success) {
+            Write-Host "Health check failed after $maxRetries attempts. Deployment may have issues."
+            exit 1
+          }
+      
+      - name: Log deployment status
+        if: always()
+        run: |
+          echo "============== DEPLOYMENT STATUS SUMMARY =============="
+          echo "Status: ${{ job.status }}"
+          echo "Timestamp: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+          echo "Environment: Production"
+          echo "Application: ocms"
+          echo "Deployed URL: ${{ steps.deploy-to-webapp.outputs.webapp-url }}"
+          echo "Triggered by: ${{ github.actor }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "======================================================"
