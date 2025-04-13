@@ -34,9 +34,9 @@ namespace OCMS_Services.Service
                 options = new
                 {
                     PAGENO = 1,
-                    POSITIONIDENTIFIER = "Xác nhận của đơn vị cung cấp dịch vụ",
-                    RECTANGLESIZE = "230,60",
-                    RECTANGLEOFFSET = "-424,-20",
+                    POSITIONIDENTIFIER = "Vùng dành cho chữ ký số",
+                    RECTANGLESIZE = "180,50",
+                    RECTANGLEOFFSET = "-50,-40",
                     VISIBLESIGNATURE = true,
                     VISUALSTATUS = false,
                     SHOWSIGNERINFO = true,
@@ -68,66 +68,84 @@ namespace OCMS_Services.Service
         }
         private async Task<byte[]> ConvertHtmlToPdf(string htmlContent)
         {
-            // Wrap HTML to ensure consistent sizing
+            // Wrap HTML with fixed size and adjustments
             htmlContent = $$"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                body {
-                    margin: 0;
-                    font-size: 10pt;
-                    width: 100%;
-                }
-                .pdf-container {
-                    width: 190mm;
-                    min-height: 277mm;
-                    box-sizing: border-box;
-                }
-                img {
-                    max-width: 100%;
-                    height: auto;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="pdf-container">
-                {{htmlContent}}
-            </div>
-        </body>
-        </html>
-        """;
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            @page {
+                size: A4;
+                margin: 0;
+            }
+            body {
+                margin: 0;
+                padding: 0;
+                font-size: 10pt;
+                width: 100%;
+                box-sizing: border-box;
+            }
+            .pdf-container {
+                width: 1123px; /* A4 landscape */
+                height: 794px;
+                padding: 40px;
+                box-sizing: border-box;
+                position: relative;
+            }
+            img {
+                max-width: 100%;
+                height: auto;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="pdf-container">
+            {{htmlContent}}
+        </div>
+    </body>
+    </html>
+    """;
 
-            // Initialize Puppeteer
+            // Khởi tạo Puppeteer
             await new BrowserFetcher().DownloadAsync();
             var launchOptions = new LaunchOptions { Headless = true };
             using var browser = await Puppeteer.LaunchAsync(launchOptions);
             using var page = await browser.NewPageAsync();
 
-            // Set HTML content
+            // Set viewport to ensure proper rendering
+            await page.SetViewportAsync(new ViewPortOptions
+            {
+                Width = 1240,  // ~A4 width in pixels at 150dpi
+                Height = 1754, // ~A4 height in pixels at 150dpi
+                DeviceScaleFactor = 1.5
+            });
+
+            // Đặt nội dung HTML
             await page.SetContentAsync(htmlContent);
 
-            // Generate PDF
+            // Optimize PDF settings
             var pdfOptions = new PdfOptions
             {
                 Format = PuppeteerSharp.Media.PaperFormat.A4,
+                PrintBackground = true,
                 MarginOptions = new PuppeteerSharp.Media.MarginOptions
                 {
-                    Top = "10mm",
-                    Bottom = "10mm",
-                    Left = "10mm",
-                    Right = "10mm"
+                    Top = "5mm",
+                    Bottom = "5mm",
+                    Left = "5mm",
+                    Right = "5mm"
                 },
-                Scale = 1m, // Adjust to enlarge content
-                PrintBackground = true
+                Scale = 0.9m // Slightly reduced scale to ensure content fits
             };
+
             byte[] pdfBytes = await page.PdfDataAsync(pdfOptions);
 
-            // Save for debugging
+            // Lưu để gỡ lỗi
             await File.WriteAllBytesAsync("debug_output.pdf", pdfBytes);
 
             return pdfBytes;
         }
+
         public async Task<string> SignPdfAsync(string htmlContent)
         {
             // Step 1: Convert HTML to PDF
