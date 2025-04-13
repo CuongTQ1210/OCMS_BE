@@ -21,6 +21,7 @@ namespace OCMS_BOs.ViewModel
         public bool IsAssign { get; set; }
 
         public string AvatarUrl { get; set; }
+        public string AvatarUrlWithSas { get; set; }
 
     }
 }

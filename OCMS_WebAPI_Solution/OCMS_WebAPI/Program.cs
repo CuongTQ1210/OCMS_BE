@@ -96,6 +96,8 @@ builder.Services.AddScoped<ICertificateService, CertificateService>();
 builder.Services.AddScoped(provider => new Lazy<ITrainingScheduleService>(() => provider.GetRequiredService<ITrainingScheduleService>()));
 builder.Services.AddScoped(provider => new Lazy<ITrainingPlanService>(() => provider.GetRequiredService<ITrainingPlanService>()));
 
+builder.Services.AddMemoryCache();
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;

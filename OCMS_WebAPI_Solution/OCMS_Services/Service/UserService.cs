@@ -50,7 +50,13 @@ namespace OCMS_Services.Service
             {
                 throw new Exception("User not found!!");
             }
-                return _mapper.Map<UserModel>(user);
+            var userModel = _mapper.Map<UserModel>(user);
+            if (!string.IsNullOrEmpty(user.AvatarUrl))
+            {
+                userModel.AvatarUrlWithSas = await _blobService.GetBlobUrlWithSasTokenAsync(
+                    user.AvatarUrl, TimeSpan.FromHours(1));
+            }
+            return userModel;
         }
         #endregion
 
@@ -281,16 +287,17 @@ Trân trọng,
             var containerName = "avatars";
 
             await using var stream = file.OpenReadStream();
-            var avatarUrl = await _blobService.UploadFileAsync(containerName, blobName, stream);
+            var avatarUrl = await _blobService.UploadFileAsync(containerName, blobName, stream, "image/jpeg");
 
-            // Update user record
-            user.AvatarUrl = avatarUrl;
+            // Lưu URL gốc (không có SAS token) vào database
+            user.AvatarUrl = _blobService.GetBlobUrlWithoutSasToken(avatarUrl);
             user.UpdatedAt = DateTime.UtcNow;
 
-            _unitOfWork.UserRepository.UpdateAsync(user);
+            await _unitOfWork.UserRepository.UpdateAsync(user);
             await _unitOfWork.SaveChangesAsync();
 
-            return avatarUrl;
+            // Trả về URL có SAS token cho client
+            return await _blobService.GetBlobUrlWithSasTokenAsync(user.AvatarUrl, TimeSpan.FromHours(1));
         }
         #endregion
     }

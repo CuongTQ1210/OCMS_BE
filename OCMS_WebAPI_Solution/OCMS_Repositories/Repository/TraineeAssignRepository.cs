@@ -32,6 +32,14 @@ namespace OCMS_Repositories.Repository
                 .FirstOrDefaultAsync(ta => ta.CourseId == courseId && ta.TraineeId == traineeId);
         }
 
+        public async Task<IEnumerable<TraineeAssign>> GetTraineeAssignmentsByCourseIdAsync(string courseId)
+        {
+            return await _context.TraineeAssignments
+                .Include(ta => ta.Trainee)
+                .Where(ta => ta.CourseId == courseId && ta.RequestStatus == RequestStatus.Approved)
+                .ToListAsync();
+        }
+
         public async Task<List<TraineeAssignModel>> GetTraineeAssignsBySubjectIdAsync(string subjectId)
         {
             var subject = await _context.Subjects.FindAsync(subjectId);

@@ -10,8 +10,9 @@ namespace OCMS_Services.IService
 {
     public interface ICertificateService
     {
-        Task<CertificateModel> CreateCertificateAsync(CreateCertificateDTO request, string issuedByUserId);
-        Task<List<CertificateModel>> GetCertificatesByTraineeIdAsync(string traineeId);
-        Task<bool> DeleteCertificateAsync(string certificateId);
+        //Task<CertificateModel> CreateCertificateAsync(CreateCertificateDTO request, string issuedByUserId);
+        Task<List<CertificateModel>> AutoGenerateCertificatesForPassedTraineesAsync(string courseId, string issuedByUserId);
+        //Task<List<CertificateModel>> GetCertificatesByTraineeIdAsync(string traineeId);
+        //Task<bool> DeleteCertificateAsync(string certificateId);
     }
 }

@@ -46,5 +46,18 @@ namespace OCMS_Repositories.Repository
                                  .FirstOrDefaultAsync(u => u.UserId == id);
         }
 
+        public async Task<IEnumerable<User>> GetUsersByIdsAsync(IEnumerable<string> userIds)
+        {
+            if (userIds == null || !userIds.Any())
+            {
+                return Enumerable.Empty<User>();
+            }
+
+            return await _context.Users
+                                 .Include(u => u.Role)
+                                 .Where(u => userIds.Contains(u.UserId))
+                                 .ToListAsync();
+        }
+
     }
 }

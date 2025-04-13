@@ -14,5 +14,6 @@ namespace OCMS_Repositories.IRepository
         Task<TraineeAssign> GetTraineeAssignmentAsync(string courseId, string traineeId);
 
         Task<List<TraineeAssignModel>> GetTraineeAssignsBySubjectIdAsync(string subjectId);
+        Task<IEnumerable<TraineeAssign>> GetTraineeAssignmentsByCourseIdAsync(string courseId);
     }
 }
