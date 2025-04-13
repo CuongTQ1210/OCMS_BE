@@ -139,10 +139,6 @@ namespace OCMS_Services.Service
             };
 
             byte[] pdfBytes = await page.PdfDataAsync(pdfOptions);
-
-            // Lưu để gỡ lỗi
-            await File.WriteAllBytesAsync("debug_output.pdf", pdfBytes);
-
             return pdfBytes;
         }
 
