@@ -138,6 +138,8 @@ namespace OCMS_Services.Service
             // Apply update for Pending or Draft
             trainingPlan.PlanName = dto.PlanName;
             trainingPlan.Desciption = dto.Desciption; // Fix typo to Description if needed
+            trainingPlan.StartDate = dto.StartDate;
+            trainingPlan.EndDate = dto.EndDate;
             trainingPlan.ModifyDate = DateTime.UtcNow;
             trainingPlan.CreateByUserId = updateUserId;
             if (trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Updating){

@@ -488,7 +488,8 @@ namespace OCMS_Services.Service
             var request = await _unitOfWork.RequestRepository.GetByIdAsync(requestId);
             
             request.UpdatedAt = DateTime.UtcNow;
-
+            request.ApprovedBy = rejectByUserId;
+            request.ApprovedDate = DateTime.UtcNow;
             if (request != null && request.Status == RequestStatus.Pending)
             {
                 request.Status = RequestStatus.Rejected;

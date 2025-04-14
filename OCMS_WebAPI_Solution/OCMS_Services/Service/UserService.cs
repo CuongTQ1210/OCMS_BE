@@ -173,7 +173,7 @@ namespace OCMS_Services.Service
         #endregion
 
         #region Reset Password
-        public async Task ResetPasswordAsync(string token, string newPassword)
+        public async Task ResetPasswordAsync(string token, ResetPasswordDTO newPassword)
         {
             string userId = await _redis.StringGetAsync(token);
             if (string.IsNullOrEmpty(userId))
@@ -182,8 +182,11 @@ namespace OCMS_Services.Service
             var user = await _unitOfWork.UserRepository.GetByIdAsync(userId);
             if (user == null)
                 throw new Exception("User not found.");
-
-            user.PasswordHash = PasswordHasher.HashPassword(newPassword);
+            if (newPassword == null)
+            {
+                throw new Exception("New Password can not be empty.");
+            }
+            user.PasswordHash = PasswordHasher.HashPassword(newPassword.NewPassword);
             user.UpdatedAt = DateTime.UtcNow;
 
             await _unitOfWork.UserRepository.UpdateAsync(user);
