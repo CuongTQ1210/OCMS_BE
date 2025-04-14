@@ -16,6 +16,7 @@ namespace OCMS_BOs.ViewModel
         public DateTime IssueDate { get; set; }
         public string Status { get; set; }
         public string CertificateURL { get; set; }
+        public string CertificateURLwithSas { get; set; }
 
         // Thêm các thông tin bổ sung nếu cần
         public string UserName { get; set; }

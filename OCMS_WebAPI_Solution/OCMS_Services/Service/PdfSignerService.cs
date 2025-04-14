@@ -1,7 +1,5 @@
-﻿using IronPdf;
-using OCMS_Services.IService;
+﻿using OCMS_Services.IService;
 using PuppeteerSharp;
-using SixLabors.ImageSharp.Drawing.Processing;
 using System;
 using System.Collections.Generic;
 using System.Drawing.Printing;
