@@ -186,7 +186,7 @@ namespace OCMS_Services.Service
                             createdCertificates = _mapper.Map<List<CertificateModel>>(certToCreate);
 
                             // 10. Notify HeadMasters efficiently
-                            await NotifyHeadMastersAsync(createdCertificates.Count, course.CourseName);
+                            await NotifyTrainingStaffsAsync(createdCertificates.Count, course.CourseName);
 
                             _logger.LogInformation($"Successfully created {createdCertificates.Count} certificates for course {courseId}");
                         }
