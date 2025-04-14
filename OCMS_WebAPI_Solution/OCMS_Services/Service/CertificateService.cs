@@ -210,18 +210,62 @@ namespace OCMS_Services.Service
         #endregion
 
         #region Get all certificate with Pending status
-        public async Task<List<CertificateModel>> GetAllPendingCertificatesAsync()
+        public async Task<List<CertificateModel>> GetPendingCertificatesWithSasUrlAsync()
         {
-            var pendingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.Status == CertificateStatus.Pending);
-            return _mapper.Map<List<CertificateModel>>(pendingCertificates);
+            var pendingCertificates = await GetAllPendingCertificatesAsync();
+
+            var updateTasks = pendingCertificates
+                .Where(c => !string.IsNullOrEmpty(c.CertificateURL))
+                .Select(async certificate =>
+                {
+                    certificate.CertificateURLwithSas = await _blobService.GetBlobUrlWithSasTokenAsync(certificate.CertificateURL, TimeSpan.FromHours(1));
+                });
+
+            await Task.WhenAll(updateTasks);
+
+            return pendingCertificates;
         }
         #endregion
 
-        #region Get all certificate with Active status
-        public async Task<List<CertificateModel>> GetAllActiveCertificatesAsync()
+        #region Get certificate by ID
+        public async Task<CertificateModel> GetCertificateByIdAsync(string certificateId)
         {
-            var activeCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.Status == CertificateStatus.Active);
-            return _mapper.Map<List<CertificateModel>>(activeCertificates);
+            var certificate = await _unitOfWork.CertificateRepository.GetByIdAsync(certificateId);
+            if (certificate == null)
+                return null;
+            var certificateModel = _mapper.Map<CertificateModel>(certificate);
+            certificateModel.CertificateURLwithSas = await _blobService.GetBlobUrlWithSasTokenAsync(certificate.CertificateURL, TimeSpan.FromMinutes(5), "r");
+            return certificateModel;
+        }
+        #endregion
+
+        #region Get all certificates by user ID with SAS URL
+        public async Task<List<CertificateModel>> GetCertificatesByUserIdWithSasUrlAsync(string userId)
+        {
+            var certificates = await GetCertificatesByUserIdAsync(userId);
+            var updateTasks = certificates
+                .Where(c => !string.IsNullOrEmpty(c.CertificateURL))
+                .Select(async certificate =>
+                {
+                    certificate.CertificateURLwithSas = await _blobService.GetBlobUrlWithSasTokenAsync(certificate.CertificateURL, TimeSpan.FromHours(1));
+                });
+            await Task.WhenAll(updateTasks);
+            return certificates;
+        }
+        #endregion
+
+        #region Get all active certificates
+        public async Task<List<CertificateModel>> GetActiveCertificatesWithSasUrlAsync()
+        {
+            var activeCertificates = await GetActiveCertificatesAsync();
+            var updateTasks = activeCertificates
+                .Where(c => !string.IsNullOrEmpty(c.CertificateURL))
+                .Select(async certificate =>
+                {
+                    certificate.CertificateURLwithSas = await _blobService.GetBlobUrlWithSasTokenAsync(certificate.CertificateURL, TimeSpan.FromHours(1));
+                });
+            await Task.WhenAll(updateTasks);
+            return activeCertificates;
         }
         #endregion
 
@@ -524,9 +568,9 @@ namespace OCMS_Services.Service
 
             try
             {
-                var headMasters = await _userRepository.GetUsersByRoleAsync("HeadMaster");
+                var trainingStaff = await _userRepository.GetUsersByRoleAsync("Training staff");
 
-                if (!headMasters.Any())
+                if (!trainingStaff.Any())
                 {
                     _logger.LogWarning("No HeadMasters found to notify about certificates");
                     return;
@@ -534,10 +578,10 @@ namespace OCMS_Services.Service
 
                 // Create a more detailed notification message
                 string title = "Certificates Pending Digital Signature";
-                string message = $"{certificateCount} new certificate(s) for course '{courseName}' have been generated and require your digital signature. " +
-                                 $"Please review and sign these certificates at your earliest convenience.";
+                string message = $"{certificateCount} new certificate(s) for course '{courseName}' have been generated and require to sign with digital signature. " +
+                                 $"Please review and request HeadMaster to sign these certificates at your earliest convenience.";
 
-                var notificationTasks = headMasters.Select(hm => _notificationService.SendNotificationAsync(
+                var notificationTasks = trainingStaff.Select(hm => _notificationService.SendNotificationAsync(
                     hm.UserId,
                     title,
                     message,
@@ -545,13 +589,31 @@ namespace OCMS_Services.Service
                 ));
 
                 await Task.WhenAll(notificationTasks);
-                _logger.LogInformation($"Notification sent to {headMasters.Count()} HeadMasters for {certificateCount} certificates");
+                _logger.LogInformation($"Notification sent to {trainingStaff.Count()} HeadMasters for {certificateCount} certificates");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error sending notifications to HeadMasters");
                 // We don't throw here as notification failure shouldn't break certificate generation
             }
+        }
+
+        private async Task<List<CertificateModel>> GetCertificatesByUserIdAsync(string userId)
+        {
+            var certificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.UserId == userId);
+            return _mapper.Map<List<CertificateModel>>(certificates);
+        }
+
+        private async Task<List<CertificateModel>> GetAllPendingCertificatesAsync()
+        {
+            var pendingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.Status == CertificateStatus.Pending);
+            return _mapper.Map<List<CertificateModel>>(pendingCertificates);
+        }
+
+        private async Task<List<CertificateModel>> GetActiveCertificatesAsync()
+        {
+            var pendingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.Status == CertificateStatus.Active);
+            return _mapper.Map<List<CertificateModel>>(pendingCertificates);
         }
         #endregion
     }

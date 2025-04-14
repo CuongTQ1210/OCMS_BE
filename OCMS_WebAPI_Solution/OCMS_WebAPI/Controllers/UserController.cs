@@ -71,6 +71,7 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
+
         #region upload avatar 
         [HttpPut("avatar")]
         [CustomAuthorize]
@@ -90,7 +91,8 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-#endregion
+        #endregion
+
         #region Create User from Candidate
         [HttpPost("create-from-candidate/{candidateId}")]
         [CustomAuthorize("Admin")]
@@ -174,6 +176,18 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
+
+        [HttpGet("checktime")]
+        public IActionResult CheckTime()
+        {
+            return Ok(new
+            {
+                LocalTime = DateTime.Now,
+                UtcTime = DateTime.UtcNow,
+                OffsetUtcNow = DateTimeOffset.UtcNow,
+                OffsetNow = DateTimeOffset.Now
+            });
+        }
     }
 }
 

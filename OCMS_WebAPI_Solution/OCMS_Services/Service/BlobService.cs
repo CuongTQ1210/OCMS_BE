@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web;
 
 namespace OCMS_Services.Service
 {
@@ -61,28 +62,42 @@ namespace OCMS_Services.Service
         #region GenerateSasToken
         public async Task<string> GenerateSasTokenForBlobAsync(string blobUrl, TimeSpan validityPeriod, string permissions = "r")
         {
-            Uri uri = new Uri(blobUrl);
-            string containerName = uri.Segments[1].TrimEnd('/');
-            string blobName = string.Join("", uri.Segments.Skip(2));
+            // Xóa query string và giải mã URL
+            UriBuilder uriBuilder = new UriBuilder(blobUrl);
+            uriBuilder.Query = null;
+            Uri uri = uriBuilder.Uri;
 
+            // Lấy container và blob name
+            string containerName = uri.Segments[1].TrimEnd('/');
+            string rawBlobName = string.Join("", uri.Segments.Skip(2));
+            string blobName = HttpUtility.UrlDecode(rawBlobName);
+
+            // Khởi tạo BlobClient
             var containerClient = _blobServiceClient.GetBlobContainerClient(containerName);
             var blobClient = containerClient.GetBlobClient(blobName);
 
+            // Tạo SAS token với các tham số
             BlobSasBuilder sasBuilder = new BlobSasBuilder
             {
                 BlobContainerName = containerName,
                 BlobName = blobName,
                 Resource = "b",
-                StartsOn = DateTimeOffset.UtcNow.AddMinutes(-5),
-                ExpiresOn = DateTimeOffset.UtcNow.Add(validityPeriod)
+                ExpiresOn = DateTimeOffset.UtcNow.Add(validityPeriod),
             };
 
-            sasBuilder.SetPermissions(GetBlobSasPermissions(permissions));
+            // Đặt quyền
+            sasBuilder.SetPermissions(permissions switch
+            {
+                "r" => BlobSasPermissions.Read,
+                "w" => BlobSasPermissions.Write,
+                _ => throw new ArgumentException("Invalid permissions")
+            });
 
-            // Tạo SAS token trực tiếp từ BlobClient
+            // Tạo SAS URI
             var sasUri = blobClient.GenerateSasUri(sasBuilder);
-            return sasUri.Query; // Trả về phần query string (SAS token)
-        }
+
+            return sasUri.Query;
+        }       
 
         public async Task<string> GetBlobUrlWithSasTokenAsync(string blobUrl, TimeSpan validityPeriod, string permissions = "r")
         {
@@ -93,7 +108,7 @@ namespace OCMS_Services.Service
             var sasToken = await GenerateSasTokenForBlobAsync(cleanBlobUrl, validityPeriod, permissions);
 
             return $"{cleanBlobUrl}{sasToken}";
-        }       
+        }
         #endregion
 
         #region GetBlobUrlWithoutSasToken
@@ -139,7 +154,7 @@ namespace OCMS_Services.Service
                 signatureIndex = url.IndexOf("?");
 
             return signatureIndex < 0 ? url : url.Substring(0, signatureIndex);
-        }        
+        }
         #endregion
     }
 }
