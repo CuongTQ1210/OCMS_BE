@@ -42,6 +42,39 @@ namespace OCMS_WebAPI.Controllers
 
             return Ok(result);
         }
+
+        [HttpPost("sign-from-url")]
+        public async Task<IActionResult> SignPdfFromUrl([FromBody] string url)
+        {
+            // Validate the input URL
+            if (string.IsNullOrWhiteSpace(url))
+                return BadRequest("A valid URL is required.");
+
+            try
+            {
+                using var httpClient = new HttpClient();
+                var response = await httpClient.GetAsync(url);
+
+                if (!response.IsSuccessStatusCode)
+                    return BadRequest($"Failed to retrieve content from URL. Status: {response.StatusCode}");
+
+                var htmlContent = await response.Content.ReadAsStringAsync();
+
+                // Validate the HTML content
+                if (string.IsNullOrWhiteSpace(htmlContent))
+                    return BadRequest("The content retrieved from the URL is empty or invalid.");
+
+                // Sign the PDF using the HTML content
+                var result = await _pdfSignerService.SignPdfAsync(htmlContent);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred while processing the URL: {ex.Message}");
+            }
+        }
+
     }
 
 }
