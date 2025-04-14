@@ -561,7 +561,7 @@ namespace OCMS_Services.Service
             return svgBase64;
         }
 
-        private async Task NotifyHeadMastersAsync(int certificateCount, string courseName)
+        private async Task NotifyTrainingStaffsAsync(int certificateCount, string courseName)
         {
             if (certificateCount <= 0)
                 return;
