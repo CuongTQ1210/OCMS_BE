@@ -60,7 +60,7 @@ namespace OCMS_Services.Service
             {
                 throw new Exception("Course not found.");
             }
-            if (course.Status== CourseStatus.Pending && course.Status == CourseStatus.Rejected && course.Progress==Progress.NotYet && course.Progress == Progress.Completed)
+            if (course.Status== CourseStatus.Pending || course.Status == CourseStatus.Rejected || course.Progress==Progress.NotYet || course.Progress == Progress.Completed)
             {
                 throw new InvalidOperationException("Course isn't suitable to create grade.");
             }
@@ -216,7 +216,7 @@ namespace OCMS_Services.Service
                     result.Errors.Add($"Course not found for Subject '{subjectName}'.");
                     return result;
                 }
-                if (course.Status == CourseStatus.Pending && course.Status == CourseStatus.Rejected && course.Progress == Progress.NotYet && course.Progress == Progress.Completed)
+                if (course.Status == CourseStatus.Pending || course.Status == CourseStatus.Rejected || course.Progress == Progress.NotYet || course.Progress == Progress.Completed)
                 {
                     throw new InvalidOperationException("Course isn't suitable to create grade.");
                 }

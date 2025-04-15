@@ -33,7 +33,7 @@ namespace OCMS_Services.Service
             var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(dto.TrainingPlanId);
             if (trainingPlan == null)
                 throw new Exception("Training Plan ID does not exist. Please provide a valid Training Plan.");
-            if (trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Approved && trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Rejected)
+            if (trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Approved || trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Rejected)
                 throw new Exception("Training Plan ID already approved or rejected!");
             var course = _mapper.Map<Course>(dto);
             course.CourseId = dto.CourseId;
