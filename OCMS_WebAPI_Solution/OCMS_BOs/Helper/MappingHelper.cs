@@ -63,14 +63,15 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.RequestById, opt => opt.MapFrom(src => src.RequestUserId))
                 .ForMember(dest => dest.ActionByUserId, opt => opt.MapFrom(src => src.ApprovedBy))
                 .ForMember(dest => dest.RequestType, opt => opt.MapFrom(src => src.RequestType.ToString())) // Convert Enum to String
-                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString())); // Convert Enum to String
-
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString())) // Convert Enum to String
+            .ForMember(dest => dest.ActionDate, opt => opt.MapFrom(src => src.ApprovedDate));
             CreateMap<ViewModel.RequestModel, Request>()
                 .ForMember(dest => dest.RequestUserId, opt => opt.MapFrom(src => src.RequestById))
                 .ForMember(dest => dest.ApprovedBy, opt => opt.MapFrom(src => src.ActionByUserId))
                 .ForMember(dest => dest.RequestType, opt => opt.MapFrom(src => Enum.Parse<RequestType>(src.RequestType))) // Convert String to Enum
-                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => Enum.Parse<RequestStatus>(src.Status))); // Convert String to Enum
-                                                                                                                   // Notification Mapping
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => Enum.Parse<RequestStatus>(src.Status))) // Convert String to Enum
+                         .ForMember(dest => dest.ApprovedDate, opt => opt.MapFrom(src => src.ActionDate));                
+            // Notification Mapping
             CreateMap<Notification, NotificationModel>()
                 .ForMember(dest => dest.Title, opt => opt.MapFrom(src => src.Title))
                 .ForMember(dest => dest.Message, opt => opt.MapFrom(src => src.Message))

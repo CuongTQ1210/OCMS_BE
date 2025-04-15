@@ -422,7 +422,18 @@ namespace OCMS_Services.Service
 
             return await _traineeAssignRepository.GetTraineeAssignsBySubjectIdAsync(subjectId);
         }
+        public async Task<List<TraineeAssignModel>> GetTraineesByRequestIdAsync(string requestId)
+        {
+            if (string.IsNullOrWhiteSpace(requestId))
+                throw new ArgumentException("Subject ID cannot be null or empty.");
 
+            var subject = await _unitOfWork.RequestRepository.GetByIdAsync(requestId);
+
+            if (subject == null)
+                throw new KeyNotFoundException($"Request with ID '{requestId}' was not found.");
+
+            return await _traineeAssignRepository.GetTraineeAssignsBySubjectIdAsync(requestId);
+        }
 
         #region Helper Methods
         private async Task<string> GetLastTraineeAssignIdAsync()

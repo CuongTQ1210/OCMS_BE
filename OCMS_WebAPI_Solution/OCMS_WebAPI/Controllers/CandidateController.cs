@@ -73,7 +73,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get Candidate By Id
         [HttpGet("{id}")]
-        [CustomAuthorize("Admin", "HR", "Reviewer")]
+        [CustomAuthorize("Admin", "HR", "Reviewer", "HeadMaster")]
         public async Task<IActionResult> GetCandidateById(string id)
         {
             try

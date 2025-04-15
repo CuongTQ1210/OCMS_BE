@@ -163,7 +163,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Reset Password
         [HttpPost("reset-password/{token}")]
-        public async Task<IActionResult> ResetPassword([FromRoute] string token, [FromBody] string newPassword)
+        public async Task<IActionResult> ResetPassword([FromRoute] string token, [FromBody] ResetPasswordDTO newPassword)
         {
             try
             {

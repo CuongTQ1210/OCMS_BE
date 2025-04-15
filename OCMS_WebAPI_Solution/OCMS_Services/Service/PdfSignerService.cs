@@ -1,4 +1,5 @@
-﻿using OCMS_Services.IService;
+﻿using OCMS_Repositories;
+using OCMS_Services.IService;
 using PuppeteerSharp;
 using System;
 using System.Collections.Generic;
@@ -15,11 +16,16 @@ namespace OCMS_Services.Service
     {
         private readonly HttpClient _httpClient;
         private readonly IHsmAuthService _tokenService;
-
-        public PdfSignerService(HttpClient httpClient, IHsmAuthService tokenService)
+        private readonly IBlobService _blobService;
+        private readonly UnitOfWork _unitOfWork;
+        private readonly ICertificateService _certificateService;
+        public PdfSignerService(HttpClient httpClient, IHsmAuthService tokenService, UnitOfWork unitOfWork, IBlobService blobService, ICertificateService certificateService)
         {
             _httpClient = httpClient;
-            _tokenService = tokenService;
+            _certificateService = certificateService ?? throw new ArgumentNullException(nameof(certificateService));
+            _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
+            _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+            _blobService = blobService ?? throw new ArgumentNullException(nameof(blobService));
         }
 
         private async Task<string> SignPdfBase64Async(string fileDataBase64)
@@ -47,7 +53,7 @@ namespace OCMS_Services.Service
                     SHOWLOCATION = true,
                     LOCATIONPREFIX = "Nơi ký:",
                     LOCATION = "Hồ Chí Minh",
-                    TEXTDIRECTION = "OVERLAP",
+                    TEXTDIRECTION = "RIGHT",
                     TEXTCOLOR = "red",
                     IMAGEANDTEXT = true,
                     BACKGROUNDIMAGE = "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",
@@ -140,16 +146,127 @@ namespace OCMS_Services.Service
             return pdfBytes;
         }
 
-        public async Task<string> SignPdfAsync(string htmlContent)
-        {
-            // Step 1: Convert HTML to PDF
-            byte[] pdfBytes = await ConvertHtmlToPdf(htmlContent); // Added 'await'
 
-            // Step 2: Convert PDF to Base64
+        public async Task<byte[]> SignPdfAsync(string certificateId)
+        {
+            // Step 1: Validate input and dependencies
+            if (string.IsNullOrWhiteSpace(certificateId))
+                throw new ArgumentException("Certificate ID cannot be null or empty.");
+            if (_unitOfWork?.CertificateRepository == null)
+                throw new InvalidOperationException("Certificate repository is not initialized.");
+            if (_blobService == null)
+                throw new InvalidOperationException("Blob service is not initialized.");
+
+            // Step 2: Get the certificate info
+            var certificate = await _unitOfWork.CertificateRepository.GetByIdAsync(certificateId);
+            if (certificate == null || string.IsNullOrWhiteSpace(certificate.CertificateURL))
+                throw new InvalidOperationException("Certificate not found or missing URL.");
+            if (certificate.Status != OCMS_BOs.Entities.CertificateStatus.Pending)
+                throw new InvalidOperationException($"Certificate is not in Pending status. Current status: {certificate.Status}");
+
+            // Step 3: Generate SAS URL for HTML file
+            string sasUrl = await _blobService.GetBlobUrlWithSasTokenAsync(certificate.CertificateURL, TimeSpan.FromHours(1));
+            if (string.IsNullOrEmpty(sasUrl))
+                throw new InvalidOperationException("Failed to generate SAS URL for the HTML file.");
+
+            // Step 4: Download the HTML content from the SAS URL
+            using var httpClient = new HttpClient();
+            var response = await httpClient.GetAsync(sasUrl);
+            if (!response.IsSuccessStatusCode)
+                throw new InvalidOperationException($"Failed to retrieve HTML content from URL. Status: {response.StatusCode}");
+
+            var htmlContent = await response.Content.ReadAsStringAsync();
+            if (string.IsNullOrEmpty(htmlContent))
+                throw new InvalidOperationException("Downloaded HTML content is empty.");
+
+            // Step 5: Convert HTML to PDF
+            byte[] pdfBytes;
+            try
+            {
+                pdfBytes = await ConvertHtmlToPdf(htmlContent);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Failed to convert HTML to PDF.", ex);
+            }
+            if (pdfBytes == null || pdfBytes.Length == 0)
+                throw new InvalidOperationException("Converted PDF content is empty.");
+
+            // Step 6: Convert PDF to Base64
             string pdfBase64 = Convert.ToBase64String(pdfBytes);
 
-            // Step 3: Sign the PDF
-            return await SignPdfBase64Async(pdfBase64);
+            // Step 7: Sign the PDF
+            var result = await SignPdfBase64Async(pdfBase64);
+            if (string.IsNullOrEmpty(result))
+                throw new InvalidOperationException("PDF signing service returned an empty result.");
+
+            // Step 8: Deserialize and extract file_data with error handling
+            byte[] signedPdfBytes;
+            try
+            {
+                var jsonDoc = JsonDocument.Parse(result);
+                var resultElement = jsonDoc.RootElement.GetProperty("result");
+
+                if (!resultElement.TryGetProperty("file_data", out var fileDataElement))
+                    throw new KeyNotFoundException("The 'file_data' key was not found in the response.");
+
+                string fileData = fileDataElement.GetString();
+                if (string.IsNullOrEmpty(fileData))
+                    throw new InvalidOperationException("The 'file_data' value is empty or null.");
+
+                signedPdfBytes = Convert.FromBase64String(fileData);
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidOperationException("Failed to parse the signing service response.", ex);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                throw new InvalidOperationException("Required data missing in the signing service response.", ex);
+            }
+
+            // Step 9: Upload signed PDF to blob storage
+            string containerName = "certificates"; // Adjust based on your blob storage structure
+            string blobName = $"signed/{certificateId}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
+            string newCertificateUrl;
+            using (var stream = new MemoryStream(signedPdfBytes))
+            {
+                try
+                {
+                    newCertificateUrl = await _blobService.UploadFileAsync(containerName, blobName, stream, "application/pdf");
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException("Failed to upload signed PDF to blob storage.", ex);
+                }
+                if (string.IsNullOrEmpty(newCertificateUrl))
+                    throw new InvalidOperationException("Blob storage returned an empty URL for the signed PDF.");
+            }
+
+            // Step 10: Update certificate with new URL and status
+            await _unitOfWork.ExecuteWithStrategyAsync(async () =>
+            {
+                await _unitOfWork.BeginTransactionAsync();
+                try
+                {
+                    certificate.CertificateURL = newCertificateUrl;
+                    certificate.Status = OCMS_BOs.Entities.CertificateStatus.Active;
+                    certificate.SignDate = DateTime.UtcNow;
+
+                    _unitOfWork.CertificateRepository.UpdateAsync(certificate);
+                    await _unitOfWork.SaveChangesAsync();
+                    await _unitOfWork.CommitTransactionAsync();
+
+                }
+                catch (Exception ex)
+                {
+                    await _unitOfWork.RollbackTransactionAsync();
+                    throw new InvalidOperationException("Failed to update certificate status and URL.", ex);
+                }
+            });
+
+            // Step 11: Return signed PDF bytes
+            return signedPdfBytes;
         }
     }
    

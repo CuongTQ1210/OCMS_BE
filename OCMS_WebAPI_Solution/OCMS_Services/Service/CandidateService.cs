@@ -53,6 +53,11 @@ namespace OCMS_Services.Service
         #region Get Candidate by RequestId
         public async Task<IEnumerable<Candidate>> GetCandidatesByRequestIdAsync(string requestId)
         {
+            var request = _unitOfWork.RequestRepository.GetByIdAsync(requestId);
+            if (request == null)
+            {
+                throw new KeyNotFoundException($"Candidate with ID '{requestId}' not found.");
+            }
             return await _candidateRepository.GetCandidatesByImportRequestIdAsync(requestId);
         }
         #endregion

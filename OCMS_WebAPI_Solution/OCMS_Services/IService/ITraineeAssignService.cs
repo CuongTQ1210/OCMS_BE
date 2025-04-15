@@ -20,5 +20,7 @@ namespace OCMS_Services.IService
 
         Task<IEnumerable<CourseModel>> GetCoursesByTraineeIdAsync(string traineeId);
         Task<List<TraineeAssignModel>> GetTraineesBySubjectIdAsync(string subjectId);
+
+        Task<List<TraineeAssignModel>> GetTraineesByRequestIdAsync(string requestId);
     }
 }
