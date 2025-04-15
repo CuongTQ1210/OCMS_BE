@@ -389,7 +389,8 @@ namespace OCMS_Services.Service
             string modifiedHtml = await PopulateTemplateAsync(templateHtml, trainee, course, issueDate, certificateCode, grades, templateType);
             string certificateFileName = $"certificate_{certificateCode}_{DateTime.UtcNow:yyyyMMddHHmmss}.html";
             string certificateUrl = await SaveCertificateToBlob(modifiedHtml, certificateFileName);
-
+            var userExist = await _unitOfWork.UserRepository.GetByIdAsync(trainee.UserId);
+            var courseExist = await _unitOfWork.CourseRepository.GetByIdAsync(course.CourseId);
             return new Certificate
             {
                 CertificateId = Guid.NewGuid().ToString(),
@@ -402,6 +403,8 @@ namespace OCMS_Services.Service
                 Status = CertificateStatus.Pending,
                 CertificateURL = certificateUrl,
                 IsRevoked = false,
+                Course= courseExist,
+                User=userExist,
                 SignDate = DateTime.UtcNow
             };
         }
