@@ -1,4 +1,5 @@
-﻿using OCMS_Repositories;
+﻿using OCMS_BOs.Entities;
+using OCMS_Repositories;
 using OCMS_Services.IService;
 using PuppeteerSharp;
 using System;
@@ -6,6 +7,7 @@ using System.Collections.Generic;
 using System.Drawing.Printing;
 using System.Linq;
 using System.Net.Http.Headers;
+using System.Net.Mail;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -19,13 +21,15 @@ namespace OCMS_Services.Service
         private readonly IBlobService _blobService;
         private readonly UnitOfWork _unitOfWork;
         private readonly ICertificateService _certificateService;
-        public PdfSignerService(HttpClient httpClient, IHsmAuthService tokenService, UnitOfWork unitOfWork, IBlobService blobService, ICertificateService certificateService)
+        private readonly IEmailService _emailService;
+        public PdfSignerService(HttpClient httpClient, IHsmAuthService tokenService, UnitOfWork unitOfWork, IBlobService blobService, ICertificateService certificateService, IEmailService emailService)
         {
             _httpClient = httpClient;
             _certificateService = certificateService ?? throw new ArgumentNullException(nameof(certificateService));
             _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _blobService = blobService ?? throw new ArgumentNullException(nameof(blobService));
+            _emailService = emailService ?? throw new ArgumentNullException(nameof(emailService));
         }
 
         private async Task<string> SignPdfBase64Async(string fileDataBase64)
@@ -154,8 +158,12 @@ namespace OCMS_Services.Service
                 throw new ArgumentException("Certificate ID cannot be null or empty.");
             if (_unitOfWork?.CertificateRepository == null)
                 throw new InvalidOperationException("Certificate repository is not initialized.");
+            if (_unitOfWork?.UserRepository == null)
+                throw new InvalidOperationException("User repository is not initialized.");
             if (_blobService == null)
                 throw new InvalidOperationException("Blob service is not initialized.");
+            if (_emailService == null)
+                throw new InvalidOperationException("Email service is not initialized.");
 
             // Step 2: Get the certificate info
             var certificate = await _unitOfWork.CertificateRepository.GetByIdAsync(certificateId);
@@ -164,12 +172,17 @@ namespace OCMS_Services.Service
             if (certificate.Status != OCMS_BOs.Entities.CertificateStatus.Pending)
                 throw new InvalidOperationException($"Certificate is not in Pending status. Current status: {certificate.Status}");
 
-            // Step 3: Generate SAS URL for HTML file
+            // Step 3: Get user info for email
+            var user = await _unitOfWork.UserRepository.GetByIdAsync(certificate.UserId);
+            if (user == null || string.IsNullOrWhiteSpace(user.Email))
+                throw new InvalidOperationException("User not found or missing email.");
+
+            // Step 4: Generate SAS URL for HTML file
             string sasUrl = await _blobService.GetBlobUrlWithSasTokenAsync(certificate.CertificateURL, TimeSpan.FromHours(1));
             if (string.IsNullOrEmpty(sasUrl))
                 throw new InvalidOperationException("Failed to generate SAS URL for the HTML file.");
 
-            // Step 4: Download the HTML content from the SAS URL
+            // Step 5: Download the HTML content from the SAS URL
             using var httpClient = new HttpClient();
             var response = await httpClient.GetAsync(sasUrl);
             if (!response.IsSuccessStatusCode)
@@ -179,7 +192,7 @@ namespace OCMS_Services.Service
             if (string.IsNullOrEmpty(htmlContent))
                 throw new InvalidOperationException("Downloaded HTML content is empty.");
 
-            // Step 5: Convert HTML to PDF
+            // Step 6: Convert HTML to PDF
             byte[] pdfBytes;
             try
             {
@@ -192,15 +205,15 @@ namespace OCMS_Services.Service
             if (pdfBytes == null || pdfBytes.Length == 0)
                 throw new InvalidOperationException("Converted PDF content is empty.");
 
-            // Step 6: Convert PDF to Base64
+            // Step 7: Convert PDF to Base64
             string pdfBase64 = Convert.ToBase64String(pdfBytes);
 
-            // Step 7: Sign the PDF
+            // Step 8: Sign the PDF
             var result = await SignPdfBase64Async(pdfBase64);
             if (string.IsNullOrEmpty(result))
                 throw new InvalidOperationException("PDF signing service returned an empty result.");
 
-            // Step 8: Deserialize and extract file_data with error handling
+            // Step 9: Deserialize and extract file_data with error handling
             byte[] signedPdfBytes;
             try
             {
@@ -225,8 +238,8 @@ namespace OCMS_Services.Service
                 throw new InvalidOperationException("Required data missing in the signing service response.", ex);
             }
 
-            // Step 9: Upload signed PDF to blob storage
-            string containerName = "certificates"; // Adjust based on your blob storage structure
+            // Step 10: Upload signed PDF to blob storage
+            string containerName = "certificates";
             string blobName = $"signed/{certificateId}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
             string newCertificateUrl;
             using (var stream = new MemoryStream(signedPdfBytes))
@@ -243,7 +256,7 @@ namespace OCMS_Services.Service
                     throw new InvalidOperationException("Blob storage returned an empty URL for the signed PDF.");
             }
 
-            // Step 10: Update certificate with new URL and status
+            // Step 11: Update certificate with new URL and status
             await _unitOfWork.ExecuteWithStrategyAsync(async () =>
             {
                 await _unitOfWork.BeginTransactionAsync();
@@ -256,7 +269,6 @@ namespace OCMS_Services.Service
                     _unitOfWork.CertificateRepository.UpdateAsync(certificate);
                     await _unitOfWork.SaveChangesAsync();
                     await _unitOfWork.CommitTransactionAsync();
-
                 }
                 catch (Exception ex)
                 {
@@ -265,8 +277,46 @@ namespace OCMS_Services.Service
                 }
             });
 
-            // Step 11: Return signed PDF bytes
+// Removed commented-out email-sending block to clean up the code.
+            //}
+
+            //// Step 13: Return signed PDF bytes
             return signedPdfBytes;
+        }
+
+        public async Task SendCertificateByEmailAsync(string certificateId)
+        {
+            if (_emailService == null)
+                throw new InvalidOperationException("Email service is not initialized.");
+            if (_blobService == null)
+                throw new InvalidOperationException("Blob service is not initialized.");
+            var certificate = await _unitOfWork.CertificateRepository.GetByIdAsync(certificateId);
+            var user = await _unitOfWork.UserRepository.GetByIdAsync(certificate.UserId);
+            try
+            {
+                
+                // Generate SAS URL for the signed PDF
+                string sasUrl = await _blobService.GetBlobUrlWithSasTokenAsync(certificate.CertificateURL, TimeSpan.FromDays(7));
+                if (string.IsNullOrEmpty(sasUrl))
+                    throw new InvalidOperationException("Failed to generate SAS URL for the signed PDF.");
+
+                // Prepare email
+                string subject = "Your Signed Certificate";
+                string body = $"Dear User,\n\nYour signed certificate is available for download at the following link:\n{sasUrl}\n\nThis link will expire in 7 days.\n\nBest regards,\nCertificate Team";
+
+                await _emailService.SendEmailAsync(user.Email, subject, body);
+                Console.WriteLine($"Email with SAS URL sent successfully to {user.Email} for certificate {certificateId}");
+            }
+            catch (SmtpException ex)
+            {
+                throw new InvalidOperationException(
+                    $"SMTP error sending certificate {certificateId} to {user.Email}: StatusCode={ex.StatusCode}, Message={ex.Message}", ex);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    $"Failed to send certificate {certificateId} to {user.Email}: {ex.Message}", ex);
+            }
         }
     }
    

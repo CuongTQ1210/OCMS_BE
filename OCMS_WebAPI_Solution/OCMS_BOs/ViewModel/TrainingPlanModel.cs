@@ -16,9 +16,7 @@ namespace OCMS_BOs.ViewModel
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public string CreateByUserId { get; set; }
-        public string CreateByUserName { get; set; }
         public string SpecialtyId { get; set; }
-        public string SpecialtyName { get; set; }
         public string TrainingPlanStatus { get; set; }
 
         public List<CourseModel> Courses { get; set; } = new List<CourseModel>();

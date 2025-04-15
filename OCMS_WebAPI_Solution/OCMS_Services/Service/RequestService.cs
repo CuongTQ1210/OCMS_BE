@@ -294,6 +294,7 @@ namespace OCMS_Services.Service
                         foreach (var course in courses)
                         {
                             course.Status = CourseStatus.Approved;
+                            course.Progress= Progress.Ongoing;
                             course.ApproveByUserId= approvedByUserId;
                             course.ApprovalDate = DateTime.UtcNow;
                             await _unitOfWork.CourseRepository.UpdateAsync(course);
