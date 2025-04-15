@@ -276,23 +276,7 @@ namespace OCMS_Services.Service
                 }
             });
 
-            //// Step 12: Send email with signed PDF
-            //try
-            //{
-            //    string subject = "Your Signed Certificate";
-            //    string body = "Dear User,\n\nPlease find your signed certificate attached.\n\nBest regards,\nCertificate Team";
-            //    string attachmentFileName = "signed-document.pdf"; // Updated to match your request
-            //    await _emailService.SendCertificateEmailAsync(user.Email, subject, body, signedPdfBytes, attachmentFileName);
-            //}
-            //catch (InvalidOperationException ex)
-            //{
-            //    // Log the error with details but don't fail the operation
-            //    Console.WriteLine($"Failed to send email to {user.Email}: {ex.Message}. InnerException: {ex.InnerException?.Message}");
-            //}
-            //catch (Exception ex)
-            //{
-            //    // Catch any unexpected errors
-            //    Console.WriteLine($"Unexpected error sending email to {user.Email}: {ex.Message}");
+// Removed commented-out email-sending block to clean up the code.
             //}
 
             //// Step 13: Return signed PDF bytes
