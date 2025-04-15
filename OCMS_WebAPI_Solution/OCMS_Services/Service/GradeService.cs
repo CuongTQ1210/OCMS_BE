@@ -60,11 +60,15 @@ namespace OCMS_Services.Service
             {
                 throw new Exception("Course not found.");
             }
+            // Check if subject has any schedule
+            if (subject.Schedules == null || !subject.Schedules.Any())
+            {
+                throw new InvalidOperationException("Subject does not have any training schedule.");
+            }
             if (course.Status== CourseStatus.Pending || course.Status == CourseStatus.Rejected || course.Progress==Progress.NotYet || course.Progress == Progress.Completed)
             {
                 throw new InvalidOperationException("Course isn't suitable to create grade.");
             }
-
             // Check for existing grade with same TraineeAssignID and SubjectId
             var existingGrade = await _unitOfWork.GradeRepository
                 .GetAsync(g => g.TraineeAssignID == dto.TraineeAssignID && g.SubjectId == dto.SubjectId);

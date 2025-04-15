@@ -265,7 +265,6 @@ namespace OCMS_Services.Service
                     certificate.CertificateURL = newCertificateUrl;
                     certificate.Status = OCMS_BOs.Entities.CertificateStatus.Active;
                     certificate.SignDate = DateTime.UtcNow;
-
                     _unitOfWork.CertificateRepository.UpdateAsync(certificate);
                     await _unitOfWork.SaveChangesAsync();
                     await _unitOfWork.CommitTransactionAsync();
