@@ -50,6 +50,21 @@ namespace OCMS_Services.Service
         #region Create grade TraineeAssignID
         public async Task<string> CreateAsync(GradeDTO dto, string gradedByUserId)
         {
+            var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(dto.SubjectId);
+            if (subject == null)
+            {
+                throw new Exception("Subject not found.");
+            }
+            var course = await _unitOfWork.CourseRepository.GetByIdAsync(subject.CourseId);
+            if (course == null)
+            {
+                throw new Exception("Course not found.");
+            }
+            if (course.Status== CourseStatus.Pending && course.Status == CourseStatus.Rejected && course.Progress==Progress.NotYet && course.Progress == Progress.Completed)
+            {
+                throw new InvalidOperationException("Course isn't suitable to create grade.");
+            }
+
             // Check for existing grade with same TraineeAssignID and SubjectId
             var existingGrade = await _unitOfWork.GradeRepository
                 .GetAsync(g => g.TraineeAssignID == dto.TraineeAssignID && g.SubjectId == dto.SubjectId);
@@ -61,11 +76,7 @@ namespace OCMS_Services.Service
             var grade = _mapper.Map<Grade>(dto);
             grade.GradeId = $"G-{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
             grade.GradedByInstructorId = gradedByUserId;
-            var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(dto.SubjectId);
-            if (subject == null)
-            {
-                throw new Exception("Subject not found.");
-            }
+            
             var passScore = subject.PassingScore;
             grade.TotalScore = CalculateTotalScore(grade);
 
@@ -195,6 +206,7 @@ namespace OCMS_Services.Service
                     result.Errors.Add($"Subject '{subjectName}' not found.");
                     return result;
                 }
+
                 string subjectId = subject.SubjectId;
                 string courseId = subject.CourseId;
                 // Get CourseId from subject
@@ -204,7 +216,10 @@ namespace OCMS_Services.Service
                     result.Errors.Add($"Course not found for Subject '{subjectName}'.");
                     return result;
                 }
-                
+                if (course.Status == CourseStatus.Pending && course.Status == CourseStatus.Rejected && course.Progress == Progress.NotYet && course.Progress == Progress.Completed)
+                {
+                    throw new InvalidOperationException("Course isn't suitable to create grade.");
+                }
                 var existingGrades = await _unitOfWork.GradeRepository.GetAllAsync();
                 var existingGradeKeys = existingGrades.Select(g => (g.TraineeAssignID, g.SubjectId)).ToHashSet();
 

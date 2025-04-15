@@ -89,8 +89,6 @@ namespace OCMS_BOs.Helper
 
             CreateMap<TrainingPlan, TrainingPlanModel>()
                 .ForMember(dest => dest.TrainingPlanStatus, opt => opt.MapFrom(src => src.TrainingPlanStatus.ToString()))
-                .ForMember(dest => dest.CreateByUserName, opt => opt.MapFrom(src => src.CreateByUser.FullName))
-                .ForMember(dest => dest.SpecialtyName, opt => opt.MapFrom(src => src.Specialty.SpecialtyName))
                 .ForMember(dest => dest.Courses, opt => opt.MapFrom(src => src.Courses))
                 .ReverseMap();
             CreateMap<TrainingPlanDTO, TrainingPlan>();
@@ -263,9 +261,7 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.TemplateStatus, opt => opt.MapFrom(src => src.templateStatus));
 
             CreateMap<Certificate, CertificateModel>()
-                .ForMember(dest => dest.TemplateId, opt => opt.MapFrom(src => src.CertificateTemplateId))
-                .ForMember(dest => dest.CourseName, opt => opt.MapFrom(src => src.Course.CourseName))
-                .ForMember(dest => dest.UserName, opt => opt.MapFrom(src => src.User.FullName));
+                .ForMember(dest => dest.TemplateId, opt => opt.MapFrom(src => src.CertificateTemplateId));
         }
 
     }

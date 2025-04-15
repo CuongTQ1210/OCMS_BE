@@ -18,8 +18,5 @@ namespace OCMS_BOs.ViewModel
         public string CertificateURL { get; set; }
         public string CertificateURLwithSas { get; set; }
 
-        // Thêm các thông tin bổ sung nếu cần
-        public string UserName { get; set; }
-        public string CourseName { get; set; }
     }
 }
