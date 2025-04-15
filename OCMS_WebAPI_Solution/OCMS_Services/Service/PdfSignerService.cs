@@ -161,11 +161,13 @@ namespace OCMS_Services.Service
             var certificate = await _unitOfWork.CertificateRepository.GetByIdAsync(certificateId);
             if (certificate == null || string.IsNullOrWhiteSpace(certificate.CertificateURL))
                 throw new InvalidOperationException("Certificate not found or missing URL.");
+            if (certificate.Status != OCMS_BOs.Entities.CertificateStatus.Pending)
+                throw new InvalidOperationException($"Certificate is not in Pending status. Current status: {certificate.Status}");
 
-            // Step 3: Generate SAS URL
+            // Step 3: Generate SAS URL for HTML file
             string sasUrl = await _blobService.GetBlobUrlWithSasTokenAsync(certificate.CertificateURL, TimeSpan.FromHours(1));
             if (string.IsNullOrEmpty(sasUrl))
-                throw new InvalidOperationException("Failed to generate SAS URL for the certificate.");
+                throw new InvalidOperationException("Failed to generate SAS URL for the HTML file.");
 
             // Step 4: Download the HTML content from the SAS URL
             using var httpClient = new HttpClient();
@@ -178,7 +180,15 @@ namespace OCMS_Services.Service
                 throw new InvalidOperationException("Downloaded HTML content is empty.");
 
             // Step 5: Convert HTML to PDF
-            byte[] pdfBytes = await ConvertHtmlToPdf(htmlContent);
+            byte[] pdfBytes;
+            try
+            {
+                pdfBytes = await ConvertHtmlToPdf(htmlContent);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Failed to convert HTML to PDF.", ex);
+            }
             if (pdfBytes == null || pdfBytes.Length == 0)
                 throw new InvalidOperationException("Converted PDF content is empty.");
 
@@ -191,6 +201,7 @@ namespace OCMS_Services.Service
                 throw new InvalidOperationException("PDF signing service returned an empty result.");
 
             // Step 8: Deserialize and extract file_data with error handling
+            byte[] signedPdfBytes;
             try
             {
                 var jsonDoc = JsonDocument.Parse(result);
@@ -203,8 +214,7 @@ namespace OCMS_Services.Service
                 if (string.IsNullOrEmpty(fileData))
                     throw new InvalidOperationException("The 'file_data' value is empty or null.");
 
-                // Step 9: Convert base64 back to PDF bytes
-                return Convert.FromBase64String(fileData);
+                signedPdfBytes = Convert.FromBase64String(fileData);
             }
             catch (JsonException ex)
             {
@@ -214,6 +224,49 @@ namespace OCMS_Services.Service
             {
                 throw new InvalidOperationException("Required data missing in the signing service response.", ex);
             }
+
+            // Step 9: Upload signed PDF to blob storage
+            string containerName = "certificates"; // Adjust based on your blob storage structure
+            string blobName = $"signed/{certificateId}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
+            string newCertificateUrl;
+            using (var stream = new MemoryStream(signedPdfBytes))
+            {
+                try
+                {
+                    newCertificateUrl = await _blobService.UploadFileAsync(containerName, blobName, stream, "application/pdf");
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException("Failed to upload signed PDF to blob storage.", ex);
+                }
+                if (string.IsNullOrEmpty(newCertificateUrl))
+                    throw new InvalidOperationException("Blob storage returned an empty URL for the signed PDF.");
+            }
+
+            // Step 10: Update certificate with new URL and status
+            await _unitOfWork.ExecuteWithStrategyAsync(async () =>
+            {
+                await _unitOfWork.BeginTransactionAsync();
+                try
+                {
+                    certificate.CertificateURL = newCertificateUrl;
+                    certificate.Status = OCMS_BOs.Entities.CertificateStatus.Active;
+                    certificate.SignDate = DateTime.UtcNow;
+
+                    _unitOfWork.CertificateRepository.UpdateAsync(certificate);
+                    await _unitOfWork.SaveChangesAsync();
+                    await _unitOfWork.CommitTransactionAsync();
+
+                }
+                catch (Exception ex)
+                {
+                    await _unitOfWork.RollbackTransactionAsync();
+                    throw new InvalidOperationException("Failed to update certificate status and URL.", ex);
+                }
+            });
+
+            // Step 11: Return signed PDF bytes
+            return signedPdfBytes;
         }
     }
    
