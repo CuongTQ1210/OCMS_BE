@@ -1,4 +1,5 @@
-﻿using OCMS_Services.IService;
+﻿using OCMS_Repositories;
+using OCMS_Services.IService;
 using PuppeteerSharp;
 using System;
 using System.Collections.Generic;
@@ -15,11 +16,16 @@ namespace OCMS_Services.Service
     {
         private readonly HttpClient _httpClient;
         private readonly IHsmAuthService _tokenService;
-
-        public PdfSignerService(HttpClient httpClient, IHsmAuthService tokenService)
+        private readonly IBlobService _blobService;
+        private readonly UnitOfWork _unitOfWork;
+        private readonly ICertificateService _certificateService;
+        public PdfSignerService(HttpClient httpClient, IHsmAuthService tokenService, UnitOfWork unitOfWork, IBlobService blobService, ICertificateService certificateService)
         {
             _httpClient = httpClient;
-            _tokenService = tokenService;
+            _certificateService = certificateService ?? throw new ArgumentNullException(nameof(certificateService));
+            _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
+            _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+            _blobService = blobService ?? throw new ArgumentNullException(nameof(blobService));
         }
 
         private async Task<string> SignPdfBase64Async(string fileDataBase64)
@@ -140,16 +146,74 @@ namespace OCMS_Services.Service
             return pdfBytes;
         }
 
-        public async Task<string> SignPdfAsync(string htmlContent)
-        {
-            // Step 1: Convert HTML to PDF
-            byte[] pdfBytes = await ConvertHtmlToPdf(htmlContent); // Added 'await'
 
-            // Step 2: Convert PDF to Base64
+        public async Task<byte[]> SignPdfAsync(string certificateId)
+        {
+            // Step 1: Validate input and dependencies
+            if (string.IsNullOrWhiteSpace(certificateId))
+                throw new ArgumentException("Certificate ID cannot be null or empty.");
+            if (_unitOfWork?.CertificateRepository == null)
+                throw new InvalidOperationException("Certificate repository is not initialized.");
+            if (_blobService == null)
+                throw new InvalidOperationException("Blob service is not initialized.");
+
+            // Step 2: Get the certificate info
+            var certificate = await _unitOfWork.CertificateRepository.GetByIdAsync(certificateId);
+            if (certificate == null || string.IsNullOrWhiteSpace(certificate.CertificateURL))
+                throw new InvalidOperationException("Certificate not found or missing URL.");
+
+            // Step 3: Generate SAS URL
+            string sasUrl = await _blobService.GetBlobUrlWithSasTokenAsync(certificate.CertificateURL, TimeSpan.FromHours(1));
+            if (string.IsNullOrEmpty(sasUrl))
+                throw new InvalidOperationException("Failed to generate SAS URL for the certificate.");
+
+            // Step 4: Download the HTML content from the SAS URL
+            using var httpClient = new HttpClient();
+            var response = await httpClient.GetAsync(sasUrl);
+            if (!response.IsSuccessStatusCode)
+                throw new InvalidOperationException($"Failed to retrieve HTML content from URL. Status: {response.StatusCode}");
+
+            var htmlContent = await response.Content.ReadAsStringAsync();
+            if (string.IsNullOrEmpty(htmlContent))
+                throw new InvalidOperationException("Downloaded HTML content is empty.");
+
+            // Step 5: Convert HTML to PDF
+            byte[] pdfBytes = await ConvertHtmlToPdf(htmlContent);
+            if (pdfBytes == null || pdfBytes.Length == 0)
+                throw new InvalidOperationException("Converted PDF content is empty.");
+
+            // Step 6: Convert PDF to Base64
             string pdfBase64 = Convert.ToBase64String(pdfBytes);
 
-            // Step 3: Sign the PDF
-            return await SignPdfBase64Async(pdfBase64);
+            // Step 7: Sign the PDF
+            var result = await SignPdfBase64Async(pdfBase64);
+            if (string.IsNullOrEmpty(result))
+                throw new InvalidOperationException("PDF signing service returned an empty result.");
+
+            // Step 8: Deserialize and extract file_data with error handling
+            try
+            {
+                var jsonDoc = JsonDocument.Parse(result);
+                var resultElement = jsonDoc.RootElement.GetProperty("result");
+
+                if (!resultElement.TryGetProperty("file_data", out var fileDataElement))
+                    throw new KeyNotFoundException("The 'file_data' key was not found in the response.");
+
+                string fileData = fileDataElement.GetString();
+                if (string.IsNullOrEmpty(fileData))
+                    throw new InvalidOperationException("The 'file_data' value is empty or null.");
+
+                // Step 9: Convert base64 back to PDF bytes
+                return Convert.FromBase64String(fileData);
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidOperationException("Failed to parse the signing service response.", ex);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                throw new InvalidOperationException("Required data missing in the signing service response.", ex);
+            }
         }
     }
    

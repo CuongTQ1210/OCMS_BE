@@ -8,6 +8,6 @@ namespace OCMS_Services.IService
 {
     public interface IPdfSignerService
     {
-        Task<string> SignPdfAsync(string fileDataBase64);
+        Task<byte[]> SignPdfAsync(string certificateId);
     }
 }
