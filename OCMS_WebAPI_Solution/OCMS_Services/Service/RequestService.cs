@@ -146,6 +146,20 @@ namespace OCMS_Services.Service
                     );
                 }
             }
+
+            if (newRequest.RequestType == RequestType.TemplateApprove)
+            {
+                var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
+                foreach (var director in directors)
+                {
+                    await _notificationService.SendNotificationAsync(
+                        director.UserId,
+                        "New Template Approval Request",
+                        "A new template approval request has been submitted for review.",
+                        "TemplateApprove"
+                    );
+                }
+            }
             return newRequest;
         }
         #endregion
@@ -168,6 +182,7 @@ namespace OCMS_Services.Service
             return _mapper.Map<RequestModel>(request);
         }
         #endregion
+
         public async Task<List<RequestModel>> GetRequestsForEducationOfficerAsync()
         {
             var validRequestTypes = new[]
@@ -218,13 +233,14 @@ namespace OCMS_Services.Service
 
                     return await _unitOfWork.SubjectRepository.ExistsAsync(s => s.SubjectId == entityId);
 
+                case RequestType.TemplateApprove:
+                    if (string.IsNullOrWhiteSpace(entityId))
+                        return false;
+                    return await _unitOfWork.DecisionTemplateRepository.ExistsAsync(dt => dt.DecisionTemplateId == entityId);
                 default:
-                    return false;
+                    return true;
             }
         }
-
-
-
 
         #region Delete Request
         public async Task<bool> DeleteRequestAsync(string requestId)
@@ -294,7 +310,7 @@ namespace OCMS_Services.Service
                         foreach (var course in courses)
                         {
                             course.Status = CourseStatus.Approved;
-                            course.Progress= Progress.Ongoing;
+                            course.Progress = Progress.Ongoing;
                             course.ApproveByUserId= approvedByUserId;
                             course.ApprovalDate = DateTime.UtcNow;
                             await _unitOfWork.CourseRepository.UpdateAsync(course);
@@ -475,7 +491,19 @@ namespace OCMS_Services.Service
 
                     break;
 
-                    
+                case RequestType.TemplateApprove:
+                    if (approver == null || approver.RoleId != 2)
+                    {
+                        throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
+                    }
+                    var template = await _unitOfWork.DecisionTemplateRepository.GetByIdAsync(request.RequestEntityId);
+                    if (template != null)
+                    {
+                        template.TemplateStatus = (int)TemplateStatus.Active;
+                        await _unitOfWork.DecisionTemplateRepository.UpdateAsync(template);
+                    }
+
+                    break;
             }
             await _unitOfWork.RequestRepository.UpdateAsync(request);
             await _unitOfWork.SaveChangesAsync();
@@ -614,6 +642,21 @@ namespace OCMS_Services.Service
                     }
                     notificationMessage = $"Your request to assign a trainee has been rejected. Reason: {rejectionReason}";
                     
+                    break;
+                case RequestType.TemplateApprove:
+                    if (rejecter == null || rejecter.RoleId != 2)
+                    {
+                        throw new UnauthorizedAccessException("Only HeadMaster can reject this request.");
+                    }
+                    var template = await _unitOfWork.DecisionTemplateRepository.GetByIdAsync(request.RequestEntityId);
+                    if (template != null)
+                    {
+                        template.TemplateStatus = (int)TemplateStatus.Inactive;
+                        await _unitOfWork.DecisionTemplateRepository.UpdateAsync(template);
+                    }
+
+                    notificationMessage = $"Your request to approve the template has been rejected. Reason: {rejectionReason}";
+
                     break;
                 default:
                     

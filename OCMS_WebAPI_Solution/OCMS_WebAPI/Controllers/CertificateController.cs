@@ -76,9 +76,28 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get Certificates By User Id
         [HttpGet("trainee/{userId}")]
-        [CustomAuthorize("Admin", "Training staff", "HeadMaster", "Trainee")]
-        public async Task<IActionResult> GetCertificatesByUserId(string userId)
+        [CustomAuthorize("Admin", "Training staff", "HeadMaster")]
+        public async Task<IActionResult> GetCertificatesByUserId()
         {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            try
+            {
+                var certificates = await _certificateService.GetCertificatesByUserIdWithSasUrlAsync(userId);
+                return Ok(certificates);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        #endregion
+
+        #region Trainee View Certificate
+        [HttpGet("trainee/view/{userId}")]
+        [CustomAuthorize("Trainee")]
+        public async Task<IActionResult> GetCertificatesByTraineeId()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             try
             {
                 var certificates = await _certificateService.GetCertificatesByUserIdWithSasUrlAsync(userId);

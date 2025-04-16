@@ -276,8 +276,8 @@ namespace OCMS_Services.Service
                 }
             });
 
-// Removed commented-out email-sending block to clean up the code.
-            //}
+            // Step 12: Send user with new certificate URL
+            await SendCertificateByEmailAsync(certificateId);
 
             //// Step 13: Return signed PDF bytes
             return signedPdfBytes;
@@ -317,7 +317,5 @@ namespace OCMS_Services.Service
                     $"Failed to send certificate {certificateId} to {user.Email}: {ex.Message}", ex);
             }
         }
-    }
-   
-
+    }   
 }

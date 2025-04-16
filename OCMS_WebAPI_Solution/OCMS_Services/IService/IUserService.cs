@@ -16,6 +16,7 @@ namespace OCMS_Services.IService
         Task<UserModel> GetUserByIdAsync(string id);
         Task<IEnumerable<UserModel>> GetAllUsersAsync();
         Task<User> CreateUserFromCandidateAsync(string candidateId);
+        Task<User> CreateUserAsync(CreateUserDTO userDto);
         Task UpdateUserDetailsAsync(string userId, UserUpdateDTO updateDto);
         Task UpdatePasswordAsync(string userId, PasswordUpdateDTO passwordDto);
         Task ForgotPasswordAsync(ForgotPasswordDTO forgotPasswordDto);

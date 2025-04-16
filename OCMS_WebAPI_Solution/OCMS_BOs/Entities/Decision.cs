@@ -39,13 +39,13 @@ namespace OCMS_BOs.Entities
         public DecisionTemplate DecisionTemplate { get; set; }
 
         [ForeignKey("DigitalSignature")]
-        public string DigitalSignatureId { get; set; }
-        public DigitalSignature DigitalSignature { get; set; }
+        public string? DigitalSignatureId { get; set; }
+        public DigitalSignature? DigitalSignature { get; set; }
 
         [Required]
         public DateTime SignDate { get; set; }
 
         
-        public int DecisionStatus { get; set; }
+        public DecisionStatus DecisionStatus { get; set; }
     }
 }

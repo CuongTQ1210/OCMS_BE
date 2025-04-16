@@ -87,6 +87,14 @@ namespace OCMS_Services.Service
             string lastName = fullNameWithoutDiacritics.Split(' ').Last().ToLower();
             string userName = $"{lastName}_{userId.ToLower()}";
 
+            // Đảm bảo Username là duy nhất
+            int usernameSuffix = 1;
+            string originalUserName = userName;
+            while (await IsUsernameExists(userName))
+            {
+                userName = $"{lastName}_{userId.ToLower()}";
+                usernameSuffix++;
+            }
             // Tạo password ngẫu nhiên
             string password = GenerateRandomPassword();
 
@@ -102,10 +110,10 @@ namespace OCMS_Services.Service
                 Status = AccountStatus.Active,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
-                Address= candidate.Address,
-                Gender= candidate.Gender,
-                DateOfBirth= candidate.DateOfBirth,
-                PhoneNumber= candidate.PhoneNumber,
+                Address = candidate.Address,
+                Gender = candidate.Gender,
+                DateOfBirth = candidate.DateOfBirth,
+                PhoneNumber = candidate.PhoneNumber,
             };
 
             await _unitOfWork.UserRepository.AddAsync(user);
@@ -113,6 +121,68 @@ namespace OCMS_Services.Service
 
             // Gửi email
             await SendWelcomeEmailAsync(candidate.Email, userName, password);
+
+            return user;
+        }
+        #endregion
+
+        #region Create User
+        public async Task<User> CreateUserAsync(CreateUserDTO userDto)
+        {
+            // Ánh xạ DTO sang User entity
+            var user = _mapper.Map<User>(userDto);
+
+            // Xử lý tạo UserId
+            string specialtyInitial = user.SpecialtyId?.Substring(0, 1) ?? "U";
+            string lastUserId = await GetLastUserIdAsync();
+            int nextNumber = lastUserId != null ? int.Parse(lastUserId.Substring(1)) + 1 : 1;
+            string userId = $"{specialtyInitial}{nextNumber:D6}";
+
+            // Đảm bảo UserId là duy nhất
+            while (await IsUserIdExists(userId))
+            {
+                nextNumber++;
+                userId = $"{specialtyInitial}{nextNumber:D6}";
+            }
+            user.UserId = userId;
+
+            // Tạo Username từ họ tên (loại bỏ dấu)
+            string fullNameWithoutDiacritics = RemoveDiacritics(user.FullName);
+            string lastName = fullNameWithoutDiacritics.Split(' ').Last().ToLower();
+            string userName = $"{lastName}_{userId.ToLower()}";
+
+            // Đảm bảo Username là duy nhất
+            int usernameSuffix = 1;
+            string originalUserName = userName;
+            while (await IsUsernameExists(userName))
+            {
+                userName = $"{originalUserName}_{usernameSuffix}";
+                usernameSuffix++;
+            }
+            user.Username = userName;
+
+            // Tạo Password tự động (8 ký tự với chữ hoa, chữ thường, số và ký tự đặc biệt)
+            string password = GenerateRandomPassword();
+            user.PasswordHash = PasswordHasher.HashPassword(password);
+
+            // Thiết lập các thông tin khác
+            user.CreatedAt = DateTime.UtcNow;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            // Thiết lập Role cho User (nếu không có trong DTO)
+            if (user.RoleId == 0)
+            {
+                // Mặc định là Training Staff
+                var trainingStaffRole = await _unitOfWork.RoleRepository.GetAsync(r => r.RoleName == "Training Staff");
+                user.RoleId = trainingStaffRole?.RoleId ?? 1;
+            }
+
+            // Lưu người dùng mới
+            await _unitOfWork.UserRepository.AddAsync(user);
+            await _unitOfWork.SaveChangesAsync();
+
+            // Gửi email chào mừng với thông tin đăng nhập
+            await SendWelcomeEmailAsync(user.Email, user.Username, password);
 
             return user;
         }
@@ -288,6 +358,10 @@ Trân trọng,
         private async Task<bool> IsUserIdExists(string userId)
         {
             return await _unitOfWork.UserRepository.GetQuery().AnyAsync(u => u.UserId == userId);
+        }
+        private async Task<bool> IsUsernameExists(string username)
+        {
+            return await _unitOfWork.UserRepository.ExistsAsync(u => u.Username == username);
         }
 
         private string GenerateRandomPassword(int length = 12)

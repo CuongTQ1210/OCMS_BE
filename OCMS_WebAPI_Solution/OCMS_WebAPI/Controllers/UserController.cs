@@ -110,6 +110,23 @@ namespace OCMS_WebAPI.Controllers
         }
         #endregion
 
+        #region Create User
+        [HttpPost]
+        [CustomAuthorize("Admin")]
+        public async Task<IActionResult> CreateUser([FromBody] CreateUserDTO userDto)
+        {
+            try
+            {
+                var user = await _userService.CreateUserAsync(userDto);
+                return Ok(new { message = "User created successfully!", user });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+        #endregion
+
         #region Update User Details
         [HttpPut("{id}/details")]
         [CustomAuthorize]
