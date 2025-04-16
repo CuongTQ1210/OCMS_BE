@@ -491,7 +491,7 @@ namespace OCMS_Services.Service
 
                     break;
 
-                case RequestType.TemplateApprove:
+                case RequestType.DecisionTemplate:
                     if (approver == null || approver.RoleId != 2)
                     {
                         throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
@@ -501,6 +501,19 @@ namespace OCMS_Services.Service
                     {
                         template.TemplateStatus = (int)TemplateStatus.Active;
                         await _unitOfWork.DecisionTemplateRepository.UpdateAsync(template);
+                    }
+
+                    break;
+                case RequestType.CertificateTemplate:
+                    if (approver == null || approver.RoleId != 2)
+                    {
+                        throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
+                    }
+                    var certificateTemplate = await _unitOfWork.CertificateTemplateRepository.GetByIdAsync(request.RequestEntityId);
+                    if (certificateTemplate != null)
+                    {
+                        certificateTemplate.templateStatus = TemplateStatus.Active;
+                        await _unitOfWork.CertificateTemplateRepository.UpdateAsync(certificateTemplate);
                     }
 
                     break;
