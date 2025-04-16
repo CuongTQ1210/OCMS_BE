@@ -123,7 +123,7 @@ namespace OCMS_Services.Service
             {
                 existing.gradeStatus = existing.TotalScore >= 5.0 ? GradeStatus.Pass : GradeStatus.Fail;
             }
-            existing.UpdateDate = DateTime.UtcNow;
+            existing.UpdateDate = DateTime.Now;  
 
             await _unitOfWork.GradeRepository.UpdateAsync(existing);
             await _unitOfWork.SaveChangesAsync();

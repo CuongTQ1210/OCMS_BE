@@ -59,13 +59,13 @@ namespace OCMS_Services.Service
 
                     // Gán các thuộc tính đặc biệt
                     certificate.CandidateId = candidateId;
-                    certificate.CreatedAt = DateTime.UtcNow;
-                    certificate.VerifyDate = DateTime.UtcNow;
+                    certificate.CreatedAt = DateTime.Now;
+                    certificate.VerifyDate = DateTime.Now;
                     certificate.IssuingOrganization = certificateDto.CertificateProvider; // Gán CertificateProvider vào IssuingOrganization
                     certificate.VerifyByUserId = currentUserId; // Gán người xác thực là người hiện tại
 
                     // Xử lý hình ảnh (bắt buộc)
-                    string blobName = $"{candidateId}_{certificateDto.CertificateCode}_{DateTime.UtcNow.Ticks}.jpg";
+                    string blobName = $"{candidateId}_{certificateDto.CertificateCode}_{DateTime.Now.Ticks}.jpg";
                     using (var stream = certificateImage.OpenReadStream())
                     {
                         var fileUrl = await blobService.UploadFileAsync("externalcertificates", blobName, stream, "image/jpeg");
@@ -188,12 +188,12 @@ namespace OCMS_Services.Service
                     _mapper.Map(updatedCertificateDto, existingCertificate);
 
                     // Cập nhật các thuộc tính đặc biệt
-                    existingCertificate.VerifyDate = DateTime.UtcNow;
+                    existingCertificate.VerifyDate = DateTime.Now;
 
                     // Xử lý hình ảnh mới nếu có
                     if (updatedCertificateDto.CertificateImage != null)
                     {
-                        string blobName = $"{existingCertificate.CandidateId}_{updatedCertificateDto.CertificateCode}_{DateTime.UtcNow.Ticks}.jpg";
+                        string blobName = $"{existingCertificate.CandidateId}_{updatedCertificateDto.CertificateCode}_{DateTime.Now.Ticks}.jpg";
                         using (var stream = updatedCertificateDto.CertificateImage.OpenReadStream())
                         {
                             existingCertificate.CertificateFileURL = await blobService.UploadFileAsync("externalcertificates", blobName, stream, "image/jpeg");

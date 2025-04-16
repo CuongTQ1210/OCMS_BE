@@ -280,8 +280,8 @@ namespace OCMS_Services.Service
                 return false;
 
             request.ApprovedBy = approvedByUserId;
-            request.ApprovedDate = DateTime.UtcNow;
-            request.UpdatedAt = DateTime.UtcNow;
+            request.ApprovedDate = DateTime.Now;
+            request.UpdatedAt = DateTime.Now;
             if (request != null && request.Status == RequestStatus.Pending)
             {
                 request.Status = RequestStatus.Approved;

@@ -163,7 +163,7 @@ namespace OCMS_Services.Service
                 if (template == null)
                     return null;
 
-                template.LastUpdatedAt = DateTime.UtcNow;
+                template.LastUpdatedAt = DateTime.Now;
 
                 if (!string.IsNullOrEmpty(request.Description))
                 {

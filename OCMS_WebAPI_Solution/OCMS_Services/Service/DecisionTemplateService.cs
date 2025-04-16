@@ -60,7 +60,7 @@ namespace OCMS_Services.Service
 
                 // Set properties that are not part of the mapping
                 decisionTemplate.DecisionTemplateId = templateId;
-                decisionTemplate.CreatedAt = DateTime.UtcNow;
+                decisionTemplate.CreatedAt = DateTime.Now;
                 decisionTemplate.CreatedByUserId = userId;
                 
                 // Explicitly set ApprovedByUserId to null to handle not-null constraint in database
@@ -194,7 +194,7 @@ namespace OCMS_Services.Service
                 _mapper.Map(dto, template);
                 
                 // Set properties not included in mapping
-                template.LastUpdatedAt = DateTime.UtcNow;
+                template.LastUpdatedAt = DateTime.Now;
 
                 // Handle the template content file if provided
                 if (dto.TemplateContent != null && dto.TemplateContent.Length > 0)

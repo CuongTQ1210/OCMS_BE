@@ -459,8 +459,8 @@ namespace OCMS_Services.Service
                 .Replace("[Ngày bắt đầu]", startDate)
                 .Replace("[NGÀY KẾT THÚC]", endDate)
                 .Replace("[Ngày kết thúc]", endDate)
-                .Replace("[MÃ QUYẾT ĐỊNH]", $"ATO-{DateTime.UtcNow.Year}-{course.CourseId.Substring(0, 4)}")
-                .Replace("[Mã quyết định]", $"ATO-{DateTime.UtcNow.Year}-{course.CourseId.Substring(0, 4)}")
+                .Replace("[MÃ QUYẾT ĐỊNH]", $"ATO-{DateTime.Now.Year}-{course.CourseId.Substring(0, 4)}")
+                .Replace("[Mã quyết định]", $"ATO-{DateTime.Now.Year}-{course.CourseId.Substring(0, 4)}")
                 .Replace("[MÃ CHỨNG CHỈ]", certificateCode)
                 .Replace("[Mã chứng chỉ]", certificateCode);
 
@@ -471,7 +471,7 @@ namespace OCMS_Services.Service
             }
 
             // Update date in signature
-            var currentDate = DateTime.UtcNow;
+            var currentDate = DateTime.Now;
             result = Regex.Replace(result,
                 @"ngày\s+\d+\s+tháng\s+\d+\s+năm\s+\d+",
                 $"ngày {currentDate.Day} tháng {currentDate.Month} năm {currentDate.Year}");

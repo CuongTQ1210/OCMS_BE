@@ -85,7 +85,7 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.Title, opt => opt.MapFrom(src => src.Title))
                 .ForMember(dest => dest.Message, opt => opt.MapFrom(src => src.Message))
                 .ForMember(dest => dest.NotificationType, opt => opt.MapFrom(src => src.NotificationType))
-                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.Now))
                 .ForMember(dest => dest.IsRead, opt => opt.MapFrom(src => false));
 
             CreateMap<TrainingPlan, TrainingPlanModel>()
@@ -108,7 +108,7 @@ namespace OCMS_BOs.Helper
             .ForMember(dest => dest.Status, opt => opt.Ignore())
             .ForMember(dest => dest.Progress, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
-            .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
+            .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(_ => DateTime.Now))
             .ForMember(dest => dest.CreatedByUserId, opt => opt.Ignore())
             .ForMember(dest => dest.ApproveByUserId, opt => opt.Ignore())
             .ForMember(dest => dest.ApproveByUser, opt => opt.Ignore())
@@ -129,14 +129,14 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => src.RequestStatus.ToString())) // Convert Enum to String
                 .ReverseMap()
                 .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => Enum.Parse<RequestStatus>(src.RequestStatus))) // Convert String to Enum
-                .ForMember(dest => dest.AssignDate, opt => opt.MapFrom(src => src.AssignDate == default ? DateTime.UtcNow : src.AssignDate)) // Default AssignDate
+                .ForMember(dest => dest.AssignDate, opt => opt.MapFrom(src => src.AssignDate == default ? DateTime.Now : src.AssignDate)) // Default AssignDate
                 .ForMember(dest => dest.ApprovalDate, opt => opt.MapFrom(src => src.ApprovalDate == default ? null : src.ApprovalDate)); // Keep null if not approved
 
             // Mapping TraineeAssignDTO → TraineeAssign (Used for Creating Assignments)
             CreateMap<TraineeAssignDTO, TraineeAssign>()
                 .ForMember(dest => dest.TraineeAssignId, opt => opt.Ignore()) // Ignore ID, auto-generated
                 .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(_ => RequestStatus.Pending)) // Default to Pending
-                .ForMember(dest => dest.AssignDate, opt => opt.MapFrom(_ => DateTime.UtcNow)) // Set AssignDate to now
+                .ForMember(dest => dest.AssignDate, opt => opt.MapFrom(_ => DateTime.Now)) // Set AssignDate to now
                 .ForMember(dest => dest.ApprovalDate, opt => opt.Ignore()) // ApprovalDate ignored during creation
                 .ForMember(dest => dest.ApproveByUserId, opt => opt.Ignore()) // Approval user not set at creation
                 .ForMember(dest => dest.RequestId, opt => opt.Ignore()) // Request will be assigned later
@@ -146,7 +146,7 @@ namespace OCMS_BOs.Helper
             CreateMap<InstructorAssignmentDTO, InstructorAssignment>()
     .ForMember(dest => dest.AssignmentId, opt => opt.Ignore()) // AssignmentId should be generated, not mapped
     .ForMember(dest => dest.AssignByUserId, opt => opt.Ignore()) // AssignByUserId is set elsewhere
-    .ForMember(dest => dest.AssignDate, opt => opt.MapFrom(src => DateTime.UtcNow)) // Set default assign date
+    .ForMember(dest => dest.AssignDate, opt => opt.MapFrom(src => DateTime.Now)) // Set default assign date
     .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => "Pending")) // Default status if needed
     .ReverseMap();
 
@@ -203,8 +203,8 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.gradeStatus, opt => opt.Ignore()) // Determined based on TotalScore
                 .ForMember(dest => dest.GradedByInstructorId, opt => opt.Ignore())
                 .ForMember(dest => dest.GradedByInstructor, opt => opt.Ignore())
-                .ForMember(dest => dest.EvaluationDate, opt => opt.MapFrom(_ => DateTime.UtcNow))
-                .ForMember(dest => dest.UpdateDate, opt => opt.MapFrom(_ => DateTime.UtcNow));
+                .ForMember(dest => dest.EvaluationDate, opt => opt.MapFrom(_ => DateTime.Now))
+                .ForMember(dest => dest.UpdateDate, opt => opt.MapFrom(_ => DateTime.Now));
 
             CreateMap<Grade, GradeDTO>();
 
@@ -221,8 +221,8 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
                 .ForMember(dest => dest.CertificateTemplateId, opt => opt.Ignore())
                 .ForMember(dest => dest.TemplateFile, opt => opt.Ignore())
-                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
-                .ForMember(dest => dest.LastUpdatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.Now))
+                .ForMember(dest => dest.LastUpdatedAt, opt => opt.MapFrom(_ => DateTime.Now))
                 .ForMember(dest => dest.templateStatus, opt => opt.MapFrom(_ => TemplateStatus.Active));
 
             // Mapping for Create Certificate Template Response
@@ -240,8 +240,8 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.TemplateStatus, opt => opt.MapFrom(src => src.templateStatus.ToString()));
 
             CreateMap<CreateCertificateTemplateDTO, CertificateTemplate>()
-                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
-                .ForMember(dest => dest.LastUpdatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.Now))
+                .ForMember(dest => dest.LastUpdatedAt, opt => opt.MapFrom(src => DateTime.Now))
                 .ForMember(dest => dest.templateStatus, opt => opt.MapFrom(src => TemplateStatus.Inactive))
                 .ForMember(dest => dest.CertificateTemplateId, opt => opt.Ignore())
                 .ForMember(dest => dest.TemplateFile, opt => opt.Ignore())
@@ -266,8 +266,8 @@ namespace OCMS_BOs.Helper
 
             CreateMap<CreateDecisionTemplateDTO, DecisionTemplate>()
                 .ForMember(dest => dest.TemplateStatus, opt => opt.MapFrom(src => 0)) // Draft status
-                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
-                .ForMember(dest => dest.LastUpdatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.Now))
+                .ForMember(dest => dest.LastUpdatedAt, opt => opt.MapFrom(_ => DateTime.Now))
                 .ForMember(dest => dest.DecisionTemplateId, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedByUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.ApprovedByUserId, opt => opt.Ignore()) // Explicitly ignoring this to handle it separately
@@ -290,7 +290,7 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedByUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.TemplateContent, opt => opt.Ignore())
-                .ForMember(dest => dest.LastUpdatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow));
+                .ForMember(dest => dest.LastUpdatedAt, opt => opt.MapFrom(_ => DateTime.Now));
 
             // Map for DecisionTemplate to UpdateDecisionTemplateResponse
             CreateMap<DecisionTemplate, UpdateDecisionTemplateResponse>()
@@ -305,7 +305,7 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.DecisionCode, opt => opt.Ignore())
                 .ForMember(dest => dest.Title, opt => opt.Ignore())
                 .ForMember(dest => dest.Content, opt => opt.Ignore())
-                .ForMember(dest => dest.IssueDate, opt => opt.MapFrom(_ => DateTime.UtcNow))
+                .ForMember(dest => dest.IssueDate, opt => opt.MapFrom(_ => DateTime.Now))
                 .ForMember(dest => dest.DecisionStatus, opt => opt.MapFrom(src => DecisionStatus.Draft))
                 .ForMember(dest => dest.CertificateId, opt => opt.Ignore())
                 .ForMember(dest => dest.DecisionTemplateId, opt => opt.Ignore());
