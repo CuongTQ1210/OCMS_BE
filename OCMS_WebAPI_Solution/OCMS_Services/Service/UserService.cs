@@ -133,6 +133,53 @@ namespace OCMS_Services.Service
         }
         #endregion
 
+        public async Task<string> CreateUserAsync(UserCreateDTO dto)
+        {
+            // Check for existing email
+            var existingUser = await _unitOfWork.UserRepository
+                .GetFirstOrDefaultAsync(u => u.Email.ToLower() == dto.Email.ToLower());
+
+            if (existingUser != null)
+                throw new InvalidOperationException("Email already exists.");
+
+            // Optional: check if username exists too
+            var existingUsername = await _unitOfWork.UserRepository
+                .GetFirstOrDefaultAsync(u => u.Username.ToLower() == dto.Username.ToLower());
+
+            if (existingUsername != null)
+                throw new InvalidOperationException("Username already exists.");
+            var specialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(dto.SpecialtyId);
+            if (specialty == null)
+                throw new KeyNotFoundException("Specialty does not exists.");
+            var department = await _unitOfWork.DepartmentRepository.GetByIdAsync(dto.DepartmentId);
+            if (department == null)
+                throw new KeyNotFoundException("Department does not exists.");
+            var role = await _unitOfWork.RoleRepository.GetByIdAsync(dto.RoleId.ToString());
+            if (role == null)
+                throw new KeyNotFoundException("Role does not exists.");
+            var user = new User
+            {
+                UserId = dto.UserId ?? Guid.NewGuid().ToString(),
+                Username = dto.Username,
+                FullName = dto.FullName,
+                Gender = dto.Gender,
+                DateOfBirth = dto.DateOfBirth,
+                Address = dto.Address,
+                PhoneNumber = dto.PhoneNumber,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.PasswordHash),
+                Email = dto.Email,
+                RoleId = dto.RoleId,
+                SpecialtyId = dto.SpecialtyId,
+                DepartmentId = dto.DepartmentId,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            await _unitOfWork.UserRepository.AddAsync(user);
+            await _unitOfWork.SaveChangesAsync();
+
+            return user.UserId;
+        }
         #region Update Password
         public async Task UpdatePasswordAsync(string userId, PasswordUpdateDTO passwordDto)
         {

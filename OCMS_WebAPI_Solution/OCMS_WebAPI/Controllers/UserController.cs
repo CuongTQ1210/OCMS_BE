@@ -177,6 +177,25 @@ namespace OCMS_WebAPI.Controllers
         }
         #endregion
 
+
+        [HttpPost]
+        [CustomAuthorize("Admin")]
+        public async Task<IActionResult> CreateUser([FromBody] UserCreateDTO dto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            try
+            {
+                var userId = await _userService.CreateUserAsync(dto);
+                return Ok(new { UserId = userId, Message = "User created successfully." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred: {ex.Message}");
+            }
+        }
+
         [HttpGet("checktime")]
         public IActionResult CheckTime()
         {

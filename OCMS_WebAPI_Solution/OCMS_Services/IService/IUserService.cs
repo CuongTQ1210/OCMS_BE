@@ -22,6 +22,7 @@ namespace OCMS_Services.IService
         Task ResetPasswordAsync(string token, ResetPasswordDTO newPassword);
         Task<IEnumerable<UserModel>> GetUsersByRoleAsync(string roleId);
 
+        Task<string> CreateUserAsync(UserCreateDTO dto);
         Task<string> UpdateUserAvatarAsync(string userId, IFormFile file);
     }
 }
