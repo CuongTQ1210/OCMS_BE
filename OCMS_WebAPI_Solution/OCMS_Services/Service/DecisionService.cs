@@ -126,7 +126,7 @@ namespace OCMS_Services.Service
 
             // 4. Chuẩn bị dữ liệu
             var decisionCode = GenerateDecisionCode();
-            var issueDate = DateTime.UtcNow;
+            var issueDate = DateTime.Now;
             var studentRows = await GenerateStudentRowsAsync(approvedCertificates);
             var courseSchedules = await _unitOfWork.TrainingScheduleRepository.GetAllAsync(ts => ts.Subject.CourseId == request.CourseId);
             var startDate = courseSchedules.Any() ? courseSchedules.Min(s => s.StartDateTime) : issueDate;
@@ -146,7 +146,7 @@ namespace OCMS_Services.Service
                 .Replace("{{StudentRows}}", studentRows);
 
             // 6. Lưu Quyết định vào blob
-            string blobName = $"decision_{decisionCode}_{DateTime.UtcNow:yyyyMMddHHmmss}.html";
+            string blobName = $"decision_{decisionCode}_{DateTime.Now:yyyyMMddHHmmss}.html";
             using var stream = new MemoryStream(Encoding.UTF8.GetBytes(decisionContent));
             var blobUrl = await _blobService.UploadFileAsync("decisions", blobName, stream, "text/html");
             var blobUrlWithoutSas = _blobService.GetBlobUrlWithoutSasToken(blobUrl);

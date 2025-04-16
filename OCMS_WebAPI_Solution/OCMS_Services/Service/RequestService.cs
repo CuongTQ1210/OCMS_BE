@@ -84,9 +84,9 @@ namespace OCMS_Services.Service
                 RequestType = requestDto.RequestType,
                 Description = requestDto.Description,
                 Notes = requestDto.Notes,
-                RequestDate = DateTime.UtcNow,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
+                RequestDate = DateTime.Now,
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now,
                 ApprovedBy = null,
                 ApprovedDate = null
             };
@@ -320,7 +320,7 @@ namespace OCMS_Services.Service
                     {
                         plan.TrainingPlanStatus = TrainingPlanStatus.Approved;
                         plan.ApproveByUserId = approvedByUserId;
-                        plan.ApproveDate = DateTime.UtcNow;
+                        plan.ApproveDate = DateTime.Now;
                         await _unitOfWork.TrainingPlanRepository.UpdateAsync(plan);
                         // ✅ Approve all courses in the plan
                         var courses = await _courseRepository.GetCoursesByTrainingPlanIdAsync(plan.PlanId);
@@ -329,7 +329,7 @@ namespace OCMS_Services.Service
                             course.Status = CourseStatus.Approved;
                             course.Progress = Progress.Ongoing;
                             course.ApproveByUserId= approvedByUserId;
-                            course.ApprovalDate = DateTime.UtcNow;
+                            course.ApprovalDate = DateTime.Now;
                             await _unitOfWork.CourseRepository.UpdateAsync(course);
                         }
 
@@ -338,7 +338,7 @@ namespace OCMS_Services.Service
                         foreach (var schedule in schedules)
                         {
                             schedule.Status = ScheduleStatus.Incoming;
-                            schedule.ModifiedDate = DateTime.UtcNow;
+                            schedule.ModifiedDate = DateTime.Now;
                             await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
                         }
 
@@ -401,7 +401,7 @@ namespace OCMS_Services.Service
                     foreach (var assign in traineeAssigns)
                     {
                         assign.RequestStatus = RequestStatus.Approved;
-                        assign.ApprovalDate = DateTime.UtcNow;
+                        assign.ApprovalDate = DateTime.Now;
                         assign.ApproveByUserId = approvedByUserId;
                         await _unitOfWork.TraineeAssignRepository.UpdateAsync(assign);
                         
@@ -438,7 +438,7 @@ namespace OCMS_Services.Service
                         return false;
 
                     traineeAssign.RequestStatus = RequestStatus.Approved;
-                    traineeAssign.ApprovalDate = DateTime.UtcNow;
+                    traineeAssign.ApprovalDate = DateTime.Now;
                     traineeAssign.ApproveByUserId = approvedByUserId;
                     await _unitOfWork.TraineeAssignRepository.UpdateAsync(traineeAssign);
                     
@@ -484,7 +484,7 @@ namespace OCMS_Services.Service
                                 // Apply the changes
                                 trainingPlan.PlanName = dto.PlanName;
                                 trainingPlan.Desciption = dto.Desciption;
-                                trainingPlan.ModifyDate = DateTime.UtcNow;
+                                trainingPlan.ModifyDate = DateTime.Now;
                                 trainingPlan.CreateByUserId = request.RequestUserId; // Or approvedByUserId
                                 trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Approved;
                                 await _unitOfWork.TrainingPlanRepository.UpdateAsync(trainingPlan);
@@ -546,9 +546,9 @@ namespace OCMS_Services.Service
         {
             var request = await _unitOfWork.RequestRepository.GetByIdAsync(requestId);
             
-            request.UpdatedAt = DateTime.UtcNow;
+            request.UpdatedAt = DateTime.Now;
             request.ApprovedBy = rejectByUserId;
-            request.ApprovedDate = DateTime.UtcNow;
+            request.ApprovedDate = DateTime.Now;
             if (request != null && request.Status == RequestStatus.Pending)
             {
                 request.Status = RequestStatus.Rejected;

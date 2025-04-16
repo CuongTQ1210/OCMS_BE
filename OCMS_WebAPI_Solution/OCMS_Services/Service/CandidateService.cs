@@ -226,8 +226,8 @@ namespace OCMS_Services.Service
                             Note = candidateSheet.Cells[row, 9].GetValue<string>(),
                             CandidateStatus = CandidateStatus.Pending,
                             ImportByUserID = importedByUserId,
-                            CreatedAt = DateTime.UtcNow,
-                            UpdatedAt = DateTime.UtcNow
+                            CreatedAt = DateTime.Now,
+                            UpdatedAt = DateTime.Now
                         };
 
                         // Validate candidate
@@ -269,7 +269,7 @@ namespace OCMS_Services.Service
                         var drawing = drawings.FirstOrDefault(d => d.From.Row + 1 == row && d.From.Column + 1 == 5); // Cột 5 là ảnh
                         if (drawing != null && drawing is ExcelPicture picture)
                         {
-                            string blobName = $"{candidateId}_{certificateCode}_{DateTime.UtcNow.Ticks}.jpg";
+                            string blobName = $"{candidateId}_{certificateCode}_{DateTime.Now.Ticks}.jpg";
                             using (var stream = new MemoryStream(picture.Image.ImageBytes))
                             {
                                 certificateFileURL = await blobService.UploadFileAsync("externalcertificates", blobName, stream, "image/jpeg");
@@ -289,9 +289,9 @@ namespace OCMS_Services.Service
                             IssuingOrganization = issuingOrganization,
                             CertificateFileURL = certificateFileURL,
                             VerifyByUserId = importedByUserId,
-                            VerifyDate = DateTime.UtcNow,
+                            VerifyDate = DateTime.Now,
                             VerificationStatus = VerificationStatus.Pending,
-                            CreatedAt = DateTime.UtcNow
+                            CreatedAt = DateTime.Now
                         };
 
                         externalCertificates.Add(certificate);
@@ -409,7 +409,7 @@ namespace OCMS_Services.Service
                 _mapper.Map(updatedCandidateModel, existingCandidate);
 
                 // Cập nhật trường UpdatedAt với thời gian hiện tại
-                existingCandidate.UpdatedAt = DateTime.UtcNow;
+                existingCandidate.UpdatedAt = DateTime.Now;
 
                 // Lưu thay đổi vào database
                 await _unitOfWork.CandidateRepository.UpdateAsync(existingCandidate);

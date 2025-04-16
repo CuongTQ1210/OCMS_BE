@@ -36,7 +36,7 @@ namespace OCMS_Services.Service
                 Title = title,
                 Message = message,
                 NotificationType = type,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.Now
             };
 
             await _unitOfWork.NotificationRepository.AddAsync(notification);
