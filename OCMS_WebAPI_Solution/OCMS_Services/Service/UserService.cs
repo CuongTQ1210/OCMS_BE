@@ -108,8 +108,8 @@ namespace OCMS_Services.Service
                 RoleId = 7, // Role mặc định cho User thông thường
                 SpecialtyId = candidate.SpecialtyId,
                 Status = AccountStatus.Active,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now,
                 Address = candidate.Address,
                 Gender = candidate.Gender,
                 DateOfBirth = candidate.DateOfBirth,
@@ -166,8 +166,8 @@ namespace OCMS_Services.Service
             user.PasswordHash = PasswordHasher.HashPassword(password);
 
             // Thiết lập các thông tin khác
-            user.CreatedAt = DateTime.UtcNow;
-            user.UpdatedAt = DateTime.UtcNow;
+            user.CreatedAt = DateTime.Now;
+            user.UpdatedAt = DateTime.Now;
 
             // Thiết lập Role cho User (nếu không có trong DTO)
             if (user.RoleId == 0)
@@ -196,13 +196,14 @@ namespace OCMS_Services.Service
                 throw new Exception("User not found.");
 
             _mapper.Map(updateDto, user);
-            user.UpdatedAt = DateTime.UtcNow;
+            user.UpdatedAt = DateTime.Now;
 
             await _unitOfWork.UserRepository.UpdateAsync(user);
             await _unitOfWork.SaveChangesAsync();
         }
         #endregion
 
+        
         #region Update Password
         public async Task UpdatePasswordAsync(string userId, PasswordUpdateDTO passwordDto)
         {
@@ -214,7 +215,7 @@ namespace OCMS_Services.Service
                 throw new Exception("Current password is incorrect.");
 
             user.PasswordHash = PasswordHasher.HashPassword(passwordDto.NewPassword);
-            user.UpdatedAt = DateTime.UtcNow;
+            user.UpdatedAt = DateTime.Now;
 
             await _unitOfWork.UserRepository.UpdateAsync(user);
             await _unitOfWork.SaveChangesAsync();
@@ -257,7 +258,7 @@ namespace OCMS_Services.Service
                 throw new Exception("New Password can not be empty.");
             }
             user.PasswordHash = PasswordHasher.HashPassword(newPassword.NewPassword);
-            user.UpdatedAt = DateTime.UtcNow;
+            user.UpdatedAt = DateTime.Now;
 
             await _unitOfWork.UserRepository.UpdateAsync(user);
             await _unitOfWork.SaveChangesAsync();
@@ -368,7 +369,7 @@ Trân trọng,
 
             // Lưu URL gốc (không có SAS token) vào database
             user.AvatarUrl = _blobService.GetBlobUrlWithoutSasToken(avatarUrl);
-            user.UpdatedAt = DateTime.UtcNow;
+            user.UpdatedAt = DateTime.Now;
 
             await _unitOfWork.UserRepository.UpdateAsync(user);
             await _unitOfWork.SaveChangesAsync();

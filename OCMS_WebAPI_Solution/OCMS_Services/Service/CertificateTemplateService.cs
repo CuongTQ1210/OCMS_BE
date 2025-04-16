@@ -73,7 +73,7 @@ namespace OCMS_Services.Service
 
                 var requestDto = new RequestDTO
                 {
-                    RequestType = RequestType.TemplateApprove,
+                    RequestType = RequestType.CertificateTemplate,
                     RequestEntityId = template.CertificateTemplateId,
                     Description = $"Request to approve Certificate Template {template.CertificateTemplateId}",
                     Notes = "Please review the template and approve as soon as possible.",
@@ -163,7 +163,7 @@ namespace OCMS_Services.Service
                 if (template == null)
                     return null;
 
-                template.LastUpdatedAt = DateTime.UtcNow;
+                template.LastUpdatedAt = DateTime.Now;
 
                 if (!string.IsNullOrEmpty(request.Description))
                 {

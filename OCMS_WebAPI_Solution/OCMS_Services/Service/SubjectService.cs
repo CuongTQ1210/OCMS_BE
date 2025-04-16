@@ -86,8 +86,8 @@ namespace OCMS_Services.Service
             subject.SubjectId = dto.SubjectId;
             subject.CreateByUserId = createdByUserId;
             
-            subject.CreatedAt = DateTime.UtcNow;
-            subject.UpdatedAt = DateTime.UtcNow;
+            subject.CreatedAt = DateTime.Now;
+            subject.UpdatedAt = DateTime.Now;
 
             await _unitOfWork.SubjectRepository.AddAsync(subject);
             await _unitOfWork.SaveChangesAsync();
@@ -113,7 +113,7 @@ namespace OCMS_Services.Service
             if (subjectExisted2)
                 throw new ArgumentException("This Subject name already existed.");
             _mapper.Map(dto, subject);
-            subject.UpdatedAt = DateTime.UtcNow;
+            subject.UpdatedAt = DateTime.Now;
             _unitOfWork.SubjectRepository.UpdateAsync(subject);
             await _unitOfWork.SaveChangesAsync();
 

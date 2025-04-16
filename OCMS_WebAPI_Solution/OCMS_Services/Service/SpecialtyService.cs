@@ -41,9 +41,9 @@ namespace OCMS_Services.Service
             var specialty = _mapper.Map<Specialties>(model);
             specialty.SpecialtyId = specialtyId;
             specialty.CreatedByUserId = createdByUserId;
-            specialty.CreatedAt = DateTime.UtcNow;
+            specialty.CreatedAt = DateTime.Now;
             specialty.UpdatedByUserId = createdByUserId;
-            specialty.UpdatedAt = DateTime.UtcNow;
+            specialty.UpdatedAt = DateTime.Now;
 
             await _unitOfWork.SpecialtyRepository.AddAsync(specialty);
             await _unitOfWork.SaveChangesAsync();
@@ -253,7 +253,7 @@ namespace OCMS_Services.Service
 
             _mapper.Map(model, existingSpecialty);
             existingSpecialty.UpdatedByUserId = updatedByUserId;
-            existingSpecialty.UpdatedAt = DateTime.UtcNow;
+            existingSpecialty.UpdatedAt = DateTime.Now;
 
             await _unitOfWork.SpecialtyRepository.UpdateAsync(existingSpecialty);
             await _unitOfWork.SaveChangesAsync();

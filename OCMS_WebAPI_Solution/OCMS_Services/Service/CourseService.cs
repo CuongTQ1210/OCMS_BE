@@ -42,8 +42,8 @@ namespace OCMS_Services.Service
             course.CourseLevel = dto.CourseLevel;
             course.TrainingPlan = trainingPlan;
             course.CreatedByUserId = createdByUserId;
-            course.CreatedAt = DateTime.UtcNow;
-            course.UpdatedAt = DateTime.UtcNow;
+            course.CreatedAt = DateTime.Now;
+            course.UpdatedAt = DateTime.Now;
             course.Status = CourseStatus.Pending;
             course.Progress = Progress.NotYet;
             await _unitOfWork.CourseRepository.AddAsync(course);
@@ -87,7 +87,7 @@ namespace OCMS_Services.Service
             _mapper.Map(dto, course);
             course.TrainingPlanId = dto.TrainingPlanId;
             course.CourseLevel = dto.CourseLevel;
-            course.UpdatedAt = DateTime.UtcNow;
+            course.UpdatedAt = DateTime.Now;
 
             _unitOfWork.CourseRepository.UpdateAsync(course);
             await _unitOfWork.SaveChangesAsync();

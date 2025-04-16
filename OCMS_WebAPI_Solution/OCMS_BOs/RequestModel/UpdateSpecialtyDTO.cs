@@ -15,7 +15,7 @@ namespace OCMS_BOs.RequestModel
 
         public string Description { get; set; }
 
-        public string ParentSpecialtyId { get; set; }
+        public string? ParentSpecialtyId { get; set; }
 
         public int Status { get; set; }
     }

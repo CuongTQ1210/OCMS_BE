@@ -90,7 +90,7 @@ namespace OCMS_Services.Service
             var assignment = _mapper.Map<InstructorAssignment>(dto);
             assignment.AssignmentId = assignmentId;
             assignment.AssignByUserId = assignByUserId;
-            assignment.AssignDate = DateTime.UtcNow;
+            assignment.AssignDate = DateTime.Now;
             assignment.RequestStatus = RequestStatus.Pending; // Assuming RequestStatus is an enum
             var user = await _unitOfWork.UserRepository.FirstOrDefaultAsync(u => u.UserId == dto.InstructorId);
             if (user != null)

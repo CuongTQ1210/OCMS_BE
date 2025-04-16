@@ -193,6 +193,21 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
+
+
+        
+
+        [HttpGet("checktime")]
+        public IActionResult CheckTime()
+        {
+            return Ok(new
+            {
+                LocalTime = DateTime.Now,
+                UtcTime = DateTime.UtcNow,
+                OffsetUtcNow = DateTimeOffset.UtcNow,
+                OffsetNow = DateTimeOffset.Now
+            });
+        }
     }
 }
 

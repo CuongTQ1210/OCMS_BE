@@ -140,6 +140,11 @@ namespace OCMS_Repositories
             return _context.Set<T>().AsQueryable();
         }
 
+        public async Task<T?> GetFirstOrDefaultAsync(Expression<Func<T, bool>> predicate)
+        {
+            return await _dbSet.FirstOrDefaultAsync(predicate);
+        }
+
         public async Task<T?> GetLastObjectIdAsync(Expression<Func<T, bool>> filter, Expression<Func<T, string>> orderByDesc)
         {
             return await _dbSet.Where(filter)

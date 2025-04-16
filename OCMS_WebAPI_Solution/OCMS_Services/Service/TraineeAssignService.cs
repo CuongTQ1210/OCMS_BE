@@ -192,7 +192,7 @@ namespace OCMS_Services.Service
                 RequestId = $"REQ-{Guid.NewGuid().ToString("N")[..6].ToUpper()}",
                 RequestType = RequestType.AddTraineeAssign, // Assuming an enum exists
                 RequestUserId=createdByUserId,
-                RequestDate=DateTime.UtcNow,
+                RequestDate=DateTime.Now,
                 Status= RequestStatus.Pending,
                 Description= $"Assign trainee {dto.TraineeId} to Course {dto.CourseId}.",
                 Notes = $"Request to assign Trainee {dto.TraineeId} to Course {dto.CourseId}.",
@@ -207,7 +207,7 @@ namespace OCMS_Services.Service
                 RequestId = newRequest.RequestId, // Link to the request
                 AssignByUserId= createdByUserId,
                 RequestStatus = RequestStatus.Pending,
-                AssignDate = DateTime.UtcNow,
+                AssignDate = DateTime.Now,
                 ApprovalDate = null,
                 ApproveByUserId = null,
                 Notes = dto.Notes
@@ -337,7 +337,7 @@ namespace OCMS_Services.Service
                             TraineeAssignId = traineeAssignId,
                             TraineeId = userId,
                             CourseId = courseId,
-                            AssignDate = DateTime.UtcNow,
+                            AssignDate = DateTime.Now,
                             RequestStatus = RequestStatus.Pending,
                             AssignByUserId = importedByUserId,
                             ApproveByUserId = null,

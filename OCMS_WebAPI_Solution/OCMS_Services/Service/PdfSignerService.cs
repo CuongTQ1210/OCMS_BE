@@ -240,7 +240,7 @@ namespace OCMS_Services.Service
 
             // Step 10: Upload signed PDF to blob storage
             string containerName = "certificates";
-            string blobName = $"signed/{certificateId}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
+            string blobName = $"signed/{certificateId}_{DateTime.Now:yyyyMMddHHmmss}.pdf";
             string newCertificateUrl;
             using (var stream = new MemoryStream(signedPdfBytes))
             {
@@ -264,9 +264,7 @@ namespace OCMS_Services.Service
                 {
                     certificate.CertificateURL = newCertificateUrl;
                     certificate.Status = OCMS_BOs.Entities.CertificateStatus.Active;
-                    certificate.SignDate = DateTime.UtcNow;
-                    certificate.ExpirationDate = DateTime.UtcNow.AddYears(3); // Set expiration date to 1 year from now
-
+                    certificate.SignDate = DateTime.Now;
                     _unitOfWork.CertificateRepository.UpdateAsync(certificate);
                     await _unitOfWork.SaveChangesAsync();
                     await _unitOfWork.CommitTransactionAsync();

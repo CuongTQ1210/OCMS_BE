@@ -121,7 +121,7 @@ namespace OCMS_Services.Service
                     .GroupBy(g => g.TraineeAssignID)
                     .ToDictionary(g => g.Key, g => g.ToList());
 
-                var issueDate = DateTime.UtcNow;
+                var issueDate = DateTime.Now;
 
                 // 7. Find eligible trainees efficiently using parallel processing
                 var eligibleTrainees = traineeAssignments
@@ -387,7 +387,7 @@ namespace OCMS_Services.Service
         {
             string certificateCode = GenerateCertificateCode(course, trainee);
             string modifiedHtml = await PopulateTemplateAsync(templateHtml, trainee, course, issueDate, certificateCode, grades, templateType);
-            string certificateFileName = $"certificate_{certificateCode}_{DateTime.UtcNow:yyyyMMddHHmmss}.html";
+            string certificateFileName = $"certificate_{certificateCode}_{DateTime.Now:yyyyMMddHHmmss}.html";
             string certificateUrl = await SaveCertificateToBlob(modifiedHtml, certificateFileName);
             var userExist = await _unitOfWork.UserRepository.GetByIdAsync(trainee.UserId);
             var courseExist = await _unitOfWork.CourseRepository.GetByIdAsync(course.CourseId);
@@ -405,7 +405,7 @@ namespace OCMS_Services.Service
                 IsRevoked = false,
                 Course= courseExist,
                 User=userExist,
-                SignDate = DateTime.UtcNow
+                SignDate = DateTime.Now
             };
         }
 
@@ -413,8 +413,8 @@ namespace OCMS_Services.Service
         {
             // Create a unique code format like: OCMS-{CourseLevel}-{Year}-{Month}-{Hash}
             string courseLevel = course.CourseLevel.ToString().Substring(0, 3).ToUpper();
-            string year = DateTime.UtcNow.Year.ToString();
-            string month = DateTime.UtcNow.Month.ToString("D2");
+            string year = DateTime.Now.Year.ToString();
+            string month = DateTime.Now.Month.ToString("D2");
 
             // Generate a hash from trainee ID + course ID
             string hash = (trainee.UserId + course.CourseId).GetHashCode().ToString("X").Substring(0, 5);
@@ -459,8 +459,8 @@ namespace OCMS_Services.Service
                 .Replace("[Ngày bắt đầu]", startDate)
                 .Replace("[NGÀY KẾT THÚC]", endDate)
                 .Replace("[Ngày kết thúc]", endDate)
-                .Replace("[MÃ QUYẾT ĐỊNH]", $"ATO-{DateTime.UtcNow.Year}-{course.CourseId.Substring(0, 4)}")
-                .Replace("[Mã quyết định]", $"ATO-{DateTime.UtcNow.Year}-{course.CourseId.Substring(0, 4)}")
+                .Replace("[MÃ QUYẾT ĐỊNH]", $"ATO-{DateTime.Now.Year}-{course.CourseId.Substring(0, 4)}")
+                .Replace("[Mã quyết định]", $"ATO-{DateTime.Now.Year}-{course.CourseId.Substring(0, 4)}")
                 .Replace("[MÃ CHỨNG CHỈ]", certificateCode)
                 .Replace("[Mã chứng chỉ]", certificateCode);
 
@@ -471,7 +471,7 @@ namespace OCMS_Services.Service
             }
 
             // Update date in signature
-            var currentDate = DateTime.UtcNow;
+            var currentDate = DateTime.Now;
             result = Regex.Replace(result,
                 @"ngày\s+\d+\s+tháng\s+\d+\s+năm\s+\d+",
                 $"ngày {currentDate.Day} tháng {currentDate.Month} năm {currentDate.Year}");

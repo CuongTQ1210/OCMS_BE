@@ -104,8 +104,8 @@ namespace OCMS_Services.Service
             var schedule = _mapper.Map<TrainingSchedule>(dto);
             schedule.ScheduleID = scheduleId;
             schedule.CreatedBy = createdByUserId;
-            schedule.CreatedDate = DateTime.UtcNow;
-            schedule.ModifiedDate = DateTime.UtcNow;
+            schedule.CreatedDate = DateTime.Now;
+            schedule.ModifiedDate = DateTime.Now;
             schedule.Status = ScheduleStatus.Pending;
             schedule.StartDateTime = dto.StartDay;
             schedule.EndDateTime = dto.EndDay;
@@ -136,7 +136,7 @@ namespace OCMS_Services.Service
 
             // Apply update
             _mapper.Map(dto, schedule);
-            schedule.ModifiedDate = DateTime.UtcNow;
+            schedule.ModifiedDate = DateTime.Now;
 
             _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
             await _unitOfWork.SaveChangesAsync();
@@ -383,7 +383,7 @@ namespace OCMS_Services.Service
                 throw new ArgumentException("EndDateTime is required.");
             if (dto.StartDay >= dto.EndDay)
                 throw new ArgumentException("StartDateTime must be before EndDateTime.");
-            if (dto.StartDay < DateTime.UtcNow)
+            if (dto.StartDay < DateTime.Now)
                 throw new ArgumentException("StartDateTime cannot be in the past.");
             if (dto.StartDay < plan.StartDate || dto.EndDay > plan.EndDate)
                 throw new ArgumentException("Start and end dates must be within the training plan's duration.");
