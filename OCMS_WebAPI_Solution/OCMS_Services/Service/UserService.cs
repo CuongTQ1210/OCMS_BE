@@ -235,7 +235,7 @@ namespace OCMS_Services.Service
             // Store token in Redis with 15-minute expiration
             await _redis.StringSetAsync(token, user.UserId, TimeSpan.FromMinutes(15));
 
-            var baseUrl = "https://ocms-vjvn.azurewebsites.net"; // Có thể lấy từ cấu hình
+            var baseUrl = "https://ocms-bea4aagveeejawff.southeastasia-01.azurewebsites.net"; // Có thể lấy từ cấu hình
             var resetLink = $"{baseUrl}/reset-password?token={token}";
             string emailBody = $"Click the following link to reset your password: {resetLink}";
 

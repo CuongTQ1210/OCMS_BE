@@ -126,7 +126,7 @@ namespace OCMS_Services.Service
                 var proposedChanges = JsonSerializer.Serialize(dto);
                 var requestDto = new RequestDTO
                 {
-                    RequestType = RequestType.Update,
+                    RequestType = RequestType.PlanChange,
                     RequestEntityId = id,
                     Description = $"Request to update training plan {id}",
                     Notes = $"Proposed changes: {proposedChanges}" // Store new data in Notes
@@ -176,7 +176,7 @@ namespace OCMS_Services.Service
             {
                 var requestDto = new RequestDTO
                 {
-                    RequestType = RequestType.Delete,
+                    RequestType = RequestType.PlanDelete,
                     RequestEntityId = id,
                     Description = $"Request to delete training plan {id}",
                     Notes = "Awaiting HeadMaster approval"

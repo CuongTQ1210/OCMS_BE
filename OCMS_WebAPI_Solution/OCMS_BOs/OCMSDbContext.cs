@@ -105,6 +105,10 @@ namespace OCMS_BOs
                      .WithMany()
                      .HasForeignKey(u => u.SpecialtyId)
                      .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(u => u.Department)
+                      .WithMany() // If Department has a `List<User>` navigation property, use `.WithMany(d => d.Users)`
+                      .HasForeignKey(u => u.DepartmentId)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<Specialties>(entity =>
@@ -144,6 +148,23 @@ namespace OCMS_BOs
                 entity.Property(cp => cp.UpdatedAt)
                       .HasDefaultValueSql("CURRENT_TIMESTAMP");
             });
+            modelBuilder.Entity<Department>(entity =>
+{
+    entity.HasKey(d => d.DepartmentId);
+
+    entity.Property(d => d.DepartmentName)
+          .IsRequired();
+
+    entity.HasOne(d => d.Specialty)
+          .WithMany()
+          .HasForeignKey(d => d.SpecialtyId)
+          .OnDelete(DeleteBehavior.Restrict);
+
+    entity.HasOne(d => d.Manager)
+          .WithMany() // If you want to add a collection of managed departments in User, change this to WithMany(u => u.ManagedDepartments)
+          .HasForeignKey(d => d.ManagerUserId)
+          .OnDelete(DeleteBehavior.Restrict);
+});
             modelBuilder.Entity<User>()
     .Property(u => u.Status)
     .HasDefaultValue(AccountStatus.Active) // Ensure this matches your intended default
@@ -161,7 +182,6 @@ namespace OCMS_BOs
                 .WithMany()
                 .HasForeignKey(g => g.GradedByInstructorId)
                 .OnDelete(DeleteBehavior.Restrict);
-
             // Seed data for roles
             modelBuilder.Entity<Role>().HasData(
                 new Role { RoleId = 1, RoleName = "Admin" },
@@ -334,6 +354,7 @@ namespace OCMS_BOs
                     IsDeleted = false
                 }
             );
+
         }
     }
 

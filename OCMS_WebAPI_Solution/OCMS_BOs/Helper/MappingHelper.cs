@@ -20,6 +20,7 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.RoleId, opt => opt.MapFrom(src => src.RoleId))
                 .ForMember(dest => dest.RoleName, opt => opt.MapFrom(src => src.Role.RoleName))
                 .ForMember(dest => dest.AvatarUrl, opt => opt.MapFrom(src => src.AvatarUrl)) // ✅ Added mapping
+                .ForMember(dest => dest.DepartmentId, opt => opt.MapFrom(src => src.DepartmentId))
                 .ReverseMap();
             CreateMap<UserUpdateDTO, User>()
                 .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.FullName))
@@ -56,6 +57,15 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.CreatedByUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
                 .ForMember(dest => dest.UpdatedByUserId, opt => opt.Ignore());
+            //Department 
+            CreateMap<Department, DepartmentModel>()
+            .ForMember(dest => dest.ManagerUserId, opt => opt.MapFrom(src => src.ManagerUserId))
+            .ForMember(dest => dest.SpecialtyId, opt => opt.MapFrom(src => src.SpecialtyId));
+
+            CreateMap<DepartmentModel, Department>()
+                .ForMember(dest => dest.Manager, opt => opt.Ignore())
+                .ForMember(dest => dest.Specialty, opt => opt.Ignore());
+
 
             CreateMap<Specialties, SpecialtyTreeModel>()
                 .ForMember(dest => dest.Children, opt => opt.Ignore());

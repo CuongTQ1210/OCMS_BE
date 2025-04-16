@@ -17,6 +17,7 @@ namespace OCMS_BOs.ViewModel
         public string Address { get; set; }
         public string PhoneNumber { get; set; }
         public int RoleId { get; set; }
+        public string DepartmentId { get; set; }
         public string RoleName { get; set; }
         public bool IsAssign { get; set; }
 
