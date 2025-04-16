@@ -147,7 +147,20 @@ namespace OCMS_Services.Service
                 }
             }
 
-            if (newRequest.RequestType == RequestType.TemplateApprove)
+            if (newRequest.RequestType == RequestType.DecisionTemplate)
+            {
+                var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
+                foreach (var director in directors)
+                {
+                    await _notificationService.SendNotificationAsync(
+                        director.UserId,
+                        "New Template Approval Request",
+                        "A new template approval request has been submitted for review.",
+                        "TemplateApprove"
+                    );
+                }
+            }
+            if (newRequest.RequestType == RequestType.CertificateTemplate)
             {
                 var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
                 foreach (var director in directors)
@@ -233,10 +246,14 @@ namespace OCMS_Services.Service
 
                     return await _unitOfWork.SubjectRepository.ExistsAsync(s => s.SubjectId == entityId);
 
-                case RequestType.TemplateApprove:
+                case RequestType.DecisionTemplate:
                     if (string.IsNullOrWhiteSpace(entityId))
                         return false;
                     return await _unitOfWork.DecisionTemplateRepository.ExistsAsync(dt => dt.DecisionTemplateId == entityId);
+                case RequestType.CertificateTemplate:
+                    if (string.IsNullOrWhiteSpace(entityId))
+                        return false;
+                    return await _unitOfWork.CertificateTemplateRepository.ExistsAsync(dt => dt.CertificateTemplateId == entityId);
                 default:
                     return true;
             }
@@ -656,7 +673,7 @@ namespace OCMS_Services.Service
                     notificationMessage = $"Your request to assign a trainee has been rejected. Reason: {rejectionReason}";
                     
                     break;
-                case RequestType.TemplateApprove:
+                case RequestType.DecisionTemplate:
                     if (rejecter == null || rejecter.RoleId != 2)
                     {
                         throw new UnauthorizedAccessException("Only HeadMaster can reject this request.");
@@ -666,6 +683,21 @@ namespace OCMS_Services.Service
                     {
                         template.TemplateStatus = (int)TemplateStatus.Inactive;
                         await _unitOfWork.DecisionTemplateRepository.UpdateAsync(template);
+                    }
+
+                    notificationMessage = $"Your request to approve the template has been rejected. Reason: {rejectionReason}";
+
+                    break;
+                case RequestType.CertificateTemplate:
+                    if (rejecter == null || rejecter.RoleId != 2)
+                    {
+                        throw new UnauthorizedAccessException("Only HeadMaster can reject this request.");
+                    }
+                    var certiTemplate = await _unitOfWork.CertificateTemplateRepository.GetByIdAsync(request.RequestEntityId);
+                    if (certiTemplate != null)
+                    {
+                        certiTemplate.templateStatus = (int)TemplateStatus.Inactive;
+                        await _unitOfWork.CertificateTemplateRepository.UpdateAsync(certiTemplate);
                     }
 
                     notificationMessage = $"Your request to approve the template has been rejected. Reason: {rejectionReason}";

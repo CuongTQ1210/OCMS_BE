@@ -89,7 +89,7 @@ namespace OCMS_Services.Service
 
                     var requestDto = new RequestDTO
                     {
-                        RequestType = RequestType.TemplateApprove,
+                        RequestType = RequestType.DecisionTemplate,
                         RequestEntityId = decisionTemplate.DecisionTemplateId,
                         Description = $"Request to approve Decision Template {decisionTemplate.DecisionTemplateId}",
                         Notes = "Please review the template and approve as soon as possible.",
