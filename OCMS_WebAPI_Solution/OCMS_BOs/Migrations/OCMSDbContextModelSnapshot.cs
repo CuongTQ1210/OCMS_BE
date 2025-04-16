@@ -413,7 +413,6 @@ namespace OCMS_BOs.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("DigitalSignatureId")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("IssueDate")
@@ -449,7 +448,6 @@ namespace OCMS_BOs.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("ApprovedByUserId")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
@@ -948,12 +946,12 @@ namespace OCMS_BOs.Migrations
                         new
                         {
                             SpecialtyId = "SPEC-001",
-                            CreatedAt = new DateTime(2025, 4, 10, 7, 5, 8, 569, DateTimeKind.Utc).AddTicks(2364),
+                            CreatedAt = new DateTime(2025, 4, 15, 22, 21, 59, 938, DateTimeKind.Utc).AddTicks(4195),
                             CreatedByUserId = "ADM-1",
                             Description = "Admin Specialty Description",
                             SpecialtyName = "Admin Specialty",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 10, 14, 5, 8, 569, DateTimeKind.Local).AddTicks(2363)
+                            UpdatedAt = new DateTime(2025, 4, 16, 5, 21, 59, 938, DateTimeKind.Local).AddTicks(4194)
                         });
                 });
 
@@ -1271,19 +1269,19 @@ namespace OCMS_BOs.Migrations
                             UserId = "ADM-1",
                             Address = "123 Admin Street",
                             AvatarUrl = "",
-                            CreatedAt = new DateTime(2025, 4, 10, 7, 5, 8, 810, DateTimeKind.Utc).AddTicks(4683),
+                            CreatedAt = new DateTime(2025, 4, 15, 22, 22, 0, 187, DateTimeKind.Utc).AddTicks(7674),
                             DateOfBirth = new DateTime(2000, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "admin@gmail.com",
                             FullName = "Admin User",
                             Gender = "Other",
                             IsAssign = false,
                             IsDeleted = false,
-                            PasswordHash = "$2a$11$JJgO2v5H1mY2jShzWzEememabbbETSqOz0Ucvp/7lWoYhzBenOxqe",
+                            PasswordHash = "$2a$11$wabE6CemV5.n.lHhCP/3tOyKr3.xrH1emQq9xJU/QRmxLxI7HvCaC",
                             PhoneNumber = "1234567890",
                             RoleId = 1,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 10, 7, 5, 8, 810, DateTimeKind.Utc).AddTicks(4684),
+                            UpdatedAt = new DateTime(2025, 4, 15, 22, 22, 0, 187, DateTimeKind.Utc).AddTicks(7674),
                             Username = "Admin"
                         },
                         new
@@ -1291,19 +1289,19 @@ namespace OCMS_BOs.Migrations
                             UserId = "HM-1",
                             Address = "456 Headmaster Street",
                             AvatarUrl = "",
-                            CreatedAt = new DateTime(2025, 4, 10, 7, 5, 8, 810, DateTimeKind.Utc).AddTicks(4689),
+                            CreatedAt = new DateTime(2025, 4, 15, 22, 22, 0, 187, DateTimeKind.Utc).AddTicks(7679),
                             DateOfBirth = new DateTime(1980, 5, 20, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "headmaster@gmail.com",
                             FullName = "Head Master User",
                             Gender = "Male",
                             IsAssign = false,
                             IsDeleted = false,
-                            PasswordHash = "$2a$11$frVBPjwYFvrgvv78Tc144esO8PIjp/jHoZheGYmIFxmk64b.Z5n4y",
+                            PasswordHash = "$2a$11$h0BlabfPWe/sV30.Un.87uauW/DQ9.fe8jseK2t3QK47t1OKX2LM2",
                             PhoneNumber = "0987654321",
                             RoleId = 2,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 10, 7, 5, 8, 810, DateTimeKind.Utc).AddTicks(4689),
+                            UpdatedAt = new DateTime(2025, 4, 15, 22, 22, 0, 187, DateTimeKind.Utc).AddTicks(7680),
                             Username = "HeadMaster"
                         },
                         new
@@ -1311,19 +1309,19 @@ namespace OCMS_BOs.Migrations
                             UserId = "TS-1",
                             Address = "789 Training Staff Lane",
                             AvatarUrl = "",
-                            CreatedAt = new DateTime(2025, 4, 10, 7, 5, 8, 810, DateTimeKind.Utc).AddTicks(4692),
+                            CreatedAt = new DateTime(2025, 4, 15, 22, 22, 0, 187, DateTimeKind.Utc).AddTicks(7682),
                             DateOfBirth = new DateTime(1992, 7, 10, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "trainingstaff@gmail.com",
                             FullName = "Training Staff User",
                             Gender = "Female",
                             IsAssign = false,
                             IsDeleted = false,
-                            PasswordHash = "$2a$11$frVBPjwYFvrgvv78Tc144esO8PIjp/jHoZheGYmIFxmk64b.Z5n4y",
+                            PasswordHash = "$2a$11$h0BlabfPWe/sV30.Un.87uauW/DQ9.fe8jseK2t3QK47t1OKX2LM2",
                             PhoneNumber = "1122334455",
                             RoleId = 3,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 10, 7, 5, 8, 810, DateTimeKind.Utc).AddTicks(4692),
+                            UpdatedAt = new DateTime(2025, 4, 15, 22, 22, 0, 187, DateTimeKind.Utc).AddTicks(7683),
                             Username = "TrainingStaff"
                         },
                         new
@@ -1331,19 +1329,19 @@ namespace OCMS_BOs.Migrations
                             UserId = "HR-1",
                             Address = "101 HR Street",
                             AvatarUrl = "",
-                            CreatedAt = new DateTime(2025, 4, 10, 7, 5, 8, 810, DateTimeKind.Utc).AddTicks(4696),
+                            CreatedAt = new DateTime(2025, 4, 15, 22, 22, 0, 187, DateTimeKind.Utc).AddTicks(7686),
                             DateOfBirth = new DateTime(1985, 3, 15, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "hrmanager@gmail.com",
                             FullName = "HR Manager",
                             Gender = "Male",
                             IsAssign = false,
                             IsDeleted = false,
-                            PasswordHash = "$2a$11$frVBPjwYFvrgvv78Tc144esO8PIjp/jHoZheGYmIFxmk64b.Z5n4y",
+                            PasswordHash = "$2a$11$h0BlabfPWe/sV30.Un.87uauW/DQ9.fe8jseK2t3QK47t1OKX2LM2",
                             PhoneNumber = "2233445566",
                             RoleId = 4,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 10, 7, 5, 8, 810, DateTimeKind.Utc).AddTicks(4697),
+                            UpdatedAt = new DateTime(2025, 4, 15, 22, 22, 0, 187, DateTimeKind.Utc).AddTicks(7686),
                             Username = "HRManager"
                         },
                         new
@@ -1351,19 +1349,19 @@ namespace OCMS_BOs.Migrations
                             UserId = "INST-1",
                             Address = "202 Instructor Avenue",
                             AvatarUrl = "",
-                            CreatedAt = new DateTime(2025, 4, 10, 7, 5, 8, 810, DateTimeKind.Utc).AddTicks(4731),
+                            CreatedAt = new DateTime(2025, 4, 15, 22, 22, 0, 187, DateTimeKind.Utc).AddTicks(7689),
                             DateOfBirth = new DateTime(1990, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "instructor@gmail.com",
                             FullName = "Instructor User",
                             Gender = "Female",
                             IsAssign = false,
                             IsDeleted = false,
-                            PasswordHash = "$2a$11$frVBPjwYFvrgvv78Tc144esO8PIjp/jHoZheGYmIFxmk64b.Z5n4y",
+                            PasswordHash = "$2a$11$h0BlabfPWe/sV30.Un.87uauW/DQ9.fe8jseK2t3QK47t1OKX2LM2",
                             PhoneNumber = "3344556677",
                             RoleId = 5,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 10, 7, 5, 8, 810, DateTimeKind.Utc).AddTicks(4731),
+                            UpdatedAt = new DateTime(2025, 4, 15, 22, 22, 0, 187, DateTimeKind.Utc).AddTicks(7689),
                             Username = "Instructor"
                         },
                         new
@@ -1371,19 +1369,19 @@ namespace OCMS_BOs.Migrations
                             UserId = "REV-1",
                             Address = "303 Reviewer Blvd",
                             AvatarUrl = "",
-                            CreatedAt = new DateTime(2025, 4, 10, 7, 5, 8, 810, DateTimeKind.Utc).AddTicks(4734),
+                            CreatedAt = new DateTime(2025, 4, 15, 22, 22, 0, 187, DateTimeKind.Utc).AddTicks(7692),
                             DateOfBirth = new DateTime(1993, 12, 5, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "reviewer@gmail.com",
                             FullName = "Reviewer User",
                             Gender = "Male",
                             IsAssign = false,
                             IsDeleted = false,
-                            PasswordHash = "$2a$11$frVBPjwYFvrgvv78Tc144esO8PIjp/jHoZheGYmIFxmk64b.Z5n4y",
+                            PasswordHash = "$2a$11$h0BlabfPWe/sV30.Un.87uauW/DQ9.fe8jseK2t3QK47t1OKX2LM2",
                             PhoneNumber = "4455667788",
                             RoleId = 6,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 10, 7, 5, 8, 810, DateTimeKind.Utc).AddTicks(4735),
+                            UpdatedAt = new DateTime(2025, 4, 15, 22, 22, 0, 187, DateTimeKind.Utc).AddTicks(7692),
                             Username = "Reviewer"
                         },
                         new
@@ -1391,19 +1389,19 @@ namespace OCMS_BOs.Migrations
                             UserId = "TR-1",
                             Address = "404 Trainee Lane",
                             AvatarUrl = "",
-                            CreatedAt = new DateTime(2025, 4, 10, 7, 5, 8, 810, DateTimeKind.Utc).AddTicks(4738),
+                            CreatedAt = new DateTime(2025, 4, 15, 22, 22, 0, 187, DateTimeKind.Utc).AddTicks(7708),
                             DateOfBirth = new DateTime(2002, 8, 18, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "trainee@gmail.com",
                             FullName = "Trainee User",
                             Gender = "Female",
                             IsAssign = false,
                             IsDeleted = false,
-                            PasswordHash = "$2a$11$frVBPjwYFvrgvv78Tc144esO8PIjp/jHoZheGYmIFxmk64b.Z5n4y",
+                            PasswordHash = "$2a$11$h0BlabfPWe/sV30.Un.87uauW/DQ9.fe8jseK2t3QK47t1OKX2LM2",
                             PhoneNumber = "5566778899",
                             RoleId = 7,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 10, 7, 5, 8, 810, DateTimeKind.Utc).AddTicks(4738),
+                            UpdatedAt = new DateTime(2025, 4, 15, 22, 22, 0, 187, DateTimeKind.Utc).AddTicks(7709),
                             Username = "Trainee"
                         },
                         new
@@ -1411,19 +1409,19 @@ namespace OCMS_BOs.Migrations
                             UserId = "AOC-1",
                             Address = "505 AOC Street",
                             AvatarUrl = "",
-                            CreatedAt = new DateTime(2025, 4, 10, 7, 5, 8, 810, DateTimeKind.Utc).AddTicks(4741),
+                            CreatedAt = new DateTime(2025, 4, 15, 22, 22, 0, 187, DateTimeKind.Utc).AddTicks(7712),
                             DateOfBirth = new DateTime(1975, 11, 30, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "aocmanager@gmail.com",
                             FullName = "AOC Manager User",
                             Gender = "Male",
                             IsAssign = false,
                             IsDeleted = false,
-                            PasswordHash = "$2a$11$frVBPjwYFvrgvv78Tc144esO8PIjp/jHoZheGYmIFxmk64b.Z5n4y",
+                            PasswordHash = "$2a$11$h0BlabfPWe/sV30.Un.87uauW/DQ9.fe8jseK2t3QK47t1OKX2LM2",
                             PhoneNumber = "6677889900",
                             RoleId = 8,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 10, 7, 5, 8, 810, DateTimeKind.Utc).AddTicks(4742),
+                            UpdatedAt = new DateTime(2025, 4, 15, 22, 22, 0, 187, DateTimeKind.Utc).AddTicks(7712),
                             Username = "AOCManager"
                         });
                 });
@@ -1617,9 +1615,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasOne("OCMS_BOs.Entities.DigitalSignature", "DigitalSignature")
                         .WithMany()
-                        .HasForeignKey("DigitalSignatureId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("DigitalSignatureId");
 
                     b.HasOne("OCMS_BOs.Entities.User", "IssuedByUser")
                         .WithMany()
@@ -1640,9 +1636,7 @@ namespace OCMS_BOs.Migrations
                 {
                     b.HasOne("OCMS_BOs.Entities.User", "ApprovedByUser")
                         .WithMany()
-                        .HasForeignKey("ApprovedByUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("ApprovedByUserId");
 
                     b.HasOne("OCMS_BOs.Entities.User", "CreatedByUser")
                         .WithMany()

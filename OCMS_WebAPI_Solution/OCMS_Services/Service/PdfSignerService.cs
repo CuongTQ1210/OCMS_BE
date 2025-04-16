@@ -265,6 +265,7 @@ namespace OCMS_Services.Service
                     certificate.CertificateURL = newCertificateUrl;
                     certificate.Status = OCMS_BOs.Entities.CertificateStatus.Active;
                     certificate.SignDate = DateTime.UtcNow;
+                    certificate.ExpirationDate = DateTime.UtcNow.AddYears(3); // Set expiration date to 1 year from now
 
                     _unitOfWork.CertificateRepository.UpdateAsync(certificate);
                     await _unitOfWork.SaveChangesAsync();
@@ -277,8 +278,8 @@ namespace OCMS_Services.Service
                 }
             });
 
-// Removed commented-out email-sending block to clean up the code.
-            //}
+            // Step 12: Send user with new certificate URL
+            await SendCertificateByEmailAsync(certificateId);
 
             //// Step 13: Return signed PDF bytes
             return signedPdfBytes;
@@ -318,7 +319,5 @@ namespace OCMS_Services.Service
                     $"Failed to send certificate {certificateId} to {user.Email}: {ex.Message}", ex);
             }
         }
-    }
-   
-
+    }   
 }

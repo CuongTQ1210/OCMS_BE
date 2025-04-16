@@ -86,12 +86,7 @@ namespace OCMS_Services.Service
             };
 
             // Đặt quyền
-            sasBuilder.SetPermissions(permissions switch
-            {
-                "r" => BlobSasPermissions.Read,
-                "w" => BlobSasPermissions.Write,
-                _ => throw new ArgumentException("Invalid permissions")
-            });
+            sasBuilder.SetPermissions(GetBlobSasPermissions(permissions));
 
             // Tạo SAS URI
             var sasUri = blobClient.GenerateSasUri(sasBuilder);
