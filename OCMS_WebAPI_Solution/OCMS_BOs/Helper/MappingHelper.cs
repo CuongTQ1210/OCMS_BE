@@ -27,6 +27,7 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.DateOfBirth, opt => opt.MapFrom(src => src.DateOfBirth))
                 .ForMember(dest => dest.Address, opt => opt.MapFrom(src => src.Address))
                 .ForMember(dest => dest.PhoneNumber, opt => opt.MapFrom(src => src.PhoneNumber));
+            CreateMap<CreateUserDTO, User>();
 
             CreateMap<CandidateUpdateDTO, Candidate>()
                 .ForMember(dest => dest.CandidateId, opt => opt.Ignore()) // Bỏ qua CandidateId
@@ -241,7 +242,7 @@ namespace OCMS_BOs.Helper
             CreateMap<CreateCertificateTemplateDTO, CertificateTemplate>()
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
                 .ForMember(dest => dest.LastUpdatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
-                .ForMember(dest => dest.templateStatus, opt => opt.MapFrom(src => TemplateStatus.Active))
+                .ForMember(dest => dest.templateStatus, opt => opt.MapFrom(src => TemplateStatus.Inactive))
                 .ForMember(dest => dest.CertificateTemplateId, opt => opt.Ignore())
                 .ForMember(dest => dest.TemplateFile, opt => opt.Ignore())
                 .ForMember(dest => dest.TemplateName, opt => opt.Ignore());
@@ -262,6 +263,54 @@ namespace OCMS_BOs.Helper
 
             CreateMap<Certificate, CertificateModel>()
                 .ForMember(dest => dest.TemplateId, opt => opt.MapFrom(src => src.CertificateTemplateId));
+
+            CreateMap<CreateDecisionTemplateDTO, DecisionTemplate>()
+                .ForMember(dest => dest.TemplateStatus, opt => opt.MapFrom(src => 0)) // Draft status
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
+                .ForMember(dest => dest.LastUpdatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
+                .ForMember(dest => dest.DecisionTemplateId, opt => opt.Ignore())
+                .ForMember(dest => dest.CreatedByUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.ApprovedByUserId, opt => opt.Ignore()) // Explicitly ignoring this to handle it separately
+                .ForMember(dest => dest.TemplateName, opt => opt.MapFrom(src => src.templateName))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.description));
+
+            CreateMap<DecisionTemplate, CreateDecisionTemplateResponse>()
+                .ForMember(dest => dest.DecisionTemplateId, opt => opt.MapFrom(src => src.DecisionTemplateId))
+                .ForMember(dest => dest.TemplateName, opt => opt.MapFrom(src => src.TemplateName))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
+                .ForMember(dest => dest.TemplateContent, opt => opt.MapFrom(src => src.TemplateContent))
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
+                .ForMember(dest => dest.CreatedByUserId, opt => opt.MapFrom(src => src.CreatedByUserId))
+                .ForMember(dest => dest.TemplateStatus, opt => opt.MapFrom(src => src.TemplateStatus))
+                .ForMember(dest => dest.TemplateContentWithSas, opt => opt.Ignore());
+
+            // Map for UpdateDecisionTemplateDTO to DecisionTemplate
+            CreateMap<UpdateDecisionTemplateDTO, DecisionTemplate>()
+                .ForMember(dest => dest.DecisionTemplateId, opt => opt.Ignore())
+                .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
+                .ForMember(dest => dest.CreatedByUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.TemplateContent, opt => opt.Ignore())
+                .ForMember(dest => dest.LastUpdatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow));
+
+            // Map for DecisionTemplate to UpdateDecisionTemplateResponse
+            CreateMap<DecisionTemplate, UpdateDecisionTemplateResponse>()
+                .ForMember(dest => dest.DecisionTemplateId, opt => opt.MapFrom(src => src.DecisionTemplateId))
+                .ForMember(dest => dest.TemplateName, opt => opt.MapFrom(src => src.TemplateName))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
+                .ForMember(dest => dest.LastUpdatedAt, opt => opt.MapFrom(src => src.LastUpdatedAt))
+                .ForMember(dest => dest.TemplateStatus, opt => opt.MapFrom(src => src.TemplateStatus));
+
+            CreateMap<CreateDecisionDTO, Decision>()
+                .ForMember(dest => dest.DecisionId, opt => opt.Ignore())
+                .ForMember(dest => dest.DecisionCode, opt => opt.Ignore())
+                .ForMember(dest => dest.Title, opt => opt.Ignore())
+                .ForMember(dest => dest.Content, opt => opt.Ignore())
+                .ForMember(dest => dest.IssueDate, opt => opt.MapFrom(_ => DateTime.UtcNow))
+                .ForMember(dest => dest.DecisionStatus, opt => opt.MapFrom(src => DecisionStatus.Draft))
+                .ForMember(dest => dest.CertificateId, opt => opt.Ignore())
+                .ForMember(dest => dest.DecisionTemplateId, opt => opt.Ignore());
+
+            CreateMap<Decision, CreateDecisionResponse>();
         }
 
     }

@@ -16,15 +16,18 @@ namespace OCMS_Services.Service
     {
         private readonly UnitOfWork _unitOfWork;
         private readonly IBlobService _blobService;
+        private readonly IRequestService _requestService;
         private readonly IMapper _mapper;
 
         public CertificateTemplateService(
             UnitOfWork unitOfWork,
             IBlobService blobService,
+            IRequestService requestService,
             IMapper mapper)
         {
             _unitOfWork = unitOfWork;
             _blobService = blobService;
+            _requestService = requestService;
             _mapper = mapper;
         }
 
@@ -67,6 +70,15 @@ namespace OCMS_Services.Service
 
                 // Trả về URL có SAS token trong response
                 response.TemplateFileWithSas = await _blobService.GetBlobUrlWithSasTokenAsync(baseTemplateUrl, TimeSpan.FromHours(1));
+
+                var requestDto = new RequestDTO
+                {
+                    RequestType = RequestType.TemplateApprove,
+                    RequestEntityId = template.CertificateTemplateId,
+                    Description = $"Request to approve Certificate Template {template.CertificateTemplateId}",
+                    Notes = "Please review the template and approve as soon as possible.",
+                };
+                await _requestService.CreateRequestAsync(requestDto, currentUserId);
 
                 return response;
             }

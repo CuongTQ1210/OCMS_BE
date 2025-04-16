@@ -30,12 +30,10 @@ namespace OCMS_BOs.Entities
         public User CreatedByUser { get; set; }
 
         [ForeignKey("ApprovedByUser")]
-        public string ApprovedByUserId { get; set; }
-        public User ApprovedByUser { get; set; }
-
+        public string? ApprovedByUserId { get; set; }
+        public User? ApprovedByUser { get; set; }
        
         public DateTime? LastUpdatedAt { get; set; } = DateTime.UtcNow;
-
        
         public int TemplateStatus { get; set; } = 0;
     }
