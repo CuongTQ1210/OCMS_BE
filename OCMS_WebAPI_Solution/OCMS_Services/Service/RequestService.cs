@@ -101,7 +101,8 @@ namespace OCMS_Services.Service
                 newRequest.RequestType == RequestType.Update||
                 newRequest.RequestType == RequestType.Delete||
                 newRequest.RequestType== RequestType.AssignTrainee||
-                newRequest.RequestType == RequestType.AddTraineeAssign
+                newRequest.RequestType == RequestType.AddTraineeAssign||
+                newRequest.RequestType== RequestType.SignRequest
                 )
             {
                 var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
@@ -202,7 +203,7 @@ namespace OCMS_Services.Service
             {
         RequestType.NewPlan,
         RequestType.RelearnPlan,
-        RequestType.RecurrentPlan
+        RequestType.RecurrentPlan,
         RequestType.AddTraineeAssign,
         RequestType.AssignTrainee,
         RequestType.DecisionTemplate,
@@ -211,6 +212,7 @@ namespace OCMS_Services.Service
         RequestType.PlanDelete,
         RequestType.Update,
         RequestType.Delete,
+        RequestType.SignRequest
     };
 
             var requests = await _unitOfWork.RequestRepository.GetAllAsync(
@@ -278,7 +280,11 @@ namespace OCMS_Services.Service
                     if (string.IsNullOrWhiteSpace(entityId))
                         return false;
                     return await _unitOfWork.CertificateTemplateRepository.ExistsAsync(dt => dt.CertificateTemplateId == entityId);
-                default:
+                case RequestType.SignRequest:
+                    if (string.IsNullOrWhiteSpace(entityId))
+                        return false;
+                    return await _unitOfWork.CertificateRepository.ExistsAsync(dt => dt.CertificateId == entityId);
+                        default:
                     return true;
             }
         }
