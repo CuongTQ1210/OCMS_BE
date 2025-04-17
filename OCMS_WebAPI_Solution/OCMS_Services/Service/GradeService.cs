@@ -93,6 +93,19 @@ namespace OCMS_Services.Service
                 grade.gradeStatus = grade.TotalScore >= passScore ? GradeStatus.Pass : GradeStatus.Fail;
             }
             await _unitOfWork.GradeRepository.AddAsync(grade);
+            if (grade.gradeStatus == GradeStatus.Pass)
+            {
+                var traineeAssign = await _unitOfWork.TraineeAssignRepository.GetByIdAsync(grade.TraineeAssignID);
+                if (traineeAssign != null)
+                {
+                    var existingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.CourseId == course.CourseId);
+                    var traineeWithCerts = new HashSet<string>(existingCertificates.Select(c => c.UserId));
+                    if(!traineeWithCerts.Contains(grade.TraineeAssignID))
+                    {
+                        await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(course.CourseId, gradedByUserId);
+                    }
+                }
+            }
             await _unitOfWork.SaveChangesAsync();
 
             return grade.GradeId;
@@ -126,6 +139,13 @@ namespace OCMS_Services.Service
             existing.UpdateDate = DateTime.Now;  
 
             await _unitOfWork.GradeRepository.UpdateAsync(existing);
+            if (existing.gradeStatus == GradeStatus.Pass)
+            {
+                if (!traineeWithCerts.Contains(existing.TraineeAssignID))
+                {
+                    await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(course.CourseId, existing.GradedByInstructorId);
+                }
+            }
             await _unitOfWork.SaveChangesAsync();
 
             return true;

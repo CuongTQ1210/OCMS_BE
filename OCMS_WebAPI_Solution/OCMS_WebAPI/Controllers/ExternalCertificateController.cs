@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using OCMS_BOs.RequestModel;
 using OCMS_BOs.ViewModel;
 using OCMS_Services.IService;
 using OCMS_WebAPI.AuthorizeSettings;
@@ -30,9 +31,9 @@ namespace OCMS_WebAPI.Controllers
         #endregion
 
         #region Add External Certificate
-        [HttpPost("{candidateId}")]
+        [HttpPost]
         [CustomAuthorize("Admin", "HR")]
-        public async Task<IActionResult> AddExternalCertificate(string candidateId, [FromForm] ExternalCertificateModel certificateDto)
+        public async Task<IActionResult> AddExternalCertificate([FromForm] ExternalCertificateCreateDTO certificateDto, IFormFile CertificateImage)
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             try
@@ -43,7 +44,7 @@ namespace OCMS_WebAPI.Controllers
                     return BadRequest(ModelState);
                 }
 
-                var certificate = await _externalCertificateService.AddExternalCertificateAsync(candidateId, certificateDto, certificateDto.CertificateImage, _blobService, userId);
+                var certificate = await _externalCertificateService.AddExternalCertificateAsync(certificateDto.CandidateId, certificateDto, CertificateImage, _blobService, userId);
                 return Ok(certificate);
             }
             catch (Exception ex)
@@ -56,11 +57,12 @@ namespace OCMS_WebAPI.Controllers
         #region Update External Certificate
         [HttpPut("{id}")]
         [CustomAuthorize("Admin", "HR")]
-        public async Task<IActionResult> Update(int id, [FromForm] ExternalCertificateModel certificateDto)
+        public async Task<IActionResult> Update(int id, [FromForm] ExternalCertificateUpdateDTO certificateDto, IFormFile CertificateImage)
         {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             try
             {
-                var updatedCertificate = await _externalCertificateService.UpdateExternalCertificateAsync(id, certificateDto, _blobService);
+                var updatedCertificate = await _externalCertificateService.UpdateExternalCertificateAsync(id, certificateDto, CertificateImage, _blobService, userId);
 
                 if (updatedCertificate == null)
                 {

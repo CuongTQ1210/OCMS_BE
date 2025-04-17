@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using OCMS_BOs.Entities;
+using OCMS_BOs.RequestModel;
 using OCMS_BOs.ViewModel;
 using System;
 using System.Collections.Generic;
@@ -12,8 +13,13 @@ namespace OCMS_Services.IService
     public interface IExternalCertificateService
     {
         Task<IEnumerable<ExternalCertificateModel>> GetExternalCertificatesByCandidateIdAsync(string candidateId);
-        Task<ExternalCertificateModel> AddExternalCertificateAsync(string candidateId, ExternalCertificateModel certificateDto, IFormFile certificateImage, IBlobService blobService, string currentUserId);
-        Task<ExternalCertificateModel> UpdateExternalCertificateAsync(int externalCertificateId, ExternalCertificateModel updatedCertificateDto, IBlobService blobService);
+        Task<ExternalCertificateModel> AddExternalCertificateAsync(string candidateId, ExternalCertificateCreateDTO certificateDto, IFormFile certificateImage, IBlobService blobService, string currentUserId);
+        Task<ExternalCertificateModel> UpdateExternalCertificateAsync(
+            int externalCertificateId,
+            ExternalCertificateUpdateDTO updatedCertificateDto,
+            IFormFile certificateImage,
+            IBlobService blobService,
+            string currentUserId);
         Task<bool> DeleteExternalCertificateAsync(int externalCertificateId, IBlobService blobService);
     }
 }

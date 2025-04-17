@@ -18,7 +18,7 @@ namespace OCMS_BOs.Entities
         [ForeignKey("Specialties")]
         public string SpecialtyId { get; set; }
         [ForeignKey("ManagerUser")]
-        public string ManagerUserId { get; set; }
+        public string? ManagerUserId { get; set; }
         public DepartmentStatus Status { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

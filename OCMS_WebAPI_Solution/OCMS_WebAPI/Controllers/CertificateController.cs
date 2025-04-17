@@ -93,7 +93,7 @@ namespace OCMS_WebAPI.Controllers
         #endregion
 
         #region Trainee View Certificate
-        [HttpGet("trainee/view/{userId}")]
+        [HttpGet("trainee/view")]
         [CustomAuthorize("Trainee")]
         public async Task<IActionResult> GetCertificatesByTraineeId()
         {

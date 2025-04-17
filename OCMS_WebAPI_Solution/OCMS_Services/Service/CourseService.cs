@@ -35,17 +35,18 @@ namespace OCMS_Services.Service
                 throw new Exception("Training Plan ID does not exist. Please provide a valid Training Plan.");
             if (trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Approved || trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Rejected)
                 throw new Exception("Training Plan ID already approved or rejected!");
+            var level = trainingPlan.PlanLevel.ToString();
             var course = _mapper.Map<Course>(dto);
             course.CourseId = dto.CourseId;
             course.CourseName = dto.CourseName;
             course.TrainingPlanId= dto.TrainingPlanId;
-            course.CourseLevel = dto.CourseLevel;
             course.TrainingPlan = trainingPlan;
             course.CreatedByUserId = createdByUserId;
             course.CreatedAt = DateTime.Now;
             course.UpdatedAt = DateTime.Now;
             course.Status = CourseStatus.Pending;
             course.Progress = Progress.NotYet;
+            course.CourseLevel = (CourseLevel)trainingPlan.PlanLevel;
             await _unitOfWork.CourseRepository.AddAsync(course);
             await _unitOfWork.SaveChangesAsync();
 

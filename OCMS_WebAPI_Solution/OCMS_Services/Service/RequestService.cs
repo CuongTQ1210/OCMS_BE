@@ -101,7 +101,8 @@ namespace OCMS_Services.Service
                 newRequest.RequestType == RequestType.Update||
                 newRequest.RequestType == RequestType.Delete||
                 newRequest.RequestType== RequestType.AssignTrainee||
-                newRequest.RequestType == RequestType.AddTraineeAssign
+                newRequest.RequestType == RequestType.AddTraineeAssign||
+                newRequest.RequestType== RequestType.SignRequest
                 )
             {
                 var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
@@ -111,6 +112,20 @@ namespace OCMS_Services.Service
                         director.UserId,
                         "New Request Submitted",
                         $"A new {newRequest.RequestType} request has been submitted for review.",
+                        "Request"
+                    );
+                }
+            }
+            if ( newRequest.RequestType == RequestType.SignRequest)
+                
+            {
+                var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
+                foreach (var director in directors)
+                {
+                    await _notificationService.SendNotificationAsync(
+                        director.UserId,
+                        "New Request Submitted",
+                        $"A new {newRequest.RequestType} for certificateId {requestDto.RequestEntityId} need to be signed.",
                         "Request"
                     );
                 }
@@ -196,6 +211,30 @@ namespace OCMS_Services.Service
         }
         #endregion
 
+        public async Task<List<RequestModel>> GetRequestsForHeadMasterAsync()
+        {
+            var validRequestTypes = new[]
+            {
+        RequestType.NewPlan,
+        RequestType.RelearnPlan,
+        RequestType.RecurrentPlan,
+        RequestType.AddTraineeAssign,
+        RequestType.AssignTrainee,
+        RequestType.DecisionTemplate,
+        RequestType.CertificateTemplate,
+        RequestType.PlanChange,
+        RequestType.PlanDelete,
+        RequestType.Update,
+        RequestType.Delete,
+        RequestType.SignRequest
+    };
+
+            var requests = await _unitOfWork.RequestRepository.GetAllAsync(
+                predicate: r => validRequestTypes.Contains(r.RequestType));
+
+            return _mapper.Map<List<RequestModel>>(requests);
+        }
+
         public async Task<List<RequestModel>> GetRequestsForEducationOfficerAsync()
         {
             var validRequestTypes = new[]
@@ -203,7 +242,8 @@ namespace OCMS_Services.Service
         RequestType.CreateNew,
         RequestType.CreateRecurrent,
         RequestType.CreateRelearn,
-        RequestType.Complaint
+        RequestType.Complaint,
+        RequestType.CandidateImport
     };
 
             var requests = await _unitOfWork.RequestRepository.GetAllAsync(
@@ -254,7 +294,11 @@ namespace OCMS_Services.Service
                     if (string.IsNullOrWhiteSpace(entityId))
                         return false;
                     return await _unitOfWork.CertificateTemplateRepository.ExistsAsync(dt => dt.CertificateTemplateId == entityId);
-                default:
+                case RequestType.SignRequest:
+                    if (string.IsNullOrWhiteSpace(entityId))
+                        return false;
+                    return await _unitOfWork.CertificateRepository.ExistsAsync(dt => dt.CertificateId == entityId);
+                        default:
                     return true;
             }
         }
@@ -462,7 +506,7 @@ namespace OCMS_Services.Service
                     }
                     
                     break;
-                case RequestType.Update:
+                case RequestType.PlanChange:
 
                     if (approver == null || approver.RoleId != 2)
                     {
@@ -494,7 +538,7 @@ namespace OCMS_Services.Service
                     
                     break;
 
-                case RequestType.Delete:
+                case RequestType.PlanDelete:
 
                     if (approver == null || approver.RoleId != 2)
                     {

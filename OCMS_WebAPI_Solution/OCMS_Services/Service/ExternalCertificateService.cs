@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using OCMS_BOs.Entities;
+using OCMS_BOs.RequestModel;
 using OCMS_BOs.ViewModel;
 using OCMS_Repositories;
 using OCMS_Repositories.IRepository;
@@ -28,10 +29,9 @@ namespace OCMS_Services.Service
         }
 
         #region Add External Certificate
-        public async Task<ExternalCertificateModel> AddExternalCertificateAsync(string candidateId, ExternalCertificateModel certificateDto, IFormFile certificateImage, IBlobService blobService, string currentUserId)
+        public async Task<ExternalCertificateModel> AddExternalCertificateAsync(string candidateId, ExternalCertificateCreateDTO certificateDto, IFormFile certificateImage, IBlobService blobService, string currentUserId)
         {
-            ExternalCertificate certificate = null;
-
+            var certificate = _mapper.Map<ExternalCertificate>(certificateDto);
             await _unitOfWork.ExecuteWithStrategyAsync(async () =>
             {
                 await _unitOfWork.BeginTransactionAsync();
@@ -47,22 +47,23 @@ namespace OCMS_Services.Service
                     // Kiểm tra các trường bắt buộc
                     if (string.IsNullOrEmpty(certificateDto.CertificateCode) ||
                         string.IsNullOrEmpty(certificateDto.CertificateName) ||
-                        string.IsNullOrEmpty(certificateDto.CertificateProvider) ||
+                        string.IsNullOrEmpty(certificateDto.IssuingOrganization) ||
                         string.IsNullOrEmpty(certificateDto.CandidateId) ||
                         certificateImage == null)
                     {
                         throw new ArgumentException("CertificateCode, CertificateName, CertificateProvider, CandidateId, and CertificateImage are required.");
                     }
 
-                    // Ánh xạ từ DTO sang entity
-                    certificate = _mapper.Map<ExternalCertificate>(certificateDto);
+                    
 
                     // Gán các thuộc tính đặc biệt
-                    certificate.CandidateId = candidateId;
+                    certificate.CandidateId = certificateDto.CandidateId;
                     certificate.CreatedAt = DateTime.Now;
                     certificate.VerifyDate = DateTime.Now;
-                    certificate.IssuingOrganization = certificateDto.CertificateProvider; // Gán CertificateProvider vào IssuingOrganization
-                    certificate.VerifyByUserId = currentUserId; // Gán người xác thực là người hiện tại
+                    certificate.IssuingOrganization = certificateDto.IssuingOrganization; // Gán CertificateProvider vào IssuingOrganization
+
+                    
+                    certificate.VerifyByUserId = currentUserId; 
 
                     // Xử lý hình ảnh (bắt buộc)
                     string blobName = $"{candidateId}_{certificateDto.CertificateCode}_{DateTime.Now.Ticks}.jpg";
@@ -163,49 +164,58 @@ namespace OCMS_Services.Service
         #endregion
 
         #region Update External Certificate
-        public async Task<ExternalCertificateModel> UpdateExternalCertificateAsync(int externalCertificateId, ExternalCertificateModel updatedCertificateDto, IBlobService blobService)
+        public async Task<ExternalCertificateModel> UpdateExternalCertificateAsync(
+            int externalCertificateId,
+            ExternalCertificateUpdateDTO updatedCertificateDto,
+            IFormFile certificateImage,
+            IBlobService blobService,
+            string currentUserId)
         {
-            ExternalCertificate existingCertificate = null;
+            var existingCertificate = (await _unitOfWork.ExternalCertificateRepository
+                        .FindAsync(c => c.ExternalCertificateId == externalCertificateId))
+                        .FirstOrDefault();
+            if (existingCertificate == null)
+                throw new KeyNotFoundException($"ExternalCertificate with ID {externalCertificateId} not found");
 
             await _unitOfWork.ExecuteWithStrategyAsync(async () =>
             {
                 await _unitOfWork.BeginTransactionAsync();
                 try
                 {
-                    // Lấy chứng chỉ hiện có
-                    existingCertificate = (await _unitOfWork.ExternalCertificateRepository
-                        .FindAsync(c => c.ExternalCertificateId == externalCertificateId))
-                        .FirstOrDefault();
-                    if (existingCertificate == null)
+                    // Validate required fields
+                    if (string.IsNullOrEmpty(updatedCertificateDto.CertificateCode) ||
+                        string.IsNullOrEmpty(updatedCertificateDto.CertificateName) ||
+                        string.IsNullOrEmpty(updatedCertificateDto.IssuingOrganization))
                     {
-                        throw new KeyNotFoundException($"ExternalCertificate with ID {externalCertificateId} not found");
+                        throw new ArgumentException("CertificateCode, CertificateName, CertificateProvider are required.");
                     }
 
-                    // Lưu URL hình ảnh cũ để xóa sau nếu cần
                     string oldCertificateFileURL = existingCertificate.CertificateFileURL;
 
-                    // Ánh xạ từ DTO sang entity hiện có
+                    // Map updated DTO to entity
                     _mapper.Map(updatedCertificateDto, existingCertificate);
 
-                    // Cập nhật các thuộc tính đặc biệt
+                    // Manually update special fields
                     existingCertificate.VerifyDate = DateTime.Now;
+                    existingCertificate.IssuingOrganization = updatedCertificateDto.IssuingOrganization;
+                    existingCertificate.VerifyByUserId = currentUserId;
 
-                    // Xử lý hình ảnh mới nếu có
-                    if (updatedCertificateDto.CertificateImage != null)
+                    // Handle image replacement if new image provided
+                    if (certificateImage != null)
                     {
                         string blobName = $"{existingCertificate.CandidateId}_{updatedCertificateDto.CertificateCode}_{DateTime.Now.Ticks}.jpg";
-                        using (var stream = updatedCertificateDto.CertificateImage.OpenReadStream())
+                        using (var stream = certificateImage.OpenReadStream())
                         {
-                            existingCertificate.CertificateFileURL = await blobService.UploadFileAsync("externalcertificates", blobName, stream, "image/jpeg");
+                            var fileUrl = await blobService.UploadFileAsync("externalcertificates", blobName, stream, "image/jpeg");
+                            existingCertificate.CertificateFileURL = blobService.GetBlobUrlWithoutSasToken(fileUrl);
                         }
                     }
 
-                    // Cập nhật và lưu
                     await _unitOfWork.ExternalCertificateRepository.UpdateAsync(existingCertificate);
                     await _unitOfWork.SaveChangesAsync();
 
-                    // Xóa hình ảnh cũ nếu có hình ảnh mới
-                    if (updatedCertificateDto.CertificateImage != null && !string.IsNullOrEmpty(oldCertificateFileURL))
+                    // Delete old image if new one was uploaded
+                    if (certificateImage != null && !string.IsNullOrEmpty(oldCertificateFileURL))
                     {
                         await blobService.DeleteFileAsync(oldCertificateFileURL);
                     }
@@ -219,7 +229,16 @@ namespace OCMS_Services.Service
                 }
             });
 
-            return _mapper.Map<ExternalCertificateModel>(existingCertificate);
+            var result = _mapper.Map<ExternalCertificateModel>(existingCertificate);
+
+            // Add SAS token to the file URL for response
+            if (!string.IsNullOrEmpty(existingCertificate.CertificateFileURL))
+            {
+                result.CertificateFileURLWithSas = await blobService.GetBlobUrlWithSasTokenAsync(
+                    existingCertificate.CertificateFileURL, TimeSpan.FromHours(1));
+            }
+
+            return result;
         }
         #endregion
     }

@@ -20,6 +20,7 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.RoleId, opt => opt.MapFrom(src => src.RoleId))
                 .ForMember(dest => dest.RoleName, opt => opt.MapFrom(src => src.Role.RoleName))
                 .ForMember(dest => dest.AvatarUrl, opt => opt.MapFrom(src => src.AvatarUrl)) // ✅ Added mapping
+                .ForMember(dest => dest.DepartmentId, opt => opt.MapFrom(src => src.DepartmentId))
                 .ReverseMap();
             CreateMap<UserUpdateDTO, User>()
                 .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.FullName))
@@ -37,6 +38,27 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.CandidateStatus, opt => opt.Ignore()) // Bỏ qua CandidateStatus
                 .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore()); // Bỏ qua UpdatedAt
 
+            CreateMap<ExternalCertificateCreateDTO, ExternalCertificate>()
+            .ForMember(dest => dest.VerifyByUserId, opt => opt.Ignore())
+            .ForMember(dest => dest.VerifyByUser, opt => opt.Ignore())
+            .ForMember(dest => dest.UserId, opt => opt.Ignore())
+            .ForMember(dest => dest.User, opt => opt.Ignore())
+            .ForMember(dest => dest.Candidate, opt => opt.Ignore())
+            .ForMember(dest => dest.VerificationStatus, opt => opt.MapFrom(src => VerificationStatus.Pending))
+            .ForMember(dest => dest.VerifyDate, opt => opt.MapFrom(_ => DateTime.Now))
+            .ForMember(dest => dest.CertificateFileURL, opt => opt.Ignore()) // Assuming you upload this separately
+            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.Now));
+
+            CreateMap<ExternalCertificateUpdateDTO, ExternalCertificate>()
+    .ForMember(dest => dest.VerifyByUserId, opt => opt.Ignore())
+    .ForMember(dest => dest.VerifyByUser, opt => opt.Ignore())
+    .ForMember(dest => dest.UserId, opt => opt.Ignore())
+    .ForMember(dest => dest.User, opt => opt.Ignore())
+    .ForMember(dest => dest.Candidate, opt => opt.Ignore())
+    .ForMember(dest => dest.VerificationStatus, opt => opt.Ignore()) 
+    .ForMember(dest => dest.VerifyDate, opt => opt.Ignore()) 
+    .ForMember(dest => dest.CertificateFileURL, opt => opt.Ignore()) 
+    .ForMember(dest => dest.CreatedAt, opt => opt.Ignore()); 
             CreateMap<Specialties, SpecialtyModel>();
             CreateMap<SpecialtyModel, Specialties>()
                 .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
@@ -56,6 +78,15 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.CreatedByUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
                 .ForMember(dest => dest.UpdatedByUserId, opt => opt.Ignore());
+            //Department 
+            CreateMap<Department, DepartmentModel>()
+            .ForMember(dest => dest.ManagerUserId, opt => opt.MapFrom(src => src.ManagerUserId))
+            .ForMember(dest => dest.SpecialtyId, opt => opt.MapFrom(src => src.SpecialtyId));
+
+            CreateMap<DepartmentModel, Department>()
+                .ForMember(dest => dest.Manager, opt => opt.Ignore())
+                .ForMember(dest => dest.Specialty, opt => opt.Ignore());
+
 
             CreateMap<Specialties, SpecialtyTreeModel>()
                 .ForMember(dest => dest.Children, opt => opt.Ignore());
@@ -209,13 +240,29 @@ namespace OCMS_BOs.Helper
             CreateMap<Grade, GradeDTO>();
 
             CreateMap<ExternalCertificateModel, ExternalCertificate>()
+    .ForMember(dest => dest.ExternalCertificateId, opt => opt.Ignore()) // ID is likely auto-generated
+    .ForMember(dest => dest.CertificateCode, opt => opt.MapFrom(src => src.CertificateCode))
+    .ForMember(dest => dest.CertificateName, opt => opt.MapFrom(src => src.CertificateName))
+    .ForMember(dest => dest.IssuingOrganization, opt => opt.MapFrom(src => src.CertificateProvider))
+    .ForMember(dest => dest.CandidateId, opt => opt.MapFrom(src => src.CandidateId))
+    .ForMember(dest => dest.CertificateFileURL, opt => opt.Ignore()) // You’ll set this after upload
+    .ForMember(dest => dest.UserId, opt => opt.Ignore())
+    .ForMember(dest => dest.User, opt => opt.Ignore())
+    .ForMember(dest => dest.Candidate, opt => opt.Ignore())
+    .ForMember(dest => dest.VerifyByUserId, opt => opt.Ignore())
+    .ForMember(dest => dest.VerifyByUser, opt => opt.Ignore())
+    .ForMember(dest => dest.VerifyDate, opt => opt.MapFrom(_ => DateTime.UtcNow))
+    .ForMember(dest => dest.VerificationStatus, opt => opt.MapFrom(_ => VerificationStatus.Pending))
+    .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow));
+
+            CreateMap<ExternalCertificate, ExternalCertificateModel>()
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.ExternalCertificateId.ToString()))
                 .ForMember(dest => dest.CertificateCode, opt => opt.MapFrom(src => src.CertificateCode))
                 .ForMember(dest => dest.CertificateName, opt => opt.MapFrom(src => src.CertificateName))
-                .ForMember(dest => dest.IssuingOrganization, opt => opt.MapFrom(src => src.CertificateProvider))
-                .ForMember(dest => dest.CandidateId, opt => opt.MapFrom(src => src.CandidateId))
-                .ForMember(dest => dest.CertificateFileURL, opt => opt.Ignore());
+                .ForMember(dest => dest.CertificateProvider, opt => opt.MapFrom(src => src.IssuingOrganization))
+                .ForMember(dest => dest.CertificateFileURL, opt => opt.MapFrom(src => src.CertificateFileURL))
+                .ForMember(dest => dest.CertificateFileURLWithSas, opt => opt.Ignore()); // This is for SAS generation
 
-            CreateMap<ExternalCertificate, ExternalCertificateModel>();
 
             CreateMap<CreateCertificateTemplateDTO, CertificateTemplate>()
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))

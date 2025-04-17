@@ -16,6 +16,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using OCMS_Services.IService;
 using OCMS_Repositories.IRepository;
+using System.Net;
 
 namespace OCMS_Services.Service
 {
@@ -183,7 +184,7 @@ namespace OCMS_Services.Service
                             await _unitOfWork.SaveChangesAsync();
                             await _unitOfWork.CommitTransactionAsync();
 
-                            createdCertificates = _mapper.Map<List<CertificateModel>>(certToCreate);
+                            createdCertificates =  _mapper.Map<List<CertificateModel>>(certToCreate);
 
                             // 10. Notify HeadMasters efficiently
                             await NotifyTrainingStaffsAsync(createdCertificates.Count, course.CourseName);
@@ -198,8 +199,10 @@ namespace OCMS_Services.Service
                         }
                     });
                 }
-
+                
                 return createdCertificates;
+
+
             }
             catch (Exception ex)
             {
@@ -391,9 +394,20 @@ namespace OCMS_Services.Service
             string certificateUrl = await SaveCertificateToBlob(modifiedHtml, certificateFileName);
             var userExist = await _unitOfWork.UserRepository.GetByIdAsync(trainee.UserId);
             var courseExist = await _unitOfWork.CourseRepository.GetByIdAsync(course.CourseId);
+            var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
+            var certificateId = Guid.NewGuid().ToString();
+            foreach (var director in directors)
+            {
+                await _notificationService.SendNotificationAsync(
+                    director.UserId,
+                    "New Request Submitted",
+                    $"A new sign Request for certificateId {certificateId} need to be signed.",
+                    "Request"
+                );
+            }
             return new Certificate
             {
-                CertificateId = Guid.NewGuid().ToString(),
+                CertificateId = certificateId,
                 CertificateCode = certificateCode,
                 UserId = trainee.UserId,
                 CourseId = course.CourseId,
@@ -604,13 +618,17 @@ namespace OCMS_Services.Service
         private async Task<List<CertificateModel>> GetCertificatesByUserIdAsync(string userId)
         {
             var certificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.UserId == userId);
-
+            if (certificates == null)
+            {
+                throw new KeyNotFoundException("This user doesn't have any certificates.");
+            }
             return _mapper.Map<List<CertificateModel>>(certificates);
         }
 
         private async Task<List<CertificateModel>> GetAllPendingCertificatesAsync()
         {
             var pendingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.Status ==CertificateStatus.Pending);
+
             return _mapper.Map<List<CertificateModel>>(pendingCertificates);
         }
 
