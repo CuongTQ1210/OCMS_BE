@@ -46,7 +46,7 @@ namespace OCMS_Services.Service
             course.UpdatedAt = DateTime.Now;
             course.Status = CourseStatus.Pending;
             course.Progress = Progress.NotYet;
-            course.CourseLevel= CourseLevel.level;
+            course.CourseLevel = (CourseLevel)trainingPlan.PlanLevel;
             await _unitOfWork.CourseRepository.AddAsync(course);
             await _unitOfWork.SaveChangesAsync();
 
