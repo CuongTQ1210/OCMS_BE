@@ -417,7 +417,6 @@ namespace OCMS_Services.Service
                 IsRevoked = false,
                 Course= courseExist,
                 User=userExist,
-                SignDate = DateTime.Now
             };
         }
 
