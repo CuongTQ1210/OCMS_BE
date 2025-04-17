@@ -106,7 +106,7 @@ namespace OCMS_Services.Service
             
             // Ensure deletion is allowed only if status is "Pending" or "Rejected"
             if (assignment.RequestStatus.ToString() != "Pending" && assignment.RequestStatus.ToString() != "Rejected")
-                return (false, $"Cannot delete trainee assignment because its status is '{assignment.RequestStatus.ToString()}'. Only 'Pending' or 'Rejected' can be deleted.");
+                return (false, $"Cannot delete trainee assignment because its status is '{assignment.RequestStatus.ToString()}'. Only 'Pending' or 'Rejected' can be deleted. Please Send Delete Request to delete");
 
             _unitOfWork.TraineeAssignRepository.DeleteAsync(id);
             var user = await _unitOfWork.UserRepository.FirstOrDefaultAsync(u => u.UserId == assignment.TraineeId);

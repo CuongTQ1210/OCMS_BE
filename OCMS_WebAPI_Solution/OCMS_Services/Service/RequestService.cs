@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using MimeKit.Cryptography;
 using OCMS_BOs.Entities;
 using OCMS_BOs.RequestModel;
@@ -29,7 +30,7 @@ namespace OCMS_Services.Service
         private readonly ITrainingScheduleRepository _trainingScheduleRepository;
         private readonly ICourseRepository _courseRepository;
         private readonly IInstructorAssignmentRepository _instructorAssignmentRepository;
-        
+        private readonly ITraineeAssignRepository _traineeAssignRepository;
         public RequestService(
             UnitOfWork unitOfWork,
             IMapper mapper,
@@ -37,7 +38,7 @@ namespace OCMS_Services.Service
             IUserRepository userRepository,
             ICandidateRepository candidateRepository,
             Lazy<ITrainingScheduleService> trainingScheduleService,
-            Lazy<ITrainingPlanService> trainingPlanService, ITrainingScheduleRepository trainingScheduleRepository, ICourseRepository courseRepository, IInstructorAssignmentRepository instructorAssignmentRepository)
+            Lazy<ITrainingPlanService> trainingPlanService, ITrainingScheduleRepository trainingScheduleRepository, ICourseRepository courseRepository, IInstructorAssignmentRepository instructorAssignmentRepository, ITraineeAssignRepository traineeAssignRepository)
         {
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
@@ -49,6 +50,7 @@ namespace OCMS_Services.Service
             _instructorAssignmentRepository = instructorAssignmentRepository;
             _trainingScheduleService = trainingScheduleService ?? throw new ArgumentNullException(nameof(trainingScheduleService));
             _trainingPlanService = trainingPlanService ?? throw new ArgumentNullException(nameof(trainingPlanService));
+            _traineeAssignRepository = traineeAssignRepository;
         }
         public RequestService(UnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService, IUserRepository userRepository, ICandidateRepository candidateRepository)
         {
@@ -262,12 +264,66 @@ namespace OCMS_Services.Service
                 case RequestType.NewPlan:
                 case RequestType.RecurrentPlan:
                 case RequestType.RelearnPlan:
+                    if (string.IsNullOrWhiteSpace(entityId))
+                        return false;
+                    var plan = await _unitOfWork.TrainingPlanRepository
+                        .GetQueryable()
+                        .Where(p => p.PlanId == entityId)
+                        .Include(p => p.Courses)
+                        .ThenInclude(c => c.Subjects)
+                        .ThenInclude(s => s.Schedules)
+                        .Include(p => p.Courses)
+                        .ThenInclude(c => c.Trainees)
+                         .FirstOrDefaultAsync();
+
+                    if (plan == null)
+                    {
+                        throw new KeyNotFoundException("Training plan not found.");
+                    }
+
+                    // Step 1: Has at least one course
+                    if (plan.Courses == null || !plan.Courses.Any())
+                    {
+                        throw new InvalidOperationException("Training plan must have at least one course.");
+                    }
+
+                    foreach (var course in plan.Courses)
+                    {
+                        // Step 2a: Each course has at least one subject
+                        if (course.Subjects == null || !course.Subjects.Any())
+                        {
+                            throw new InvalidOperationException($"Course '{course.CourseName}' must have at least one subject.");
+                        }
+
+                        foreach (var subject in course.Subjects)
+                        {
+                            // Step 3: Each subject has at least one schedule
+                            if (subject.Schedules == null || !subject.Schedules.Any())
+                            {
+                                throw new InvalidOperationException($"Subject '{subject.SubjectName}' in course '{course.CourseName}' must have at least one schedule.");
+                            }
+                        }
+                    }
+
+                    return await _unitOfWork.TrainingPlanRepository.ExistsAsync(tp => tp.PlanId == entityId);
+
+                case RequestType.Update:
+                case RequestType.Delete:
+                    if (string.IsNullOrWhiteSpace(entityId))
+                        return false;
+                    var validplan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(entityId);
+                    if (validplan != null && validplan.TrainingPlanStatus != TrainingPlanStatus.Approved)
+                    {
+                        throw new InvalidOperationException("The plan has not been approved yet you can update or delete it if needed.");
+                    }
+
+                    return await _unitOfWork.TrainingPlanRepository.ExistsAsync(tp => tp.PlanId == entityId);
                 case RequestType.PlanChange:
                 case RequestType.PlanDelete:
                     if (string.IsNullOrWhiteSpace(entityId))
                         return false;
-                    var plan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(entityId);
-                    if (plan != null && plan.TrainingPlanStatus == TrainingPlanStatus.Approved)
+                    var trainingplan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(entityId);
+                    if (trainingplan != null && trainingplan.TrainingPlanStatus == TrainingPlanStatus.Approved)
                     {
                         throw new InvalidOperationException("The request has already been approved and cannot send request.");
                     }
@@ -394,6 +450,68 @@ namespace OCMS_Services.Service
                             await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
                         }
                         
+                        if (!string.IsNullOrEmpty(request.RequestUserId))
+                        {
+                            await _notificationService.SendNotificationAsync(
+                                request.RequestUserId,
+                                "Trainee Plan Approved",
+                                $"Your request for {request.RequestEntityId} has been approved.",
+                                $"{request.RequestType.ToString()}"
+                            );
+                        }
+                    }
+                    break;
+                case RequestType.Update:
+                case RequestType.Delete:
+
+                    if (approver == null || approver.RoleId != 2)
+                    {
+                        throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
+                    }
+                    var trainingplan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
+                    if (trainingplan != null)
+                    {
+                        trainingplan.TrainingPlanStatus = TrainingPlanStatus.Pending;
+                        trainingplan.ApproveByUserId = approvedByUserId;
+                        trainingplan.ApproveDate = DateTime.Now;
+                        await _unitOfWork.TrainingPlanRepository.UpdateAsync(trainingplan);
+                        // ✅ Pending all courses in the plan to update or delete
+                        var courses = await _courseRepository.GetCoursesByTrainingPlanIdAsync(trainingplan.PlanId);
+                        foreach (var course in courses)
+                        {
+                            course.Status = CourseStatus.Pending;
+                            course.Progress = Progress.NotYet;
+                            course.ApproveByUserId = approvedByUserId;
+                            course.ApprovalDate = DateTime.Now;
+                            await _unitOfWork.CourseRepository.UpdateAsync(course);
+                        }
+                        foreach (var course in courses)
+                        {
+                            var courseTraineeAssigns = await _traineeAssignRepository.GetTraineeAssignmentsByCourseIdAsync(course.CourseId);
+                            foreach (var assign in courseTraineeAssigns)
+                            {
+                                assign.RequestStatus = RequestStatus.Pending;
+                                assign.ApprovalDate = DateTime.Now;
+                                await _unitOfWork.TraineeAssignRepository.UpdateAsync(assign);
+                            }
+                        }
+                        // ✅ Pending all schedules
+                        var schedules = await _trainingScheduleRepository.GetSchedulesByTrainingPlanIdAsync(trainingplan.PlanId);
+                        foreach (var schedule in schedules)
+                        {
+                            schedule.Status = ScheduleStatus.Pending;
+                            schedule.ModifiedDate = DateTime.Now;
+                            await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
+                        }
+
+                        // ✅ Pending all instructor assignments
+                        var instructorAssignments = await _instructorAssignmentRepository.GetAssignmentsByTrainingPlanIdAsync(trainingplan.PlanId);
+                        foreach (var assignment in instructorAssignments)
+                        {
+                            assignment.RequestStatus = RequestStatus.Pending;
+                            await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
+                        }
+
                         if (!string.IsNullOrEmpty(request.RequestUserId))
                         {
                             await _notificationService.SendNotificationAsync(
@@ -688,6 +806,36 @@ namespace OCMS_Services.Service
                     
                     notificationMessage = $"Your request to delete (ID: {request.RequestEntityId}) has been rejected. Reason: {rejectionReason}";
                     
+                    break;
+                case RequestType.PlanChange:
+
+                    if (rejecter == null || rejecter.RoleId != 2)
+                    {
+                        throw new UnauthorizedAccessException("Only HeadMaster can reject this request.");
+                    }
+                    var trainingplan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
+                    if (trainingplan != null && trainingplan.TrainingPlanStatus == TrainingPlanStatus.Approved)
+                    {
+                        trainingplan.TrainingPlanStatus = TrainingPlanStatus.Approved;
+                    }
+
+                    notificationMessage = $"Your request to update (ID: {request.RequestEntityId}) has been rejected. Reason: {rejectionReason}";
+
+                    break;
+                case RequestType.PlanDelete:
+
+                    if (rejecter == null || rejecter.RoleId != 2)
+                    {
+                        throw new UnauthorizedAccessException("Only HeadMaster can reject this request.");
+                    }
+                    var _trainingplan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
+                    if (_trainingplan != null && _trainingplan.TrainingPlanStatus == TrainingPlanStatus.Approved)
+                    {
+                        _trainingplan.TrainingPlanStatus = TrainingPlanStatus.Approved;
+                    }
+
+                    notificationMessage = $"Your request to delete (ID: {request.RequestEntityId}) has been rejected. Reason: {rejectionReason}";
+
                     break;
                 case RequestType.CandidateImport:
 
