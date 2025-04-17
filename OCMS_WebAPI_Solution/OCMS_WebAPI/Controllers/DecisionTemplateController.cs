@@ -29,8 +29,8 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest("Decision template data cannot be null");
             try
             {
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                var result = await _decisionTemplateService.CreateDecisionTemplateAsync(dto, userId);
+                var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var result = await _decisionTemplateService.CreateDecisionTemplateAsync(dto, currentUserId);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -66,7 +66,7 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest("Template ID cannot be null or empty");
             try
             {
-                var template = await _decisionTemplateService.GetDecisionTemplateByIdAsync(templateId);
+                var template = await _decisionTemplateService.GetDecisionTemplateDetailsByIdAsync(templateId);
                 if (template == null)
                     return NotFound($"Template with ID {templateId} not found");
 
@@ -98,28 +98,7 @@ namespace OCMS_WebAPI.Controllers
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
-        #endregion
-
-        #region Get Template Content
-        [HttpGet("GetContent/{templateId}")]
-        [CustomAuthorize("Admin", "HeadMaster")]
-        public async Task<IActionResult> GetTemplateContent(string templateId)
-        {
-            if (string.IsNullOrEmpty(templateId))
-                return BadRequest("Template ID cannot be null or empty");
-            try
-            {
-                var content = await _decisionTemplateService.GetTemplateContentAsync(templateId);
-                if (string.IsNullOrEmpty(content))
-                    return NotFound($"Content for template with ID {templateId} not found");
-                return Ok(content);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
-        }
-        #endregion
+        #endregion        
 
         #region Update Decision Template
         [HttpPut("Update/{templateId}")]
@@ -132,8 +111,10 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest("Decision template data cannot be null");
             try
             {
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                var result = await _decisionTemplateService.UpdateDecisionTemplateAsync(templateId, dto);                
+                var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var result = await _decisionTemplateService.UpdateDecisionTemplateAsync(templateId, dto, currentUserId);
+                if (result == null)
+                    return NotFound();
                 return Ok(result);
             }
             catch (Exception ex)
@@ -152,7 +133,8 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest("Template ID cannot be null or empty");
             try
             {
-                var result = await _decisionTemplateService.DeleteDecisionTemplateAsync(templateId);
+                var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var result = await _decisionTemplateService.DeleteDecisionTemplateAsync(templateId, currentUserId);
                 if (!result)
                     return NotFound($"Template with ID {templateId} not found");
                 return Ok(result);
