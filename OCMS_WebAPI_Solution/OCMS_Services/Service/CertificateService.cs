@@ -604,13 +604,17 @@ namespace OCMS_Services.Service
         private async Task<List<CertificateModel>> GetCertificatesByUserIdAsync(string userId)
         {
             var certificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.UserId == userId);
-
+            if (certificates == null)
+            {
+                throw new KeyNotFoundException("This user don't have any certificate!!");
+            }
             return _mapper.Map<List<CertificateModel>>(certificates);
         }
 
         private async Task<List<CertificateModel>> GetAllPendingCertificatesAsync()
         {
             var pendingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.Status ==CertificateStatus.Pending);
+
             return _mapper.Map<List<CertificateModel>>(pendingCertificates);
         }
 
