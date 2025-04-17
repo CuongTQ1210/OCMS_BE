@@ -137,7 +137,10 @@ namespace OCMS_Services.Service
             var schedule = await _unitOfWork.TrainingScheduleRepository.GetByIdAsync(scheduleId);
             if (schedule == null)
                 throw new KeyNotFoundException($"Training schedule with ID {scheduleId} not found.");
-
+            if(schedule.Status == ScheduleStatus.Incoming)
+            {
+                throw new Exception("Schedule is approved. Please send request to update if needed.");
+            }    
             await ValidateTrainingScheduleAsync(dto, scheduleId);
 
             // Apply update
@@ -326,7 +329,10 @@ namespace OCMS_Services.Service
             );
             if (schedule == null)
                 throw new KeyNotFoundException($"Training schedule with ID {scheduleId} not found.");
-
+            if (schedule.Status == ScheduleStatus.Incoming)
+            {
+                throw new Exception("Schedule is approved. Please send request to delete if needed.");
+            }
             // Delete related instructor assignment (if any)
             var assignment = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
                 a => a.SubjectId == schedule.SubjectID

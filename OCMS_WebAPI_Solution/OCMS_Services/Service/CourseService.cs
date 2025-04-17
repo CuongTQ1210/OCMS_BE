@@ -76,8 +76,12 @@ namespace OCMS_Services.Service
         public async Task<bool> DeleteCourseAsync(string id)
         {
             var course = await _unitOfWork.CourseRepository.GetByIdAsync(id);
-            if (course == null) return false;
-
+            if (course == null)
+            {
+                throw new Exception("Course does not exist.");
+            }
+            if (course.Status == CourseStatus.Approved )
+                throw new Exception("Course already approved! Please send request to delete");
             await _unitOfWork.CourseRepository.DeleteAsync(id);
             await _unitOfWork.SaveChangesAsync();
             return true;
@@ -92,6 +96,8 @@ namespace OCMS_Services.Service
             var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(dto.TrainingPlanId);
             if (trainingPlan == null)
                 throw new Exception("Training Plan ID does not exist. Please provide a valid Training Plan.");
+            if (course.Status == CourseStatus.Approved)
+                throw new Exception("Course already approved! Please send request to update");
             _mapper.Map(dto, course);
             course.TrainingPlanId = dto.TrainingPlanId;
             course.CourseLevel = dto.CourseLevel;

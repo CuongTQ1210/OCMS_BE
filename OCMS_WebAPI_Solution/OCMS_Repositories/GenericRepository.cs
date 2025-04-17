@@ -169,5 +169,9 @@ namespace OCMS_Repositories
 
             return await query.Where(predicate).ToListAsync();
         }
+        public IQueryable<T> GetQueryable()
+        {
+            return _dbSet.AsQueryable();
+        }
     }
 }

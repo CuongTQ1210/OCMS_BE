@@ -134,7 +134,10 @@ namespace OCMS_Services.Service
             var instructorExists = await _unitOfWork.InstructorAssignmentRepository.ExistsAsync(i => i.InstructorId == dto.InstructorId);
             if (!instructorExists)
                 throw new ArgumentException($"Instructor with ID {dto.InstructorId} does not exist.");
-
+            if (assignment.RequestStatus == RequestStatus.Approved)
+            {
+                throw new Exception("Assign has been approve. Create a request to update if needed");
+            }
             // Map DTO to existing entity
             _mapper.Map(dto, assignment);
             var user = await _unitOfWork.UserRepository.FirstOrDefaultAsync(u => u.UserId == dto.InstructorId);
@@ -167,6 +170,9 @@ namespace OCMS_Services.Service
             var assignment = await _unitOfWork.InstructorAssignmentRepository.GetByIdAsync(assignmentId);
             if (assignment == null)
                 throw new KeyNotFoundException($"Instructor assignment with ID {assignmentId} not found.");
+            if (assignment.RequestStatus == RequestStatus.Approved) {
+                throw new Exception("Assign has been approve. Create a request to delete if needed");
+            }
             var user = await _unitOfWork.UserRepository.FirstOrDefaultAsync(u => u.UserId == assignment.InstructorId);
             if (user != null)
             {

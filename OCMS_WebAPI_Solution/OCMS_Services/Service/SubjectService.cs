@@ -4,6 +4,7 @@ using OCMS_BOs.RequestModel;
 using OCMS_BOs.ViewModel;
 using OCMS_Repositories;
 using OCMS_Services.IService;
+using PuppeteerSharp.Input;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -116,9 +117,15 @@ namespace OCMS_Services.Service
             var courseExists = await _unitOfWork.CourseRepository.ExistsAsync(c => c.CourseId == dto.CourseId);
             if (!courseExists)
                 throw new ArgumentException("Course does not exist.");
-            var subjectExisted2 = await _unitOfWork.SubjectRepository.ExistsAsync(c => c.SubjectName == dto.SubjectName);
-            if (subjectExisted2)
+            var course = await _unitOfWork.CourseRepository.GetByIdAsync(dto.CourseId);
+            if (course.Status==CourseStatus.Approved)
+            {
+                throw new Exception("Course already approved so you can't update subject. Please send request to update");
+            }
+            var subjectExisted = await _unitOfWork.SubjectRepository.ExistsAsync(c => c.SubjectName == dto.SubjectName);
+            if (subjectExisted)
                 throw new ArgumentException("This Subject name already existed.");
+            
             _mapper.Map(dto, subject);
             subject.UpdatedAt = DateTime.Now;
             await _unitOfWork.SubjectRepository.UpdateAsync(subject);
@@ -134,7 +141,11 @@ namespace OCMS_Services.Service
             var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(subjectId);
             if (subject == null)
                 throw new KeyNotFoundException("Subject not found.");
-
+            var course = await _unitOfWork.CourseRepository.GetByIdAsync(subject.CourseId);
+            if (course.Status == CourseStatus.Approved)
+            {
+                throw new Exception("Course already approved so you can't delete subject. Please send request to delete");
+            }
             // Get all training schedules linked to this subject
             var schedules = await _unitOfWork.TrainingScheduleRepository.GetAllAsync(s => s.SubjectID == subjectId);
 
