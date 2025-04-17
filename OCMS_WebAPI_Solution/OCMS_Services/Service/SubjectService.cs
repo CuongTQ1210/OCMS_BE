@@ -17,13 +17,11 @@ namespace OCMS_Services.Service
         private readonly UnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly ITrainingScheduleService _trainingScheduleService;
-        public SubjectService(UnitOfWork unitOfWork, IMapper mapper)
+
+        public SubjectService(UnitOfWork unitOfWork, IMapper mapper, ITrainingScheduleService trainingScheduleService)
         {
-            _unitOfWork = unitOfWork;
-            _mapper = mapper;
-        }
-        public SubjectService(UnitOfWork unitOfWork, IMapper mapper, ITrainingScheduleService trainingScheduleService) : this(unitOfWork, mapper)
-        {
+            _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _trainingScheduleService = trainingScheduleService;
         }
 
