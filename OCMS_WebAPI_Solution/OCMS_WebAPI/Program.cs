@@ -14,6 +14,7 @@ using System.Text;
 using Azure.Identity;
 using Azure.Extensions.AspNetCore.Configuration.Secrets;
 using StackExchange.Redis;
+using OCMS_Services.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -209,5 +210,5 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-
+app.UseApiAuditLogging(); 
 app.Run();
