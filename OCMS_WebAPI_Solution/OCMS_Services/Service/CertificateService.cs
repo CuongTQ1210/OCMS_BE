@@ -606,7 +606,7 @@ namespace OCMS_Services.Service
             var certificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.UserId == userId);
             if (certificates == null)
             {
-                throw new KeyNotFoundException("This user don't have any certificate!!");
+                throw new KeyNotFoundException("This user doesn't have any certificates.");
             }
             return _mapper.Map<List<CertificateModel>>(certificates);
         }

@@ -202,7 +202,7 @@ namespace OCMS_Services.Service
             {
         RequestType.NewPlan,
         RequestType.RelearnPlan,
-        RequestType.RelearnPlan,
+        RequestType.RecurrentPlan
         RequestType.AddTraineeAssign,
         RequestType.AssignTrainee,
         RequestType.DecisionTemplate,
