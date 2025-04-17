@@ -96,7 +96,7 @@ namespace OCMS_Services.Service
             if (user != null)
             {
                 user.IsAssign = true;
-                _unitOfWork.UserRepository.UpdateAsync(user);
+                await _unitOfWork.UserRepository.UpdateAsync(user);
                 await _unitOfWork.SaveChangesAsync();
             }
             await _unitOfWork.InstructorAssignmentRepository.AddAsync(assignment);
@@ -141,10 +141,10 @@ namespace OCMS_Services.Service
             if (user != null)
             {
                 user.IsAssign = true;
-                _unitOfWork.UserRepository.UpdateAsync(user);
+                await _unitOfWork.UserRepository.UpdateAsync(user);
                 await _unitOfWork.SaveChangesAsync();
             }
-            _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
+            await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
             await _unitOfWork.SaveChangesAsync();
 
             // Fetch with related data
@@ -171,10 +171,10 @@ namespace OCMS_Services.Service
             if (user != null)
             {
                 user.IsAssign = false;
-                _unitOfWork.UserRepository.UpdateAsync(user);
+                await _unitOfWork.UserRepository.UpdateAsync(user);
                 await _unitOfWork.SaveChangesAsync();
             }
-            _unitOfWork.InstructorAssignmentRepository.DeleteAsync(assignmentId);
+            await _unitOfWork.InstructorAssignmentRepository.DeleteAsync(assignmentId);
             await _unitOfWork.SaveChangesAsync();
             return true;
         }

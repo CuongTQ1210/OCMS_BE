@@ -17,16 +17,15 @@ namespace OCMS_Services.Service
         private readonly UnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly ITrainingScheduleService _trainingScheduleService;
-        public SubjectService(UnitOfWork unitOfWork, IMapper mapper)
+
+        public SubjectService(UnitOfWork unitOfWork, IMapper mapper, ITrainingScheduleService trainingScheduleService)
         {
-            _unitOfWork = unitOfWork;
-            _mapper = mapper;
-        }
-        public SubjectService(UnitOfWork unitOfWork, IMapper mapper, ITrainingScheduleService trainingScheduleService) : this(unitOfWork, mapper)
-        {
+            _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _trainingScheduleService = trainingScheduleService;
         }
 
+        #region Get all Subjects
         public async Task<IEnumerable<SubjectModel>> GetAllSubjectsAsync()
         {
             var subjects = await _unitOfWork.SubjectRepository.GetAllAsync(
@@ -35,7 +34,9 @@ namespace OCMS_Services.Service
                 );
             return _mapper.Map<IEnumerable<SubjectModel>>(subjects);
         }
+        #endregion
 
+        #region Get subject by Id
         public async Task<SubjectModel> GetSubjectByIdAsync(string subjectId)
         {
             var subject = await _unitOfWork.SubjectRepository.GetAsync(
@@ -48,7 +49,9 @@ namespace OCMS_Services.Service
 
             return _mapper.Map<SubjectModel>(subject);
         }
+        #endregion
 
+        #region Get subject by CourseId
         public async Task<List<SubjectModel>> GetSubjectsByCourseIdAsync(string courseId)
         {
             var subjects = await _unitOfWork.SubjectRepository.FindAsync(
@@ -60,7 +63,9 @@ namespace OCMS_Services.Service
 
             return _mapper.Map<List<SubjectModel>>(subjects);
         }
+        #endregion
 
+        #region Create subject
         public async Task<SubjectModel> CreateSubjectAsync(SubjectDTO dto, string createdByUserId)
         {
             // Validate PassingScore (0-10)
@@ -94,7 +99,9 @@ namespace OCMS_Services.Service
 
             return _mapper.Map<SubjectModel>(subject);
         }
+        #endregion
 
+        #region Update subject
         public async Task<SubjectModel> UpdateSubjectAsync(string subjectId, SubjectDTO dto)
         {
             var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(subjectId);
@@ -114,12 +121,14 @@ namespace OCMS_Services.Service
                 throw new ArgumentException("This Subject name already existed.");
             _mapper.Map(dto, subject);
             subject.UpdatedAt = DateTime.Now;
-            _unitOfWork.SubjectRepository.UpdateAsync(subject);
+            await _unitOfWork.SubjectRepository.UpdateAsync(subject);
             await _unitOfWork.SaveChangesAsync();
 
             return _mapper.Map<SubjectModel>(subject);
         }
+        #endregion
 
+        #region Delete subject
         public async Task<bool> DeleteSubjectAsync(string subjectId)
         {
             var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(subjectId);
@@ -134,10 +143,11 @@ namespace OCMS_Services.Service
                 await _trainingScheduleService.DeleteTrainingScheduleAsync(schedule.ScheduleID); // Ensure schedules and assignments are deleted
             }
 
-            _unitOfWork.SubjectRepository.DeleteAsync(subjectId);
+            await _unitOfWork.SubjectRepository.DeleteAsync(subjectId);
             await _unitOfWork.SaveChangesAsync();
 
             return true;
         }
+        #endregion
     }
 }

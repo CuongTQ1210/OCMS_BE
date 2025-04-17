@@ -82,19 +82,16 @@ namespace OCMS_Services.Service
                 var course = await _courseRepository.GetCourseWithDetailsAsync(courseId);
                 if (course == null || !course.Subjects.Any())
                 {
-                    _logger.LogWarning($"Course with ID {courseId} not found or has no subjects");
-                    return createdCertificates;
+                    throw new Exception($"Course with ID {courseId} not found or has no subjects");
                 }
 
                 int subjectCount = course.Subjects.Count;
-                _logger.LogInformation($"Course {courseId} has {subjectCount} subjects");
 
                 // 2. Get template data with caching
                 var templateId = await GetTemplateIdByCourseLevelAsync(course.CourseLevel);
                 if (string.IsNullOrEmpty(templateId))
                 {
-                    _logger.LogWarning($"No active template for course level {course.CourseLevel}");
-                    return createdCertificates;
+                    throw new Exception($"No active template for course level {course.CourseLevel}");
                 }
 
                 var certificateTemplate = await _unitOfWork.CertificateTemplateRepository.GetByIdAsync(templateId);
@@ -414,6 +411,7 @@ namespace OCMS_Services.Service
                 CertificateTemplateId = templateId,
                 IssueByUserId = issuedByUserId,
                 IssueDate = issueDate,
+                ExpirationDate = issueDate.AddYears(3),
                 Status = CertificateStatus.Pending,
                 CertificateURL = certificateUrl,
                 IsRevoked = false,

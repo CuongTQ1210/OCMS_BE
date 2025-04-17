@@ -10,5 +10,6 @@ namespace OCMS_Services.IService
     {
         Task<byte[]> SignPdfAsync(string certificateId);
         Task SendCertificateByEmailAsync(string certificateId);
+        Task<byte[]> SignDecisionAsync(string decisionId);
     }
 }

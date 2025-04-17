@@ -13,5 +13,8 @@ namespace OCMS_Services.IService
     public interface IDecisionService
     {
         Task<CreateDecisionResponse> CreateDecisionForCourseAsync(CreateDecisionDTO request, string issuebyUserId);
+        Task<IEnumerable<DecisionModel>> GetAllDraftDecisionsAsync();
+        Task<IEnumerable<DecisionModel>> GetAllSignDecisionsAsync();
+        Task<bool> DeleteDecisionAsync(string decisionId);
     }
 }

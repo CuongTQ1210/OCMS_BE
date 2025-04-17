@@ -178,6 +178,7 @@ namespace OCMS_Services.Service
             return _mapper.Map<List<GradeModel>>(grades);
         }
         #endregion
+
         #region Get Grade By UserId (TraineeId)
         public async Task<List<GradeModel>> GetGradesByUserIdAsync(string userId)
         {
@@ -187,6 +188,7 @@ namespace OCMS_Services.Service
             return _mapper.Map<List<GradeModel>>(grades);
         }
         #endregion
+
         #region Get Grade By SubjectId
         public async Task<List<GradeModel>> GetGradesBySubjectIdAsync(string subjectId)
         {

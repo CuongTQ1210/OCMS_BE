@@ -358,6 +358,16 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.DecisionTemplateId, opt => opt.Ignore());
 
             CreateMap<Decision, CreateDecisionResponse>();
+
+            CreateMap<Decision, DecisionModel>()
+                .ForMember(dest => dest.DecisionCode, opt => opt.MapFrom(src => src.DecisionCode))
+                .ForMember(dest => dest.Title, opt => opt.MapFrom(src => src.Title))
+                .ForMember(dest => dest.Content, opt => opt.MapFrom(src => src.Content))
+                .ForMember(dest => dest.ContentWithSas, opt => opt.Ignore())
+                .ForMember(dest => dest.IssueDate, opt => opt.MapFrom(src => src.IssueDate))
+                .ForMember(dest => dest.IssuedBy, opt => opt.MapFrom(src => src.IssuedByUserId))
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.DecisionStatus.ToString()))
+                .ForMember(dest => dest.DecisionTemplateId, opt => opt.MapFrom(src => src.DecisionTemplateId));
         }
 
     }

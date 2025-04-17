@@ -26,10 +26,9 @@ namespace OCMS_Services.Service
 
         }
 
+        #region Create Course
         public async Task<CourseModel> CreateCourseAsync(CourseDTO dto, string createdByUserId)
         {
-
-            
             var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(dto.TrainingPlanId);
             if (trainingPlan == null)
                 throw new Exception("Training Plan ID does not exist. Please provide a valid Training Plan.");
@@ -52,7 +51,9 @@ namespace OCMS_Services.Service
 
             return _mapper.Map<CourseModel>(course);
         }
+        #endregion
 
+        #region Get all Courses
         public async Task<IEnumerable<CourseModel>> GetAllCoursesAsync()
         {
             var courses = await _unitOfWork.CourseRepository.GetAllAsync(
@@ -61,23 +62,29 @@ namespace OCMS_Services.Service
                 );
             return _mapper.Map<IEnumerable<CourseModel>>(courses);
         }
+        #endregion
 
+        #region Get Course by ID
         public async Task<CourseModel?> GetCourseByIdAsync(string id)
         {
             var course = await _courseRepository.GetCourseWithDetailsAsync(id);
             return _mapper.Map<CourseModel>(course);
         }
+        #endregion
 
+        #region Delete Course
         public async Task<bool> DeleteCourseAsync(string id)
         {
             var course = await _unitOfWork.CourseRepository.GetByIdAsync(id);
             if (course == null) return false;
 
-            _unitOfWork.CourseRepository.DeleteAsync(id);
+            await _unitOfWork.CourseRepository.DeleteAsync(id);
             await _unitOfWork.SaveChangesAsync();
             return true;
         }
+        #endregion
 
+        #region Update Course
         public async Task<CourseModel> UpdateCourseAsync(string id, CourseUpdateDTO dto, string updatedByUserId)
         {
             var course = await _unitOfWork.CourseRepository.GetByIdAsync(id);
@@ -90,10 +97,11 @@ namespace OCMS_Services.Service
             course.CourseLevel = dto.CourseLevel;
             course.UpdatedAt = DateTime.Now;
 
-            _unitOfWork.CourseRepository.UpdateAsync(course);
+            await _unitOfWork.CourseRepository.UpdateAsync(course);
             await _unitOfWork.SaveChangesAsync();
 
             return _mapper.Map<CourseModel>(course);
         }
+        #endregion
     }
 }
