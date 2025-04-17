@@ -116,6 +116,20 @@ namespace OCMS_Services.Service
                     );
                 }
             }
+            if ( newRequest.RequestType == RequestType.SignRequest)
+                
+            {
+                var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
+                foreach (var director in directors)
+                {
+                    await _notificationService.SendNotificationAsync(
+                        director.UserId,
+                        "New Request Submitted",
+                        $"A new {newRequest.RequestType} for certificateId {requestDto.RequestEntityId} need to be signed.",
+                        "Request"
+                    );
+                }
+            }
             else if(newRequest.RequestType == RequestType.CreateNew ||
                 newRequest.RequestType == RequestType.CreateRecurrent ||
                 newRequest.RequestType == RequestType.CreateRelearn)
