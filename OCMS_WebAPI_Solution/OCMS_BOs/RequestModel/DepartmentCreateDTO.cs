@@ -16,7 +16,7 @@ namespace OCMS_BOs.RequestModel
         public string DepartmentDescription { get; set; }
         [Required]
         public string SpecialtyId { get; set; }
-        [Required]
+        
         public string ManagerId { get; set; }
 
     }

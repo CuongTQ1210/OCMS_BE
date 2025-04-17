@@ -11,7 +11,7 @@ namespace OCMS_Services.IService
 {
     public interface IDepartmentService
     {
-        Task<IEnumerable<Department>> GetAllDepartmentsAsync();
+        Task<IEnumerable<DepartmentModel>> GetAllDepartmentsAsync();
         Task<DepartmentModel> GetDepartmentByIdAsync(string departmentId);
         Task<DepartmentModel> UpdateDepartmentAsync(string departmentId, DepartmentUpdateDTO dto);
         Task<bool> DeleteDepartmentAsync(string departmentId);

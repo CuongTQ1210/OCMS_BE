@@ -28,10 +28,10 @@ namespace OCMS_Services.Service
         }
 
         #region GetAllDepartmentsAsync
-        public async Task<IEnumerable<Department>> GetAllDepartmentsAsync()
+        public async Task<IEnumerable<DepartmentModel>> GetAllDepartmentsAsync()
         {
             var departments = await _unitOfWork.DepartmentRepository.GetAllAsync();
-            return departments;
+            return _mapper.Map<IEnumerable<DepartmentModel>>(departments);
         }
         #endregion
         public async Task<bool> AssignUserToDepartmentAsync(string userId, string departmentId)
@@ -40,14 +40,17 @@ namespace OCMS_Services.Service
             if (user == null)
                 throw new KeyNotFoundException($"User with ID '{userId}' not found.");
 
-            var department = await _unitOfWork.DecisionRepository.GetByIdAsync(departmentId);
+            var department = await _unitOfWork.DepartmentRepository.GetByIdAsync(departmentId);
             if (department == null)
                 throw new KeyNotFoundException($"Department with ID '{departmentId}' not found.");
+
+            if (department.Status == DepartmentStatus.Inactive)
+                throw new InvalidOperationException($"Cannot assign user to an inactive department (ID: '{departmentId}').");
 
             user.DepartmentId = departmentId;
             user.UpdatedAt = DateTime.UtcNow;
 
-            _unitOfWork.UserRepository.UpdateAsync(user);
+            await _unitOfWork.UserRepository.UpdateAsync(user);
             await _unitOfWork.SaveChangesAsync();
             return true;
         }
@@ -57,56 +60,78 @@ namespace OCMS_Services.Service
             if (user == null)
                 throw new KeyNotFoundException($"User with ID '{userId}' not found.");
 
+            if (string.IsNullOrEmpty(user.DepartmentId))
+                throw new InvalidOperationException("User is not currently assigned to any department.");
+
+            var department = await _unitOfWork.DepartmentRepository.GetByIdAsync(user.DepartmentId);
+            if (department == null)
+                throw new KeyNotFoundException($"Department with ID '{user.DepartmentId}' not found.");
+
+            if (department.Status == DepartmentStatus.Inactive)
+                throw new InvalidOperationException($"Cannot remove user from an inactive department (ID: '{department.DepartmentId}').");
+
             user.DepartmentId = null;
             user.UpdatedAt = DateTime.UtcNow;
 
+            await _unitOfWork.UserRepository.UpdateAsync(user);
             await _unitOfWork.SaveChangesAsync();
             return true;
         }
         public async Task<DepartmentModel> CreateDepartmentAsync(DepartmentCreateDTO dto)
         {
-            // Optional: Check if Specialty exists (to avoid foreign key issues)
+            // 1. Validate Specialty
             var specialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(dto.SpecialtyId);
             if (specialty == null)
-            {
                 throw new KeyNotFoundException($"Specialty with ID '{dto.SpecialtyId}' not found.");
-            }
-            var manager = await _unitOfWork.UserRepository.GetByIdAsync(dto.ManagerId);
-            if (manager == null)
-            {
-                throw new KeyNotFoundException($"Manager with ID '{dto.ManagerId}' not found.");
-            }
-            if(manager.SpecialtyId != dto.SpecialtyId)
-            {
-                throw new InvalidDataException($"Manager need to have the same specialty as department");
-            }
-            // Count existing departments with same SpecialtyId to generate unique DepartmentId
-            var existingDepartments = await _repository
-                .GetDepartmentsBySpecialtyIdAsync(dto.SpecialtyId);
 
+            // 2. Validate Manager (optional)
+            User manager = null;
+            if (!string.IsNullOrWhiteSpace(dto.ManagerId))
+            {
+                manager = await _unitOfWork.UserRepository.GetByIdAsync(dto.ManagerId);
+                if (manager == null)
+                    throw new KeyNotFoundException($"Manager with ID '{dto.ManagerId}' not found.");
+                if (!string.IsNullOrEmpty(manager.DepartmentId))
+                {
+                    throw new InvalidOperationException($"Manager '{manager.UserId}' is already assigned to Department '{manager.DepartmentId}'.");
+                }
+                if (manager.SpecialtyId != dto.SpecialtyId)
+                    throw new InvalidDataException("Manager must have the same specialty as the department.");
+            }
+
+            // 3. Generate new DepartmentId
+            var existingDepartments = await _repository.GetDepartmentsBySpecialtyIdAsync(dto.SpecialtyId);
             int sequenceNumber = existingDepartments.Count() + 1;
             string departmentId = $"DE-{dto.SpecialtyId}-{sequenceNumber:D3}";
-            manager.DepartmentId = departmentId;
-            await _unitOfWork.UserRepository.UpdateAsync(manager);
+
+            // 4. Create department entity
             var department = new Department
             {
                 DepartmentId = departmentId,
                 DepartmentName = dto.DepartmentName,
                 DepartmentDescription = dto.DepartmentDescription,
                 SpecialtyId = dto.SpecialtyId,
-                ManagerUserId=dto.ManagerId,
-                Specialty= specialty,
-                Manager= manager,
+                ManagerUserId = manager?.UserId,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now,
                 Status = DepartmentStatus.Active,
             };
 
+            // 5. Add department to DB
             await _unitOfWork.DepartmentRepository.AddAsync(department);
             await _unitOfWork.SaveChangesAsync();
 
-            return _mapper.Map<DepartmentModel>(department); 
+            // 6. Update manager's DepartmentId
+            if (manager != null)
+            {
+                manager.DepartmentId = departmentId;
+                await _unitOfWork.UserRepository.UpdateAsync(manager);
+                await _unitOfWork.SaveChangesAsync();
+            }
+
+            return _mapper.Map<DepartmentModel>(department);
         }
+
         #region GetDepartmentByIdAsync
         public async Task<DepartmentModel> GetDepartmentByIdAsync(string departmentId)
         {
@@ -127,25 +152,62 @@ namespace OCMS_Services.Service
             {
                 throw new KeyNotFoundException($"Department with ID '{departmentId}' not found.");
             }
-            var manager = await _unitOfWork.UserRepository.GetByIdAsync(dto.ManagerId);
-            if (manager == null)
+            if (dto.ManagerId == "")
             {
-                throw new KeyNotFoundException($"Manager with ID '{dto.ManagerId}' not found.");
+                throw new InvalidDataException("ManagerId can not be null!!");
             }
-            if (manager.SpecialtyId != department.SpecialtyId)
+            if (!string.IsNullOrEmpty(dto.ManagerId))
             {
-                throw new InvalidDataException($"Manager need to have the same specialty as department");
+                var manager = await _unitOfWork.UserRepository.GetByIdAsync(dto.ManagerId);
+                if (manager == null)
+                {
+                    throw new KeyNotFoundException($"Manager with ID '{dto.ManagerId}' not found.");
+                }
+
+                if (manager.SpecialtyId != department.SpecialtyId)
+                {
+                    throw new InvalidDataException($"Manager must have the same specialty as the department.");
+                }
+
+                if (!string.IsNullOrEmpty(manager.DepartmentId))
+                {
+                    throw new InvalidOperationException($"Manager '{manager.UserId}' is already assigned to Department '{manager.DepartmentId}'.");
+                }
+
+                // Clear old manager
+                if (department.ManagerUserId != dto.ManagerId)
+                {
+                    var oldManager = await _unitOfWork.UserRepository.GetByIdAsync(department.ManagerUserId);
+                    if (oldManager != null)
+                    {
+                        oldManager.DepartmentId = null;
+                        await _unitOfWork.UserRepository.UpdateAsync(oldManager);
+                    }
+
+                    // Assign new manager
+                    manager.DepartmentId = departmentId;
+                    await _unitOfWork.UserRepository.UpdateAsync(manager);
+
+                    department.ManagerUserId = dto.ManagerId;
+                    department.Manager = manager;
+                }
             }
-            var oldManager = await _unitOfWork.UserRepository.GetByIdAsync(department.ManagerUserId);
-            oldManager.DepartmentId = "";
-            await _unitOfWork.UserRepository.UpdateAsync(oldManager);
-            manager.DepartmentId = department.DepartmentId;
-            await _unitOfWork.UserRepository.UpdateAsync(manager);
-            // Update fields
+            else
+            {
+                // If user clears manager ID
+                var oldManager = await _unitOfWork.UserRepository.GetByIdAsync(department.ManagerUserId);
+                if (oldManager != null)
+                {
+                    oldManager.DepartmentId = null;
+                    await _unitOfWork.UserRepository.UpdateAsync(oldManager);
+                }
+
+                department.ManagerUserId = null;
+                department.Manager = null;
+            }
+
             department.DepartmentName = dto.DepartmentName;
             department.DepartmentDescription = dto.DepartmentDescription;
-            department.ManagerUserId = dto.ManagerId;
-            department.Manager = manager;
             department.UpdatedAt = DateTime.Now;
 
             _unitOfWork.DepartmentRepository.UpdateAsync(department);
@@ -164,8 +226,12 @@ namespace OCMS_Services.Service
                 throw new KeyNotFoundException($"Department with ID '{departmentId}' not found.");
             }
 
-            _unitOfWork.DepartmentRepository.DeleteAsync(departmentId);
+            department.Status = DepartmentStatus.Inactive;
+            department.UpdatedAt = DateTime.Now;
+
+            await _unitOfWork.DepartmentRepository.UpdateAsync(department);
             await _unitOfWork.SaveChangesAsync();
+
             return true;
         }
         #endregion
