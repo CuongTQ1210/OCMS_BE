@@ -43,6 +43,7 @@ namespace OCMS_Services.Service
             _trainingScheduleRepository = trainingScheduleRepository ?? throw new ArgumentNullException(nameof(trainingScheduleRepository));
         }
 
+        #region Get All Training Schedules
         /// <summary>
         /// Retrieves all training schedules with related Subject, Instructor, and CreatedByUser data.
         /// </summary>
@@ -55,7 +56,9 @@ namespace OCMS_Services.Service
             );
             return _mapper.Map<IEnumerable<TrainingScheduleModel>>(schedules);
         }
+        #endregion
 
+        #region Get All Training Schedules By Subject
         /// <summary>
         /// Retrieves a training schedule by its ID, including related data.
         /// </summary>
@@ -75,7 +78,9 @@ namespace OCMS_Services.Service
 
             return _mapper.Map<TrainingScheduleModel>(schedule);
         }
+        #endregion
 
+        #region Create Training Schedule
         /// <summary>
         /// Creates a new training schedule and associated instructor assignment.
         /// </summary>
@@ -121,6 +126,7 @@ namespace OCMS_Services.Service
 
             return _mapper.Map<TrainingScheduleModel>(createdSchedule);
         }
+        #endregion
 
         #region Update Training Schedule
         public async Task<TrainingScheduleModel> UpdateTrainingScheduleAsync(string scheduleId, TrainingScheduleDTO dto)
@@ -141,7 +147,7 @@ namespace OCMS_Services.Service
             _mapper.Map(dto, schedule);
             schedule.ModifiedDate = DateTime.Now;
 
-            _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
+            await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
             await _unitOfWork.SaveChangesAsync();
 
             // Update InstructorAssignment if needed
@@ -160,13 +166,35 @@ namespace OCMS_Services.Service
 
         #endregion
 
-        // Other methods (GetAll, GetById, Delete) remain unchanged...
-
+        #region Manage Instructor Assignment
         /// <summary>
         /// Manages the instructor assignment (create or update) based on subject and instructor.
+        /// Ensures the instructor has a matching specialty with the course/training plan.
         /// </summary>
         public async Task ManageInstructorAssignment(string subjectId, string instructorId, string assignByUserId)
         {
+            // Kiểm tra Specialty của Instructor và Subject/Course/TrainingPlan
+            var instructor = await _unitOfWork.UserRepository.GetAsync(u => u.UserId == instructorId);
+            var subject = await _unitOfWork.SubjectRepository.GetAsync(
+                s => s.SubjectId == subjectId,
+                s => s.Course,
+                s => s.Course.TrainingPlan);
+
+            if (instructor == null || subject == null)
+            {
+                throw new ArgumentException("Instructor or Subject not found");
+            }
+
+            // Lấy Specialty từ Training Plan (phù hợp nhất vì là cấp cao nhất)
+            string trainingPlanSpecialtyId = subject.Course.TrainingPlan.SpecialtyId;
+
+            // Kiểm tra nếu Instructor có Specialty phù hợp
+            if (instructor.SpecialtyId != trainingPlanSpecialtyId)
+            {
+                throw new InvalidOperationException("Instructor's specialty does not match with the Training Plan's specialty");
+            }
+
+            // Tiếp tục với logic assign instructor hiện tại
             var existingAssignment = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
                 a => a.SubjectId == subjectId
             );
@@ -192,6 +220,9 @@ namespace OCMS_Services.Service
                 await _instructorAssignmentService.UpdateInstructorAssignmentAsync(existingAssignment.AssignmentId, assignmentDto);
             }
         }
+        #endregion
+
+        #region Get Subjects and Schedules for Instructor
         public async Task<List<InstructorSubjectScheduleModel>> GetSubjectsAndSchedulesForInstructorAsync(string instructorId)
         {
             if (string.IsNullOrEmpty(instructorId))
@@ -240,7 +271,9 @@ namespace OCMS_Services.Service
 
             return result;
         }
+        #endregion
 
+        #region Get Subjects and Schedules for Trainee
         public async Task<List<TraineeSubjectScheduleModel>> GetSubjectsAndSchedulesForTraineeAsync(string traineeId)
         {
             var assignments = await _trainingScheduleRepository.GetTraineeAssignmentsWithSchedulesAsync(traineeId);
@@ -278,8 +311,9 @@ namespace OCMS_Services.Service
 
             return result;
         }
+        #endregion
 
-
+        #region Delete Training Schedule
         /// <summary>
         /// Deletes a training schedule by its ID and its related instructor assignment.
         /// If the related assignment is Approved, changes status to Deleting and creates a request.
@@ -305,15 +339,18 @@ namespace OCMS_Services.Service
             );
             if (assignment != null)
             {
-                _unitOfWork.InstructorAssignmentRepository.DeleteAsync(assignment.AssignmentId);
+                await _unitOfWork.InstructorAssignmentRepository.DeleteAsync(assignment.AssignmentId);
             }
 
             // Delete schedule directly
-            _unitOfWork.TrainingScheduleRepository.DeleteAsync(scheduleId);
+            await _unitOfWork.TrainingScheduleRepository.DeleteAsync(scheduleId);
             await _unitOfWork.SaveChangesAsync();
 
             return true;
         }
+        #endregion
+
+        #region Helper Methods
         /// <summary>
         /// Generates a ScheduleID in the format SCD-XXXXXX where XXXXXX is a random 6-digit number.
         /// </summary>
@@ -466,6 +503,6 @@ namespace OCMS_Services.Service
                 }
             }
         }
-
+        #endregion
     }
 }

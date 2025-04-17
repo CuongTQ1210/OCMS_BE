@@ -202,7 +202,6 @@ namespace OCMS_Services.Service
             await _unitOfWork.SaveChangesAsync();
         }
         #endregion
-
         
         #region Update Password
         public async Task UpdatePasswordAsync(string userId, PasswordUpdateDTO passwordDto)

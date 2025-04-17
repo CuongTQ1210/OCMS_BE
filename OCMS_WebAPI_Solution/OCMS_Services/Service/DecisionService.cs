@@ -79,9 +79,6 @@ namespace OCMS_Services.Service
                 case CourseLevel.Recurrent:
                     templateNamePrefix = "Recurrent";
                     break;
-                case CourseLevel.Relearn:
-                    templateNamePrefix = "Initial";
-                    break;
                 default:
                     templateNamePrefix = "Initial";
                     break;
@@ -101,7 +98,7 @@ namespace OCMS_Services.Service
             {
                 // Fallback: sử dụng template Recurrent cho Relearn nếu không có template riêng
                 latestTemplate = (await _unitOfWork.DecisionTemplateRepository.GetAllAsync(
-                    dt => dt.TemplateName.StartsWith("Recurrent") && dt.TemplateStatus == 1))
+                    dt => dt.TemplateName.StartsWith("Initial") && dt.TemplateStatus == 1))
                     .OrderByDescending(dt => dt.CreatedAt)
                     .FirstOrDefault();
             }
@@ -180,6 +177,39 @@ namespace OCMS_Services.Service
         }
         #endregion
 
+        #region Get all Draft Decisions
+        public async Task<IEnumerable<DecisionModel>> GetAllDraftDecisionsAsync()
+        {
+            return await GetDecisionsWithSasAsync(async () =>
+                await _unitOfWork.DecisionRepository.GetAllAsync(
+                    d => d.DecisionStatus == DecisionStatus.Draft));
+        }
+        #endregion
+
+        #region Get All Sign Decision
+        public async Task<IEnumerable<DecisionModel>> GetAllSignDecisionsAsync()
+        {
+            return await GetDecisionsWithSasAsync(async () =>
+                await _unitOfWork.DecisionRepository.GetAllAsync(
+                    d => d.DecisionStatus == DecisionStatus.Signed));
+        }
+        #endregion
+
+        #region Delete Decision
+        public async Task<bool> DeleteDecisionAsync(string decisionId)
+        {
+            var decision = await _unitOfWork.DecisionRepository.GetByIdAsync(decisionId);
+            if (decision == null)
+                throw new InvalidOperationException("Decision not found");
+            // Xóa quyết định
+            await _unitOfWork.DecisionRepository.DeleteAsync(decisionId);
+            await _unitOfWork.SaveChangesAsync();
+            // Xóa file trên blob
+            await _blobService.DeleteFileAsync(decision.Content);
+            return true;
+        }
+        #endregion
+
         #region Helper Methods
         private string GenerateDecisionCode()
         {
@@ -223,6 +253,27 @@ namespace OCMS_Services.Service
                     "DecisionSignature"
                 );
             }
+        }
+
+        private async Task<IEnumerable<DecisionModel>> GetDecisionsWithSasAsync(
+    Func<Task<IEnumerable<Decision>>> getDecisionsFunc)
+        {
+            var decisions = await getDecisionsFunc();
+
+            if (decisions == null || !decisions.Any())
+                return new List<DecisionModel>();
+
+            var decisionsWithSas = new List<DecisionModel>();
+            foreach (var decision in decisions)
+            {
+                var contentWithSas = await _blobService.GetBlobUrlWithSasTokenAsync(
+                    decision.Content, TimeSpan.FromHours(1), "r");
+                var decisionModel = _mapper.Map<DecisionModel>(decision);
+                decisionModel.ContentWithSas = contentWithSas;
+                decisionsWithSas.Add(decisionModel);
+            }
+
+            return decisionsWithSas;
         }
         #endregion
     }
