@@ -28,6 +28,7 @@ namespace OCMS_Services.Service
             _requestService = requestService ?? throw new ArgumentNullException(nameof(requestService));
             _trainingPlanRepository = trainingPlanRepository ?? throw new ArgumentNullException(nameof(trainingPlanRepository));
         }   
+
         #region Create Training
         public async Task<TrainingPlanModel> CreateTrainingPlanAsync(TrainingPlanDTO dto, string createUserId)
         {
@@ -38,7 +39,7 @@ namespace OCMS_Services.Service
             trainingPlan.ModifyDate = DateTime.UtcNow;
             trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Draft;
             trainingPlan.CreateByUserId = createUserId;
-            _unitOfWork.TrainingPlanRepository.AddAsync(trainingPlan);
+            await _unitOfWork.TrainingPlanRepository.AddAsync(trainingPlan);
             await _unitOfWork.SaveChangesAsync();
 
             return _mapper.Map<TrainingPlanModel>(trainingPlan);
@@ -145,7 +146,7 @@ namespace OCMS_Services.Service
             if (trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Updating){
                 trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Pending;
             }
-            _unitOfWork.TrainingPlanRepository.UpdateAsync(trainingPlan);
+            await _unitOfWork.TrainingPlanRepository.UpdateAsync(trainingPlan);
             await _unitOfWork.SaveChangesAsync();
 
             return _mapper.Map<TrainingPlanModel>(trainingPlan);
@@ -192,8 +193,7 @@ namespace OCMS_Services.Service
         }
         #endregion
 
-
-        #region create plan id
+        #region Helper Methods
         private async Task<string> GenerateTrainingPlanId(string specialtyId, DateTime trainingDate, PlanLevel planLevel)
         {
             // Get year in two-digit format (e.g., 2025 -> 25)
@@ -251,10 +251,7 @@ namespace OCMS_Services.Service
                 PlanLevel.Relearn => "REL",
                 _ => throw new ArgumentOutOfRangeException(nameof(planLevel), "Invalid plan level")
             };
-        }
-
-        
+        }        
         #endregion
-
     }
 }

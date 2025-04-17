@@ -32,6 +32,7 @@ namespace OCMS_Services.Service
             _emailService = emailService ?? throw new ArgumentNullException(nameof(emailService));
         }
 
+        #region Helper Methods
         private async Task<string> SignPdfBase64Async(string fileDataBase64)
         {
             var token = await _tokenService.GetTokenAsync();
@@ -149,8 +150,9 @@ namespace OCMS_Services.Service
             byte[] pdfBytes = await page.PdfDataAsync(pdfOptions);
             return pdfBytes;
         }
+        #endregion
 
-
+        #region Sign Pdf
         public async Task<byte[]> SignPdfAsync(string certificateId)
         {
             // Step 1: Validate input and dependencies
@@ -263,9 +265,9 @@ namespace OCMS_Services.Service
                 try
                 {
                     certificate.CertificateURL = newCertificateUrl;
-                    certificate.Status = OCMS_BOs.Entities.CertificateStatus.Active;
+                    certificate.Status = CertificateStatus.Active;
                     certificate.SignDate = DateTime.Now;
-                    _unitOfWork.CertificateRepository.UpdateAsync(certificate);
+                    await _unitOfWork.CertificateRepository.UpdateAsync(certificate);
                     await _unitOfWork.SaveChangesAsync();
                     await _unitOfWork.CommitTransactionAsync();
                 }
@@ -282,7 +284,9 @@ namespace OCMS_Services.Service
             //// Step 13: Return signed PDF bytes
             return signedPdfBytes;
         }
+        #endregion
 
+        #region Send Email with Certificate
         public async Task SendCertificateByEmailAsync(string certificateId)
         {
             if (_emailService == null)
@@ -317,5 +321,127 @@ namespace OCMS_Services.Service
                     $"Failed to send certificate {certificateId} to {user.Email}: {ex.Message}", ex);
             }
         }
-    }   
+        #endregion
+
+        #region Sign Decision PDF
+        public async Task<byte[]> SignDecisionAsync(string decisionId)
+        {
+            // Step 1: Validate input and dependencies
+            if (string.IsNullOrWhiteSpace(decisionId))
+                throw new ArgumentException("Decision ID cannot be null or empty.");
+            if (_unitOfWork?.DecisionRepository == null)
+                throw new InvalidOperationException("Decision repository is not initialized.");
+            if (_blobService == null)
+                throw new InvalidOperationException("Blob service is not initialized.");
+
+            // Step 2: Get the decision info
+            var decision = await _unitOfWork.DecisionRepository.GetByIdAsync(decisionId);
+            if (decision == null || string.IsNullOrWhiteSpace(decision.Content))
+                throw new InvalidOperationException("Decision not found or missing content.");
+            if (decision.DecisionStatus != DecisionStatus.Draft)
+                throw new InvalidOperationException($"Decision is not in Draft status. Current status: {decision.DecisionStatus}");
+
+            // Step 3: Generate SAS URL for HTML file
+            string sasUrl = await _blobService.GetBlobUrlWithSasTokenAsync(decision.Content, TimeSpan.FromHours(1));
+            if (string.IsNullOrEmpty(sasUrl))
+                throw new InvalidOperationException("Failed to generate SAS URL for the decision content.");
+
+            // Step 4: Download the HTML content from the SAS URL
+            using var httpClient = new HttpClient();
+            var response = await httpClient.GetAsync(sasUrl);
+            if (!response.IsSuccessStatusCode)
+                throw new InvalidOperationException($"Failed to retrieve HTML content. Status: {response.StatusCode}");
+
+            var htmlContent = await response.Content.ReadAsStringAsync();
+            if (string.IsNullOrEmpty(htmlContent))
+                throw new InvalidOperationException("Decision HTML content is empty.");
+
+            // Step 5: Convert HTML to PDF
+            byte[] pdfBytes;
+            try
+            {
+                pdfBytes = await ConvertHtmlToPdf(htmlContent);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Failed to convert HTML to PDF.", ex);
+            }
+            if (pdfBytes == null || pdfBytes.Length == 0)
+                throw new InvalidOperationException("Converted PDF content is empty.");
+
+            // Step 6: Convert PDF to Base64
+            string pdfBase64 = Convert.ToBase64String(pdfBytes);
+
+            // Step 7: Sign the PDF
+            var result = await SignPdfBase64Async(pdfBase64);
+            if (string.IsNullOrEmpty(result))
+                throw new InvalidOperationException("PDF signing service returned an empty result.");
+
+            // Step 8: Deserialize and extract file_data
+            byte[] signedPdfBytes;
+            try
+            {
+                var jsonDoc = JsonDocument.Parse(result);
+                var resultElement = jsonDoc.RootElement.GetProperty("result");
+
+                if (!resultElement.TryGetProperty("file_data", out var fileDataElement))
+                    throw new KeyNotFoundException("The 'file_data' key was not found in the response.");
+
+                string fileData = fileDataElement.GetString();
+                if (string.IsNullOrEmpty(fileData))
+                    throw new InvalidOperationException("The 'file_data' value is empty or null.");
+
+                signedPdfBytes = Convert.FromBase64String(fileData);
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidOperationException("Failed to parse the signing service response.", ex);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                throw new InvalidOperationException("Required data missing in the signing service response.", ex);
+            }
+
+            // Step 9: Upload signed PDF to blob storage
+            string containerName = "decisions";
+            string blobName = $"signed/{decisionId}_{DateTime.Now:yyyyMMddHHmmss}.pdf";
+            string newDecisionUrl;
+            using (var stream = new MemoryStream(signedPdfBytes))
+            {
+                try
+                {
+                    newDecisionUrl = await _blobService.UploadFileAsync(containerName, blobName, stream, "application/pdf");
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException("Failed to upload signed PDF to blob storage.", ex);
+                }
+                if (string.IsNullOrEmpty(newDecisionUrl))
+                    throw new InvalidOperationException("Blob storage returned an empty URL for the signed PDF.");
+            }
+
+            // Step 10: Update decision with new URL and status
+            await _unitOfWork.ExecuteWithStrategyAsync(async () =>
+            {
+                await _unitOfWork.BeginTransactionAsync();
+                try
+                {
+                    decision.Content = newDecisionUrl;
+                    decision.DecisionStatus = DecisionStatus.Signed;
+                    await _unitOfWork.DecisionRepository.UpdateAsync(decision);
+                    await _unitOfWork.SaveChangesAsync();
+                    await _unitOfWork.CommitTransactionAsync();
+                }
+                catch (Exception ex)
+                {
+                    await _unitOfWork.RollbackTransactionAsync();
+                    throw new InvalidOperationException("Failed to update decision status and URL.", ex);
+                }
+            });
+
+            // Step 11: Return signed PDF bytes
+            return signedPdfBytes;
+        }
+        #endregion
+    }
 }

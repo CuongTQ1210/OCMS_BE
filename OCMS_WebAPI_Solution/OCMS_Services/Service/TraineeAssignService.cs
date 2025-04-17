@@ -42,12 +42,14 @@ namespace OCMS_Services.Service
             _courseRepository = courseRepository;
             _traineeAssignRepository = traineeAssignRepository;
         }
+
         #region Get All Trainee Assignments
         public async Task<IEnumerable<TraineeAssignModel>> GetAllTraineeAssignmentsAsync()
         {
             var assignments = await _unitOfWork.TraineeAssignRepository.GetAllAsync();
             return _mapper.Map<IEnumerable<TraineeAssignModel>>(assignments);
         }
+        #endregion
 
         #region Get Trainee Assignment By ID
         public async Task<TraineeAssignModel> GetTraineeAssignmentByIdAsync(string traineeAssignId)
@@ -72,22 +74,56 @@ namespace OCMS_Services.Service
             var existingAssignment = await _unitOfWork.TraineeAssignRepository.GetByIdAsync(id);
             if (existingAssignment == null)
                 throw new KeyNotFoundException($"Trainee Assignment with ID {id} not found.");
-            var user = await _unitOfWork.UserRepository.FirstOrDefaultAsync(u => u.UserId == dto.TraineeId);
-            if (user != null)
-            {
-                user.IsAssign = true;
-                _unitOfWork.UserRepository.UpdateAsync(user);
-                await _unitOfWork.SaveChangesAsync();
-            }
+
             // Ensure update is allowed only if status is "Pending" or "Rejected"
             if (existingAssignment.RequestStatus.ToString() != "Pending" && existingAssignment.RequestStatus.ToString() != "Rejected")
                 throw new InvalidOperationException($"Cannot update trainee assignment because its status is '{existingAssignment.RequestStatus.ToString()}'. Only 'Pending' or 'Rejected' can be updated.");
 
+            // Validate TraineeId
+            var trainee = await _unitOfWork.UserRepository.GetByIdAsync(dto.TraineeId);
+            if (trainee == null)
+                throw new Exception($"Trainee with ID {dto.TraineeId} not found.");
+
+            // Validate that the user is a Trainee
+            if (trainee.RoleId != 7) // Assuming 7 = Trainee
+                throw new Exception($"User with ID {dto.TraineeId} is not a Trainee. Role: {trainee.Role}.");
+
+            // Validate CourseId
+            var course = await _unitOfWork.CourseRepository.GetByIdAsync(dto.CourseId);
+            if (course == null)
+                throw new Exception($"Course with ID {dto.CourseId} not found.");
+
+            // Kiểm tra Specialty của Trainee và Course/TrainingPlan
+            var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(course.TrainingPlanId);
+            if (trainingPlan == null)
+                throw new Exception($"Training Plan with ID {course.TrainingPlanId} not found.");
+
+            // Kiểm tra nếu Trainee có Specialty phù hợp với TrainingPlan
+            if (trainee.SpecialtyId != trainingPlan.SpecialtyId)
+                throw new Exception($"Trainee's specialty ({trainee.SpecialtyId}) does not match with the Training Plan's specialty ({trainingPlan.SpecialtyId}).");
+
+            // Check if the trainee is already assigned to this course (only if changing the trainee or course)
+            if (dto.TraineeId != existingAssignment.TraineeId || dto.CourseId != existingAssignment.CourseId)
+            {
+                var existingAssignmentCheck = await _unitOfWork.TraineeAssignRepository
+                    .FindAsync(ta => ta.TraineeId == dto.TraineeId && ta.CourseId == dto.CourseId && ta.TraineeAssignId != id);
+                if (existingAssignmentCheck.Any())
+                    throw new Exception($"Trainee {dto.TraineeId} is already assigned to Course {dto.CourseId}.");
+            }
+
+            // Update the IsAssign status of the user if needed
+            if (trainee != null && !trainee.IsAssign)
+            {
+                trainee.IsAssign = true;
+                await _unitOfWork.UserRepository.UpdateAsync(trainee);
+            }
+
+            // Update the assignment
             existingAssignment.TraineeId = dto.TraineeId;
             existingAssignment.CourseId = dto.CourseId;
             existingAssignment.Notes = dto.Notes;
 
-            _unitOfWork.TraineeAssignRepository.UpdateAsync(existingAssignment);
+            await _unitOfWork.TraineeAssignRepository.UpdateAsync(existingAssignment);
             await _unitOfWork.SaveChangesAsync();
 
             return _mapper.Map<TraineeAssignModel>(existingAssignment);
@@ -108,12 +144,12 @@ namespace OCMS_Services.Service
             if (assignment.RequestStatus.ToString() != "Pending" && assignment.RequestStatus.ToString() != "Rejected")
                 return (false, $"Cannot delete trainee assignment because its status is '{assignment.RequestStatus.ToString()}'. Only 'Pending' or 'Rejected' can be deleted.");
 
-            _unitOfWork.TraineeAssignRepository.DeleteAsync(id);
+            await _unitOfWork.TraineeAssignRepository.DeleteAsync(id);
             var user = await _unitOfWork.UserRepository.FirstOrDefaultAsync(u => u.UserId == assignment.TraineeId);
             if (user != null)
             {
                 user.IsAssign = false;
-                _unitOfWork.UserRepository.UpdateAsync(user);
+                await _unitOfWork.UserRepository.UpdateAsync(user);
                 await _unitOfWork.SaveChangesAsync();
             }
             await _unitOfWork.SaveChangesAsync();
@@ -136,14 +172,6 @@ namespace OCMS_Services.Service
         }
         #endregion
 
-        #region Generate Assignment ID
-        private string GenerateAssignmentId()
-        {
-            string guidPart = Guid.NewGuid().ToString("N").Substring(0, 6).ToUpper();
-            return $"TAS-{guidPart}";
-        }
-        #endregion
-        #endregion
         #region Create TraineeAssign
         public async Task<TraineeAssignModel> CreateTraineeAssignAsync(TraineeAssignDTO dto, string createdByUserId)
         {
@@ -165,6 +193,18 @@ namespace OCMS_Services.Service
             if (course == null)
             {
                 throw new Exception($"Course with ID {dto.CourseId} not found.");
+            }
+
+            var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(course.TrainingPlanId);
+            if (trainingPlan == null)
+            {
+                throw new Exception($"Training Plan with ID {course.TrainingPlanId} not found.");
+            }
+
+            // Kiểm tra nếu Trainee có Specialty phù hợp với TrainingPlan
+            if (trainee.SpecialtyId != trainingPlan.SpecialtyId)
+            {
+                throw new Exception($"Trainee's specialty ({trainee.SpecialtyId}) does not match with the Training Plan's specialty ({trainingPlan.SpecialtyId}).");
             }
 
             // Check if the trainee is already assigned to this course
@@ -216,7 +256,7 @@ namespace OCMS_Services.Service
             if (user != null)
             {
                 user.IsAssign = true;
-                _unitOfWork.UserRepository.UpdateAsync(user);
+                await _unitOfWork.UserRepository.UpdateAsync(user);
                 await _unitOfWork.SaveChangesAsync();
             }
             // ✅ Save both Request & TraineeAssign in a single transaction
@@ -245,6 +285,11 @@ namespace OCMS_Services.Service
                 // Fetch existing data for validation
                 var existingCourses = await _unitOfWork.CourseRepository.GetAllAsync();
                 var existingCourseIds = existingCourses.Select(c => c.CourseId).ToList();
+                var courseDict = existingCourses.ToDictionary(c => c.CourseId, c => c);
+
+                // Lấy thông tin về training plans
+                var trainingPlans = await _unitOfWork.TrainingPlanRepository.GetAllAsync();
+                var trainingPlanDict = trainingPlans.ToDictionary(tp => tp.PlanId, tp => tp);
 
                 var existingUsers = await _unitOfWork.UserRepository.GetAllAsync();
                 var userDict = existingUsers.ToDictionary(u => u.UserId, u => u);
@@ -271,6 +316,10 @@ namespace OCMS_Services.Service
                         result.Errors.Add($"Invalid or missing CourseId '{courseId}' in cell B1.");
                         return result;
                     }
+
+                    var course = courseDict[courseId];
+                    var trainingPlan = trainingPlanDict[course.TrainingPlanId];
+                    string trainingPlanSpecialtyId = trainingPlan.SpecialtyId;
 
                     var lastTraineeAssignId = await GetLastTraineeAssignIdAsync();
                     int lastIdNumber = 0;
@@ -324,6 +373,13 @@ namespace OCMS_Services.Service
                             continue;
                         }
 
+                        if (user.SpecialtyId != trainingPlanSpecialtyId)
+                        {
+                            result.FailedCount++;
+                            result.Errors.Add($"Error at row {row}: Trainee '{userId}' specialty ({user.SpecialtyId}) does not match with the Training Plan's specialty ({trainingPlanSpecialtyId}).");
+                            continue;
+                        }
+
                         // Read Notes from column B (2) - B3, B4, B5, ...
                         string notes = worksheet.Cells[row, 2].Text ?? "";
                         // Log the Notes being read
@@ -347,7 +403,7 @@ namespace OCMS_Services.Service
                         if (user != null)
                         {
                             user.IsAssign = true;
-                            _unitOfWork.UserRepository.UpdateAsync(user);
+                            await _unitOfWork.UserRepository.UpdateAsync(user);
                             await _unitOfWork.SaveChangesAsync();
                         }
                         traineeAssignments.Add(traineeAssign);
@@ -410,6 +466,7 @@ namespace OCMS_Services.Service
         }
         #endregion
 
+        #region Get Trainees by SubjectId
         public async Task<List<TraineeAssignModel>> GetTraineesBySubjectIdAsync(string subjectId)
         {
             if (string.IsNullOrWhiteSpace(subjectId))
@@ -422,6 +479,9 @@ namespace OCMS_Services.Service
 
             return await _traineeAssignRepository.GetTraineeAssignsBySubjectIdAsync(subjectId);
         }
+        #endregion
+
+        #region Get Trainees by RequestId
         public async Task<List<TraineeAssignModel>> GetTraineesByRequestIdAsync(string requestId)
         {
             if (string.IsNullOrWhiteSpace(requestId))
@@ -434,6 +494,7 @@ namespace OCMS_Services.Service
 
             return await _traineeAssignRepository.GetTraineeAssignsBySubjectIdAsync(requestId);
         }
+        #endregion
 
         #region Helper Methods
         private async Task<string> GetLastTraineeAssignIdAsync()
