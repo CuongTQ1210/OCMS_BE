@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using OCMS_Services.IService;
 using OCMS_Services.Service;
 using OCMS_WebAPI.AuthorizeSettings;
+using System.Security.Claims;
 using System.Text.Json;
 
 namespace OCMS_WebAPI.Controllers
@@ -27,7 +28,8 @@ namespace OCMS_WebAPI.Controllers
 
             try
             {
-                byte[] signedPdfBytes = await _pdfSignerService.SignPdfAsync(certificateId);
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                byte[] signedPdfBytes = await _pdfSignerService.SignPdfAsync(certificateId, userId);
                 return File(signedPdfBytes, "application/pdf", "signed-document.pdf");
             }
             catch (Exception ex)
@@ -57,8 +59,7 @@ namespace OCMS_WebAPI.Controllers
             }
 
             try
-            {
-                
+            {                
                 await _pdfSignerService.SendCertificateByEmailAsync(certificateId);
                 return Ok(new { Message = $"Email sent successfully!!" });
             }
