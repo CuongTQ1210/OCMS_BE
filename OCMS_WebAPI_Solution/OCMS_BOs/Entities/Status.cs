@@ -30,8 +30,8 @@ namespace OCMS_BOs.Entities
     public enum CourseLevel
     {
         Initial = 0,
-        Relearn = 1,
-        Recurrent = 2
+        Relearn = 2,
+        Recurrent = 1
     }
 
     public enum RequestStatus
