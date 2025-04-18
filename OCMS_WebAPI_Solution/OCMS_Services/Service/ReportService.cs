@@ -26,7 +26,6 @@ namespace OCMS_Services.Service
         }
         public async Task GenerateExcelReport(List<ExpiredCertificateReportDto> data, string filePath)
         {
-            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
             using var package = new ExcelPackage();
             var sheet = package.Workbook.Worksheets.Add("Expired Certificates");
 
