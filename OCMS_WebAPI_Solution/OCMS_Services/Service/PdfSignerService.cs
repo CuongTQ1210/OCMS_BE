@@ -153,7 +153,7 @@ namespace OCMS_Services.Service
         #endregion
 
         #region Sign Pdf
-        public async Task<byte[]> SignPdfAsync(string certificateId)
+        public async Task<byte[]> SignPdfAsync(string certificateId, string approvedByUserId)
         {
             // Step 1: Validate input and dependencies
             if (string.IsNullOrWhiteSpace(certificateId))
@@ -267,6 +267,7 @@ namespace OCMS_Services.Service
                     certificate.CertificateURL = newCertificateUrl;
                     certificate.Status = CertificateStatus.Active;
                     certificate.SignDate = DateTime.Now;
+                    certificate.ApprovebyUserId = approvedByUserId;
                     await _unitOfWork.CertificateRepository.UpdateAsync(certificate);
                     await _unitOfWork.SaveChangesAsync();
                     await _unitOfWork.CommitTransactionAsync();
@@ -428,6 +429,7 @@ namespace OCMS_Services.Service
                 {
                     decision.Content = newDecisionUrl;
                     decision.DecisionStatus = DecisionStatus.Signed;
+                    decision.SignDate = DateTime.Now;
                     await _unitOfWork.DecisionRepository.UpdateAsync(decision);
                     await _unitOfWork.SaveChangesAsync();
                     await _unitOfWork.CommitTransactionAsync();

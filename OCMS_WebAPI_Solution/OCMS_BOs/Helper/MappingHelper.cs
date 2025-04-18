@@ -312,40 +312,36 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.TemplateId, opt => opt.MapFrom(src => src.CertificateTemplateId))
                 .ForMember(dest => dest.ExpirationDate, opt => opt.MapFrom(src => src.ExpirationDate));
             CreateMap<CreateDecisionTemplateDTO, DecisionTemplate>()
-                .ForMember(dest => dest.TemplateStatus, opt => opt.MapFrom(src => 0)) // Draft status
-                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.Now))
-                .ForMember(dest => dest.LastUpdatedAt, opt => opt.MapFrom(_ => DateTime.Now))
-                .ForMember(dest => dest.DecisionTemplateId, opt => opt.Ignore())
-                .ForMember(dest => dest.CreatedByUserId, opt => opt.Ignore())
-                .ForMember(dest => dest.ApprovedByUserId, opt => opt.Ignore()) // Explicitly ignoring this to handle it separately
                 .ForMember(dest => dest.TemplateName, opt => opt.MapFrom(src => src.templateName))
-                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.description));
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.description))
+                .ForMember(dest => dest.TemplateContent, opt => opt.Ignore()); // Được xử lý trong service
 
+            // Response từ Entity sau Create
             CreateMap<DecisionTemplate, CreateDecisionTemplateResponse>()
-                .ForMember(dest => dest.DecisionTemplateId, opt => opt.MapFrom(src => src.DecisionTemplateId))
-                .ForMember(dest => dest.TemplateName, opt => opt.MapFrom(src => src.TemplateName))
-                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
-                .ForMember(dest => dest.TemplateContent, opt => opt.MapFrom(src => src.TemplateContent))
-                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
-                .ForMember(dest => dest.CreatedByUserId, opt => opt.MapFrom(src => src.CreatedByUserId))
-                .ForMember(dest => dest.TemplateStatus, opt => opt.MapFrom(src => src.TemplateStatus))
-                .ForMember(dest => dest.TemplateContentWithSas, opt => opt.Ignore());
+                .ForMember(dest => dest.TemplateContentWithSas, opt => opt.Ignore()); // Được xử lý trong service
 
-            // Map for UpdateDecisionTemplateDTO to DecisionTemplate
+            // Response từ Entity cho Get by ID
+            CreateMap<DecisionTemplate, DecisionTemplateModel>()
+                .ForMember(dest => dest.CreatedByUserName, opt => opt.MapFrom(src =>
+                    src.CreatedByUser != null ? $"{src.CreatedByUser.FullName}" : string.Empty))
+                .ForMember(dest => dest.ApprovedByUserName, opt => opt.MapFrom(src =>
+                    src.ApprovedByUser != null ? $"{src.ApprovedByUser.FullName}" : string.Empty))
+                .ForMember(dest => dest.TemplateContentWithSas, opt => opt.Ignore()); // Được xử lý trong service
+
+            CreateMap<DecisionTemplate, GetAllDecisionTemplatesResponse.DecisionTemplateItem>()
+                .ForMember(dest => dest.CreatedByUserName, opt => opt.MapFrom(src =>
+                    src.CreatedByUser != null ? $"{src.CreatedByUser.FullName}" : string.Empty))
+                .ForMember(dest => dest.ApprovedByUserName, opt => opt.MapFrom(src =>
+                    src.ApprovedByUser != null ? $"{src.ApprovedByUser.FullName}" : string.Empty));
+
+            // Update DTO to Entity
             CreateMap<UpdateDecisionTemplateDTO, DecisionTemplate>()
-                .ForMember(dest => dest.DecisionTemplateId, opt => opt.Ignore())
-                .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
-                .ForMember(dest => dest.CreatedByUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.TemplateContent, opt => opt.Ignore())
-                .ForMember(dest => dest.LastUpdatedAt, opt => opt.MapFrom(_ => DateTime.Now));
+                .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
 
-            // Map for DecisionTemplate to UpdateDecisionTemplateResponse
+            // Response từ Entity sau Update
             CreateMap<DecisionTemplate, UpdateDecisionTemplateResponse>()
-                .ForMember(dest => dest.DecisionTemplateId, opt => opt.MapFrom(src => src.DecisionTemplateId))
-                .ForMember(dest => dest.TemplateName, opt => opt.MapFrom(src => src.TemplateName))
-                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
-                .ForMember(dest => dest.LastUpdatedAt, opt => opt.MapFrom(src => src.LastUpdatedAt))
-                .ForMember(dest => dest.TemplateStatus, opt => opt.MapFrom(src => src.TemplateStatus));
+                .ForMember(dest => dest.TemplateContentWithSas, opt => opt.Ignore()); // Được xử lý trong service
 
             CreateMap<CreateDecisionDTO, Decision>()
                 .ForMember(dest => dest.DecisionId, opt => opt.Ignore())
@@ -366,7 +362,7 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.ContentWithSas, opt => opt.Ignore())
                 .ForMember(dest => dest.IssueDate, opt => opt.MapFrom(src => src.IssueDate))
                 .ForMember(dest => dest.IssuedBy, opt => opt.MapFrom(src => src.IssuedByUserId))
-                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.DecisionStatus.ToString()))
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.DecisionStatus))
                 .ForMember(dest => dest.DecisionTemplateId, opt => opt.MapFrom(src => src.DecisionTemplateId));
         }
 

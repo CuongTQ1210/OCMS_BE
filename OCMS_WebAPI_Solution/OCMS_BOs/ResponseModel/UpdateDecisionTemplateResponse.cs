@@ -11,7 +11,9 @@ namespace OCMS_BOs.ResponseModel
         public string DecisionTemplateId { get; set; }
         public string TemplateName { get; set; }
         public string Description { get; set; }
-        public DateTime? LastUpdatedAt { get; set; }
+        public string TemplateContent { get; set; }
+        public string TemplateContentWithSas { get; set; }
+        public DateTime LastUpdatedAt { get; set; }
         public int TemplateStatus { get; set; }
     }
 }

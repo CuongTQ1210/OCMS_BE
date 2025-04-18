@@ -15,6 +15,7 @@ using Azure.Identity;
 using Azure.Extensions.AspNetCore.Configuration.Secrets;
 using StackExchange.Redis;
 using OfficeOpenXml;
+using OCMS_Services.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
@@ -210,5 +211,5 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-
+app.UseApiAuditLogging(); 
 app.Run();
