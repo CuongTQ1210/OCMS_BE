@@ -25,5 +25,7 @@ namespace OCMS_BOs.ViewModel
 
         public DateTime EvaluationDate { get; set; }
         public DateTime UpdateDate { get; set; }
+
+        public string Fullname { get; set; }
     }
 }

@@ -14,9 +14,10 @@ using System.Text;
 using Azure.Identity;
 using Azure.Extensions.AspNetCore.Configuration.Secrets;
 using StackExchange.Redis;
+using OfficeOpenXml;
 
 var builder = WebApplication.CreateBuilder(args);
-
+ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 var keyVaultEndpoint = new Uri(builder.Configuration["KeyVault:Endpoint"]);
 builder.Configuration.AddAzureKeyVault(
    keyVaultEndpoint,
@@ -98,7 +99,7 @@ builder.Services.AddHttpClient<IHsmAuthService, HsmAuthService>();
 builder.Services.AddHttpClient<IPdfSignerService, PdfSignerService>();
 builder.Services.AddScoped<IDecisionTemplateService, DecisionTemplateService>();
 builder.Services.AddScoped<IDecisionService, DecisionService>();
-
+builder.Services.AddScoped<IReportService, ReportService>();
 // Register Lazy<T> factories
 builder.Services.AddScoped(provider => new Lazy<ITrainingScheduleService>(() => provider.GetRequiredService<ITrainingScheduleService>()));
 builder.Services.AddScoped(provider => new Lazy<ITrainingPlanService>(() => provider.GetRequiredService<ITrainingPlanService>()));

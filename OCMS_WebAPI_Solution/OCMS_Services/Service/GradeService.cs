@@ -32,10 +32,26 @@ namespace OCMS_Services.Service
         public async Task<IEnumerable<GradeModel>> GetAllAsync()
         {
             var grades = await _unitOfWork.GradeRepository.GetAllAsync();
-            return _mapper.Map<IEnumerable<GradeModel>>(grades);
+            var gradeModels = new List<GradeModel>();
+
+            foreach (var grade in grades)
+            {
+                // Fetch TraineeAssign and User data
+                var traineeAssign = await _unitOfWork.TraineeAssignRepository.GetByIdAsync(grade.TraineeAssignID);
+                var trainee = traineeAssign != null
+                    ? await _unitOfWork.UserRepository.GetByIdAsync(traineeAssign.TraineeId)
+                    : null;
+
+                // Map Grade to GradeModel
+                var gradeModel = _mapper.Map<GradeModel>(grade);
+                gradeModel.Fullname = trainee?.FullName; // Set Fullname (null if trainee not found)
+
+                gradeModels.Add(gradeModel);
+            }
+
+            return gradeModels;
         }
         #endregion
-
         #region Get Grade By ID
         public async Task<GradeModel> GetByIdAsync(string id)
         {
@@ -43,7 +59,17 @@ namespace OCMS_Services.Service
             if (grade == null)
                 throw new KeyNotFoundException($"Grade with ID '{id}' not found.");
 
-            return _mapper.Map<GradeModel>(grade);
+            // Fetch TraineeAssign and User data
+            var traineeAssign = await _unitOfWork.TraineeAssignRepository.GetByIdAsync(grade.TraineeAssignID);
+            var trainee = traineeAssign != null
+                ? await _unitOfWork.UserRepository.GetByIdAsync(traineeAssign.TraineeId)
+                : null;
+
+            // Map Grade to GradeModel
+            var gradeModel = _mapper.Map<GradeModel>(grade);
+            gradeModel.Fullname = trainee?.FullName; // Set Fullname (null if trainee not found)
+
+            return gradeModel;
         }
         #endregion
 

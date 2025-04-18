@@ -309,8 +309,8 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.TemplateStatus, opt => opt.MapFrom(src => src.templateStatus));
 
             CreateMap<Certificate, CertificateModel>()
-                .ForMember(dest => dest.TemplateId, opt => opt.MapFrom(src => src.CertificateTemplateId));
-
+                .ForMember(dest => dest.TemplateId, opt => opt.MapFrom(src => src.CertificateTemplateId))
+                .ForMember(dest => dest.ExpirationDate, opt => opt.MapFrom(src => src.ExpirationDate));
             CreateMap<CreateDecisionTemplateDTO, DecisionTemplate>()
                 .ForMember(dest => dest.TemplateStatus, opt => opt.MapFrom(src => 0)) // Draft status
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.Now))
