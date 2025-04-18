@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using OCMS_Services.IService;
 using OCMS_Services.Service;
+using OCMS_WebAPI.AuthorizeSettings;
 
 namespace OCMS_WebAPI.Controllers
 {
@@ -17,6 +18,7 @@ namespace OCMS_WebAPI.Controllers
         }
 
         // 1️⃣ Expired Certificate Report
+        [CustomAuthorize("Admin","HR", "Reviewer")]
         [HttpGet("export-expired-certificates")]
         public async Task<IActionResult> ExportExpiredCertificates()
         {
@@ -39,6 +41,7 @@ namespace OCMS_WebAPI.Controllers
         }
 
         // 2️⃣ Trainee Info Report (by trainee ID)
+        [CustomAuthorize("Admin", "HR", "Reviewer")]
         [HttpGet("export-trainee-info/{traineeId}")]
         public async Task<IActionResult> ExportTraineeInfo(string traineeId)
         {
@@ -60,6 +63,7 @@ namespace OCMS_WebAPI.Controllers
         }
 
         // 3️⃣ Course Result Report (All Courses)
+        [CustomAuthorize("Admin", "HR", "Reviewer")]
         [HttpGet("export-course-result")]
         public async Task<IActionResult> ExportCourseResult()
         {
