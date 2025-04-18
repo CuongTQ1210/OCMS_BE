@@ -17,6 +17,7 @@ namespace OCMS_BOs.ViewModel
         public string Status { get; set; }
         public string CertificateURL { get; set; }
         public string CertificateURLwithSas { get; set; }
+        public DateTime? ExpirationDate { get; set; }
 
     }
 }
