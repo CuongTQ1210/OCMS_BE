@@ -58,7 +58,7 @@ namespace OCMS_Services.Service
         }
         public async Task<List<ExpiredCertificateReportDto>> GetExpiredCertificatesAsync()
         {
-            var now = DateTime.UtcNow;
+            var now = DateTime.Now;
             var fourMonthsLater = now.AddMonths(4);
 
             var certificates = await _certificateService.GetActiveCertificatesWithSasUrlAsync();
