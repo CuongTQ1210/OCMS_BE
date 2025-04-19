@@ -196,7 +196,7 @@ namespace OCMS_Services.Service
 
             user.Status = AccountStatus.Deactivated; // or false if it's a boolean field
 
-            _unitOfWork.UserRepository.UpdateAsync(user);
+            await _unitOfWork.UserRepository.UpdateAsync(user);
             await _unitOfWork.SaveChangesAsync();
 
             return true;
