@@ -145,6 +145,24 @@ namespace OCMS_WebAPI.Controllers
         }
         #endregion
 
+        [HttpPut("deactivate/{userId}")]
+        public async Task<IActionResult> DeactivateUser(string userId)
+        {
+            try
+            {
+                var result = await _userService.DeactivateUserAsync(userId);
+                if (result)
+                    return Ok(new { message = "User deactivated successfully." });
+
+                return BadRequest("Failed to deactivate user.");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+
         #region Update Password
         [HttpPut("{id}/password")]
         [CustomAuthorize]
