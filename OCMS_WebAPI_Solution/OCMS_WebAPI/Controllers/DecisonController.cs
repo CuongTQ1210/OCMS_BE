@@ -59,7 +59,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get All Signed Decisions
         [HttpGet("GetAllApprovedDecisions")]
-        [CustomAuthorize("Admin", "Training staff", "HeadMaster")]
+        [CustomAuthorize("Admin", "Training staff", "HeadMaster", "HR", "Trainee")]
         public async Task<IActionResult> GetAllApprovedDecisions()
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

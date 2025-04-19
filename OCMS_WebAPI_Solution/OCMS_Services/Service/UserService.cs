@@ -187,6 +187,21 @@ namespace OCMS_Services.Service
             return user;
         }
         #endregion
+        #region deactivate user
+        public async Task<bool> DeactivateUserAsync(string userId)
+        {
+            var user = await _unitOfWork.UserRepository.GetByIdAsync(userId);
+            if (user == null)
+                throw new Exception("User not found.");
+
+            user.Status = AccountStatus.Deactivated; // or false if it's a boolean field
+
+            await _unitOfWork.UserRepository.UpdateAsync(user);
+            await _unitOfWork.SaveChangesAsync();
+
+            return true;
+        }
+        #endregion
 
         #region Update User Details
         public async Task UpdateUserDetailsAsync(string userId, UserUpdateDTO updateDto)
