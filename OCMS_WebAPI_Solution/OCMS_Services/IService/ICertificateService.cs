@@ -12,6 +12,7 @@ namespace OCMS_Services.IService
     {
         
         Task<List<CertificateModel>> AutoGenerateCertificatesForPassedTraineesAsync(string courseId, string issuedByUserId);
+        Task<CertificateModel> GenerateManualCertificateAsync(string courseId, string traineeId, string issuedByUserId);
         Task<CertificateModel> GetCertificateByIdAsync(string certificateId);
         Task<List<CertificateModel>> GetPendingCertificatesWithSasUrlAsync();
         Task<List<CertificateModel>> GetCertificatesByUserIdWithSasUrlAsync(string userId);

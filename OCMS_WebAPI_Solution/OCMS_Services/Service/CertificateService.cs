@@ -25,6 +25,7 @@ namespace OCMS_Services.Service
         private readonly UnitOfWork _unitOfWork;
         private readonly IBlobService _blobService;
         private readonly INotificationService _notificationService;
+        private readonly IDecisionService _decisionService;
         private readonly IUserRepository _userRepository;
         private readonly ITraineeAssignRepository _traineeAssignRepository;
         private readonly IGradeRepository _gradeRepository;
@@ -41,6 +42,7 @@ namespace OCMS_Services.Service
             UnitOfWork unitOfWork,
             IBlobService blobService,
             INotificationService notificationService,
+            IDecisionService decisionService,
             IUserRepository userRepository,
             ITraineeAssignRepository traineeAssignRepository,
             IGradeRepository gradeRepository,
@@ -52,6 +54,7 @@ namespace OCMS_Services.Service
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _blobService = blobService ?? throw new ArgumentNullException(nameof(blobService));
             _notificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
+            _decisionService = decisionService ?? throw new ArgumentNullException(nameof(decisionService));
             _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
             _traineeAssignRepository = traineeAssignRepository ?? throw new ArgumentNullException(nameof(traineeAssignRepository));
             _gradeRepository = gradeRepository ?? throw new ArgumentNullException(nameof(gradeRepository));
@@ -80,15 +83,24 @@ namespace OCMS_Services.Service
             {
                 // 1. Get course data efficiently
                 var course = await _courseRepository.GetCourseWithDetailsAsync(courseId);
-                if (course == null || !course.Subjects.Any())
-                {
-                    throw new Exception($"Course with ID {courseId} not found or has no subjects");
-                }
+                var traineeAssignments = await _traineeAssignRepository.GetTraineeAssignmentsByCourseIdAsync(courseId);
+                var existingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.CourseId == courseId);
+                var allGrades = await _gradeRepository.GetGradesByCourseIdAsync(courseId);
+                var templateId = await GetTemplateIdByCourseLevelAsync(course.CourseLevel); var traineeWithCerts = new HashSet<string>(existingCertificates.Select(c => c.UserId));
+                var traineeIds = traineeAssignments.Select(ta => ta.TraineeId).Distinct().ToList();
 
-                int subjectCount = course.Subjects.Count;
+                _logger.LogInformation($"Found {traineeIds.Count()} trainees enrolled in course, {traineeWithCerts.Count} already have certificates");
 
-                // 2. Get template data with caching
-                var templateId = await GetTemplateIdByCourseLevelAsync(course.CourseLevel);
+                // 5. Get trainee data efficiently
+                var trainees = await _userRepository.GetUsersByIdsAsync(traineeIds);
+                var traineeDict = trainees.ToDictionary(t => t.UserId);
+                var issueDate = DateTime.Now;
+
+                // 6. Process grades
+                var gradesByTraineeAssign = allGrades
+                    .GroupBy(g => g.TraineeAssignID)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+
                 if (string.IsNullOrEmpty(templateId))
                 {
                     throw new Exception($"No active template for course level {course.CourseLevel}");
@@ -97,29 +109,104 @@ namespace OCMS_Services.Service
                 var certificateTemplate = await _unitOfWork.CertificateTemplateRepository.GetByIdAsync(templateId);
                 var templateHtml = await GetCachedTemplateHtmlAsync(certificateTemplate.TemplateFile);
                 var templateType = GetTemplateTypeFromName(certificateTemplate.TemplateName);
-
-                // 3. Get all data needed for certificate generation in bulk
-                var traineeAssignments = await _traineeAssignRepository.GetTraineeAssignmentsByCourseIdAsync(courseId);
-                var existingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.CourseId == courseId);
-                var allGrades = await _gradeRepository.GetGradesByCourseIdAsync(courseId);
+                int subjectCount = course.Subjects.Count;
 
 
-                // 4. Process data
-                var traineeWithCerts = new HashSet<string>(existingCertificates.Select(c => c.UserId));
-                var traineeIds = traineeAssignments.Select(ta => ta.TraineeId).Distinct().ToList();
+                if (course == null || !course.Subjects.Any())
+                {
+                    throw new Exception($"Course with ID {courseId} not found or has no subjects");
+                }
 
-                _logger.LogInformation($"Found {traineeIds.Count()} trainees enrolled in course, {traineeWithCerts.Count} already have certificates");
+                if (course.CourseLevel == CourseLevel.Recurrent)
+                {
+                    // Không tạo chứng chỉ mới mà thay vào đó:
+                    try
+                    {
+                        // 1. Tạo quyết định chung nếu khóa học đã hoàn thành
+                        if (course.Progress == Progress.Completed)
+                        {
+                            var decisionRequest = new CreateDecisionDTO { CourseId = courseId };
+                            try
+                            {
+                                await _decisionService.CreateDecisionForCourseAsync(decisionRequest, issuedByUserId);
+                                _logger.LogInformation($"Decision created successfully for course {courseId}");
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning($"Could not create decision for course {courseId}: {ex.Message}");
+                                // Tiếp tục quy trình mà không dừng lại vì lỗi tạo Decision
+                            }
+                        }
 
-                // 5. Get trainee data efficiently
-                var trainees = await _userRepository.GetUsersByIdsAsync(traineeIds);
-                var traineeDict = trainees.ToDictionary(t => t.UserId);
+                        // 2. Lấy danh sách học viên đã pass tất cả môn học
+                        var passedTrainees = traineeAssignments
+                            .AsParallel()
+                            .Where(ta => {
+                                if (!gradesByTraineeAssign.TryGetValue(ta.TraineeAssignId, out var grades))
+                                    return false;
+                                return grades.Count == subjectCount && grades.All(g => g.gradeStatus == GradeStatus.Pass);
+                            })
+                            .Select(ta => ta.TraineeId)
+                            .ToList();
 
-                // 6. Process grades
-                var gradesByTraineeAssign = allGrades
-                    .GroupBy(g => g.TraineeAssignID)
-                    .ToDictionary(g => g.Key, g => g.ToList());
+                        _logger.LogInformation($"Found {passedTrainees.Count} passed trainees to extend certificates");
 
-                var issueDate = DateTime.Now;
+                        // 3. Gia hạn chứng chỉ cho mỗi học viên đạt yêu cầu
+                        var certificatesToUpdate = new List<Certificate>();
+                        foreach (var traineeId in passedTrainees)
+                        {
+                            var oldCertificates = await _unitOfWork.CertificateRepository
+                                .GetAllAsync(c => c.UserId == traineeId && c.Status == CertificateStatus.Active);
+
+                            var latestCertificate = oldCertificates
+                                .OrderByDescending(c => c.IssueDate)
+                                .FirstOrDefault();
+
+                            if (latestCertificate != null)
+                            {
+                                // Gia hạn thêm 3 năm
+                                latestCertificate.ExpirationDate = DateTime.Now.AddYears(3);
+                                certificatesToUpdate.Add(latestCertificate);
+                            }
+                            else
+                            {
+                                _logger.LogWarning($"No active certificate found for trainee {traineeId} to extend");
+                            }
+                        }
+
+                        // 4. Cập nhật các chứng chỉ trong một transaction
+                        if (certificatesToUpdate.Any())
+                        {
+                            await _unitOfWork.ExecuteWithStrategyAsync(async () =>
+                            {
+                                await _unitOfWork.BeginTransactionAsync();
+                                try
+                                {
+                                    foreach (var cert in certificatesToUpdate)
+                                    {
+                                        await _unitOfWork.CertificateRepository.UpdateAsync(cert);
+                                    }
+                                    await _unitOfWork.SaveChangesAsync();
+                                    await _unitOfWork.CommitTransactionAsync();
+                                    _logger.LogInformation($"Successfully extended {certificatesToUpdate.Count} certificates");
+                                }
+                                catch (Exception ex)
+                                {
+                                    await _unitOfWork.RollbackTransactionAsync();
+                                    _logger.LogError(ex, "Transaction failed during certificate extension");
+                                    throw;
+                                }
+                            });
+                        }
+
+                        return new List<CertificateModel>(); // Trả về danh sách trống vì không tạo chứng chỉ mới
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Error processing Recurrent course {courseId}");
+                        throw;
+                    }
+                }
 
                 // 7. Find eligible trainees efficiently using parallel processing
                 var eligibleTrainees = traineeAssignments
@@ -205,6 +292,125 @@ namespace OCMS_Services.Service
             {
                 _logger.LogError(ex, $"Error in AutoGenerateCertificatesForPassedTraineesAsync for course {courseId}");
                 throw new Exception("Failed to auto-generate certificates", ex);
+            }
+        }
+        #endregion
+
+        #region Generate Certificate Manually
+        /// <summary>
+        /// Manually generates a certificate for a specific trainee in a course
+        /// </summary>
+        /// <param name="courseId">The ID of the course</param>
+        /// <param name="traineeId">The ID of the trainee</param>
+        /// <param name="issuedByUserId">The ID of the user issuing the certificate</param>
+        /// <returns>The created certificate model or null if trainee is not eligible</returns>
+        public async Task<CertificateModel> GenerateManualCertificateAsync(string courseId, string traineeId, string issuedByUserId)
+        {
+            if (string.IsNullOrEmpty(courseId) || string.IsNullOrEmpty(traineeId) || string.IsNullOrEmpty(issuedByUserId))
+                throw new ArgumentException("CourseId, TraineeId and IssuedByUserId are required");
+
+            try
+            {
+                // 1. Get course data
+                var course = await _courseRepository.GetCourseWithDetailsAsync(courseId);
+                if (course == null || !course.Subjects.Any())
+                {
+                    throw new Exception($"Course with ID {courseId} not found or has no subjects");
+                }
+
+                // 2. Check if the course is Recurrent and provide appropriate guidance
+                if (course.CourseLevel == CourseLevel.Recurrent)
+                {
+                    _logger.LogInformation($"Course {courseId} is a Recurrent course. Certificate creation not allowed.");
+                    throw new InvalidOperationException("For Recurrent courses, please use the Decision service to generate a comprehensive decision document for all eligible trainees");
+                }
+
+                // 3. Check if trainee is enrolled in the course
+                var traineeAssignment = await _traineeAssignRepository.GetTraineeAssignmentAsync(courseId, traineeId);
+                if (traineeAssignment == null)
+                {
+                    throw new Exception($"Trainee with ID {traineeId} is not enrolled in course {courseId}");
+                }
+
+                // 4. Check if certificate already exists
+                var existingCertificate = await _unitOfWork.CertificateRepository
+                    .GetFirstOrDefaultAsync(c => c.CourseId == courseId && c.UserId == traineeId);
+
+                if (existingCertificate != null)
+                {
+                    throw new Exception($"Certificate already exists for trainee {traineeId} in course {courseId}");
+                }
+
+                // 5. Get trainee data
+                var trainee = await _userRepository.GetByIdAsync(traineeId);
+                if (trainee == null)
+                {
+                    throw new Exception($"Trainee with ID {traineeId} not found");
+                }
+
+                // 6. Get template data
+                var templateId = await GetTemplateIdByCourseLevelAsync(course.CourseLevel);
+                if (string.IsNullOrEmpty(templateId))
+                {
+                    throw new Exception($"No active template for course level {course.CourseLevel}");
+                }
+
+                var certificateTemplate = await _unitOfWork.CertificateTemplateRepository.GetByIdAsync(templateId);
+                var templateHtml = await GetCachedTemplateHtmlAsync(certificateTemplate.TemplateFile);
+                var templateType = GetTemplateTypeFromName(certificateTemplate.TemplateName);
+
+                // 7. Get grade data
+                var grades = await _gradeRepository.GetGradesByTraineeAssignIdAsync(traineeAssignment.TraineeAssignId);
+                if (!grades.Any())
+                {
+                    throw new Exception($"No grades found for trainee {traineeId} in course {courseId}");
+                }
+
+                // 8. Check if trainee has passed all subjects
+                int subjectCount = course.Subjects.Count;
+                if (grades.Count() != subjectCount || !grades.All(g => g.gradeStatus == GradeStatus.Pass))
+                {
+                    throw new Exception($"Trainee {traineeId} hasn't passed all subjects in course {courseId}");
+                }
+
+                // 9. Generate certificate
+                var issueDate = DateTime.Now;
+                var certificate = await GenerateCertificateAsync(
+                    trainee, course, templateId, templateHtml, templateType, grades.ToList(), issuedByUserId, issueDate);
+
+                // 10. Save to database with transaction
+                await _unitOfWork.ExecuteWithStrategyAsync(async () =>
+                {
+                    await _unitOfWork.BeginTransactionAsync();
+                    try
+                    {
+                        await _unitOfWork.CertificateRepository.AddAsync(certificate);
+                        await _unitOfWork.SaveChangesAsync();
+                        await _unitOfWork.CommitTransactionAsync();
+
+                        // 11. Notify HeadMasters
+                        await NotifyTrainingStaffsAsync(1, course.CourseName);
+
+                        _logger.LogInformation($"Successfully created manual certificate for trainee {traineeId} in course {courseId}");
+                    }
+                    catch (Exception ex)
+                    {
+                        await _unitOfWork.RollbackTransactionAsync();
+                        _logger.LogError(ex, "Transaction failed during manual certificate creation");
+                        throw;
+                    }
+                });
+
+                var certificateModel = _mapper.Map<CertificateModel>(certificate);
+                certificateModel.CertificateURLwithSas = await _blobService.GetBlobUrlWithSasTokenAsync(
+                    certificate.CertificateURL, TimeSpan.FromMinutes(5), "r");
+
+                return certificateModel;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error in GenerateManualCertificateAsync for trainee {traineeId} in course {courseId}");
+                throw;
             }
         }
         #endregion
