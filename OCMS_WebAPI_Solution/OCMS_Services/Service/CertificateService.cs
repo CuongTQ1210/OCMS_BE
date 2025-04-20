@@ -269,6 +269,59 @@ namespace OCMS_Services.Service
         }
         #endregion
 
+        #region revoke certificate
+        public async Task<(bool success, string message)> RevokeCertificateAsync(string certificateId, RevokeCertificateDTO dto)
+        {
+            var certificate = await _unitOfWork.CertificateRepository.GetByIdAsync(certificateId);
+            if (certificate == null)
+            {
+                return (false, "Certificate not found");
+            }
+
+            if (certificate.IsRevoked || certificate.Status == CertificateStatus.Revoked)
+            {
+                return (false, "Certificate is already revoked");
+            }
+            if(certificate.Status != CertificateStatus.Active)
+            {
+                return (false, "Certificate must be active to revoke.");
+            }
+            certificate.IsRevoked = true;
+            certificate.RevocationReason = dto.RevokeReason;
+            certificate.RevocationDate = DateTime.Now;
+            certificate.Status = CertificateStatus.Revoked;
+
+            await _unitOfWork.CertificateRepository.UpdateAsync(certificate);
+            await _unitOfWork.SaveChangesAsync();
+
+            return (true, "Certificate revoked successfully");
+        }
+        #endregion
+        #region Get all revoked certificates with SAS URL
+        public async Task<List<CertificateModel>> GetRevokedCertificatesWithSasUrlAsync()
+        {
+            // Step 1: Get all revoked certificates
+            var revokedCertificates = await GetAllRevokeCertificatesAsync();
+
+            // Step 2: Generate SAS URLs for each certificate
+            var updateTasks = revokedCertificates
+                .Where(c => !string.IsNullOrEmpty(c.CertificateURL))
+                .Select(async certificate =>
+                {
+                    certificate.CertificateURLwithSas = await _blobService.GetBlobUrlWithSasTokenAsync(
+                        certificate.CertificateURL,
+                        TimeSpan.FromHours(1)
+                    );
+                });
+
+            await Task.WhenAll(updateTasks);
+
+            return revokedCertificates;
+        }
+        #endregion
+
+
+
         #region Helper Methods
         private async Task<string> GetCachedTemplateHtmlAsync(string templateFileUrl)
         {
@@ -626,6 +679,12 @@ namespace OCMS_Services.Service
         private async Task<List<CertificateModel>> GetAllPendingCertificatesAsync()
         {
             var pendingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.Status ==CertificateStatus.Pending);
+
+            return _mapper.Map<List<CertificateModel>>(pendingCertificates);
+        }
+        private async Task<List<CertificateModel>> GetAllRevokeCertificatesAsync()
+        {
+            var pendingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.Status == CertificateStatus.Revoked);
 
             return _mapper.Map<List<CertificateModel>>(pendingCertificates);
         }
