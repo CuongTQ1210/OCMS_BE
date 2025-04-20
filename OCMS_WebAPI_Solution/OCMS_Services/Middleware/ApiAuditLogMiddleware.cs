@@ -95,7 +95,7 @@ namespace OCMS_Services.Middleware
                         RequestBody = sanitizedRequestBody,
                         ResponseBody = sanitizedResponseContent,
                         StatusCode = context.Response.StatusCode,
-                        Duration = (DateTime.UtcNow - startTime).TotalMilliseconds,
+                        Duration = (DateTime.Now - startTime).TotalMilliseconds,
                         IPAddress = context.Connection.RemoteIpAddress?.ToString(),
                         UserAgent = context.Request.Headers["User-Agent"].ToString()
                     });

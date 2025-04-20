@@ -46,7 +46,8 @@ namespace OCMS_Services.Service
 
             if (department.Status == DepartmentStatus.Inactive)
                 throw new InvalidOperationException($"Cannot assign user to an inactive department (ID: '{departmentId}').");
-
+            if(user.SpecialtyId !=department.SpecialtyId)
+                throw new InvalidOperationException($"Cannot assign user (SpecialtyId : {user.SpecialtyId} to this department (ID: '{departmentId}') with SpecialtyId {department.SpecialtyId}");
             user.DepartmentId = departmentId;
             user.UpdatedAt = DateTime.UtcNow;
 
