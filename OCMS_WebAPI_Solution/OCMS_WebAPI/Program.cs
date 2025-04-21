@@ -18,9 +18,7 @@ using OfficeOpenXml;
 using OCMS_Services.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
-
 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-
 var keyVaultEndpoint = new Uri(builder.Configuration["KeyVault:Endpoint"]);
 builder.Configuration.AddAzureKeyVault(
    keyVaultEndpoint,
@@ -195,6 +193,9 @@ app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 
+// Add CORS middleware
+app.UseCors("AllowAll");
+
 // Home redirect to Swagger
 app.Use(async (context, next) =>
 {
@@ -210,9 +211,5 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.UseApiAuditLogging();
-
-// Add CORS middleware
-app.UseCors("AllowAll");
-
+app.UseApiAuditLogging(); 
 app.Run();

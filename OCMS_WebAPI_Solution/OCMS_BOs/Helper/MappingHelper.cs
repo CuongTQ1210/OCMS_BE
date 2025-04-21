@@ -353,16 +353,7 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.CertificateId, opt => opt.Ignore())
                 .ForMember(dest => dest.DecisionTemplateId, opt => opt.Ignore());
 
-            CreateMap<Decision, CreateDecisionResponse>()
-                .ForMember(dest => dest.DecisionId, opt => opt.MapFrom(src => src.DecisionId))
-                .ForMember(dest => dest.DecisionCode, opt => opt.MapFrom(src => src.DecisionCode))
-                .ForMember(dest => dest.Title, opt => opt.MapFrom(src => src.Title))
-                .ForMember(dest => dest.Content, opt => opt.MapFrom(src => src.Content))
-                .ForMember(dest => dest.IssueDate, opt => opt.MapFrom(src => src.IssueDate))
-                .ForMember(dest => dest.IssuedByUserId, opt => opt.MapFrom(src => src.IssuedByUserId))
-                .ForMember(dest => dest.DecisionTemplateId, opt => opt.MapFrom(src => src.DecisionTemplateId))
-                .ForMember(dest => dest.DecisionStatus, opt => opt.MapFrom(src => src.DecisionStatus));
-
+            CreateMap<Decision, CreateDecisionResponse>();
 
             CreateMap<Decision, DecisionModel>()
                 .ForMember(dest => dest.DecisionCode, opt => opt.MapFrom(src => src.DecisionCode))

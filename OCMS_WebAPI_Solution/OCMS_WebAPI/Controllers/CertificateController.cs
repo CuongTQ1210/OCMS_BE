@@ -109,26 +109,5 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
-
-        #region Manual Certificate Generation
-        [HttpPost("manual")]
-        public async Task<IActionResult> GenerateManualCertificate([FromBody]string courseId, string traineeId)
-        {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized("User not authenticated");
-            }
-            try
-            {
-                var certificate = await _certificateService.GenerateManualCertificateAsync(courseId, traineeId, userId);
-                return Ok(certificate);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
-        #endregion
     }
 }

@@ -55,7 +55,7 @@ namespace OCMS_Services.Service
         #region Create Decision
         public async Task<CreateDecisionResponse> CreateDecisionForCourseAsync(CreateDecisionDTO request, string issuedByUserId)
         {
-            // 1. Lấy khóa học và kiểm tra trạng thái
+            // 1. Lấy khóa học và chứng chỉ đã được phê duyệt
             var course = await _courseRepository.GetCourseWithDetailsAsync(request.CourseId);
             if (course == null)
                 throw new InvalidOperationException("Course not found");
@@ -63,35 +63,13 @@ namespace OCMS_Services.Service
             if (course.Progress != Progress.Completed)
                 throw new InvalidOperationException("Course has not been completed yet");
 
-            // 2. Kiểm tra điểm số của các học viên thay vì kiểm tra certificates
-            var traineeAssignments = await _unitOfWork.TraineeAssignRepository.GetAllAsync(ta => ta.CourseId == request.CourseId);
-            var courseSubjectCount = course.Subjects.Count;
+            var approvedCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(
+                c => c.CourseId == request.CourseId && c.Status == CertificateStatus.Active);
 
-            // Lấy tất cả điểm số liên quan đến khóa học
-            var allGrades = await _unitOfWork.GradeRepository.GetAllAsync(g =>
-                traineeAssignments.Any(ta => ta.TraineeAssignId == g.TraineeAssignID));
+            if (!approvedCertificates.Any())
+                throw new InvalidOperationException("No approved certificates found for this course");
 
-            // Nhóm điểm theo từng học viên
-            var gradesByTraineeAssign = allGrades
-                .GroupBy(g => g.TraineeAssignID)
-                .ToDictionary(g => g.Key, g => g.ToList());
-
-            // Lọc học viên đã hoàn thành tất cả môn học và đạt
-            var eligibleTraineeIds = traineeAssignments
-                .Where(ta =>
-                    gradesByTraineeAssign.TryGetValue(ta.TraineeAssignId, out var grades) &&
-                    grades.Count == courseSubjectCount &&
-                    grades.All(g => g.gradeStatus == GradeStatus.Pass))
-                .Select(ta => ta.TraineeId)
-                .ToList();
-
-            if (!eligibleTraineeIds.Any())
-                throw new InvalidOperationException("No eligible trainees found who have completed all subjects with passing grades");
-
-            // Lấy thông tin học viên từ eligibleTraineeIds
-            var trainees = await _userRepository.GetUsersByIdsAsync(eligibleTraineeIds);
-
-            // 3. Xác định template dựa trên CourseLevel
+            // 2. Xác định template dựa trên CourseLevel
             string templateNamePrefix;
             switch (course.CourseLevel)
             {
@@ -128,7 +106,7 @@ namespace OCMS_Services.Service
             if (latestTemplate == null)
                 throw new InvalidOperationException($"No active decision template found for {course.CourseLevel} course level");
 
-            // 4. Lấy template HTML từ blob
+            // 3. Lấy template HTML từ blob
             string templateHtml = "";
             if (latestTemplate.TemplateContent.StartsWith("https"))
             {
@@ -143,33 +121,15 @@ namespace OCMS_Services.Service
                 templateHtml = latestTemplate.TemplateContent;
             }
 
-            // 5. Chuẩn bị dữ liệu
+            // 4. Chuẩn bị dữ liệu
             var decisionCode = GenerateDecisionCode();
             var issueDate = DateTime.Now;
-
-            // Tạo dữ liệu studentRows cho decision dựa trên danh sách trainees
-            var studentRows = new StringBuilder();
-            int index = 1;
-            foreach (var trainee in trainees)
-            {
-                string department = trainee.Specialty?.SpecialtyName ?? "Chưa xác định";
-                studentRows.AppendLine("<tr>");
-                studentRows.AppendLine($"  <td>{index}</td>");
-                studentRows.AppendLine($"  <td>{trainee.FullName}</td>");
-                studentRows.AppendLine($"  <td>{trainee.Username}</td>");
-                studentRows.AppendLine($"  <td>{department}</td>");
-                // Thêm cột Ghi chú cho Recurrent_Decision nếu cần
-                if (course.CourseLevel != CourseLevel.Initial)
-                    studentRows.AppendLine("  <td></td>");
-                studentRows.AppendLine("</tr>");
-                index++;
-            }
-
+            var studentRows = await GenerateStudentRowsAsync(approvedCertificates);
             var courseSchedules = await _unitOfWork.TrainingScheduleRepository.GetAllAsync(ts => ts.Subject.CourseId == request.CourseId);
             var startDate = courseSchedules.Any() ? courseSchedules.Min(s => s.StartDateTime) : issueDate;
             var endDate = courseSchedules.Any() ? courseSchedules.Max(s => s.EndDateTime) : issueDate;
 
-            // 6. Điền dữ liệu vào template
+            // 5. Điền dữ liệu vào template
             string decisionContent = templateHtml
                 .Replace("{{DecisionCode}}", decisionCode)
                 .Replace("{{Day}}", issueDate.Day.ToString())
@@ -177,23 +137,21 @@ namespace OCMS_Services.Service
                 .Replace("{{Year}}", issueDate.Year.ToString())
                 .Replace("{{CourseCode}}", course.CourseName)
                 .Replace("{{CourseTitle}}", course.CourseName ?? $"Khóa {course.CourseName}")
-                .Replace("{{StudentCount}}", trainees.Count().ToString())
+                .Replace("{{StudentCount}}", approvedCertificates.Count().ToString())
                 .Replace("{{StartDate}}", startDate.ToString("dd/MM/yyyy"))
                 .Replace("{{EndDate}}", endDate.ToString("dd/MM/yyyy"))
-                .Replace("{{StudentRows}}", studentRows.ToString());
+                .Replace("{{StudentRows}}", studentRows);
 
-            // 7. Lưu Quyết định vào blob
+            // 6. Lưu Quyết định vào blob
             string blobName = $"decision_{decisionCode}_{DateTime.Now:yyyyMMddHHmmss}.html";
             using var stream = new MemoryStream(Encoding.UTF8.GetBytes(decisionContent));
             var blobUrl = await _blobService.UploadFileAsync("decisions", blobName, stream, "text/html");
             var blobUrlWithoutSas = _blobService.GetBlobUrlWithoutSasToken(blobUrl);
+            var primaryCertificate = approvedCertificates.FirstOrDefault();
+            if (primaryCertificate == null)
+                throw new InvalidOperationException("No certificate found to associate with the decision");
 
-            // 8. Tìm certificate mới nhất liên quan đến khóa học (nếu có)
-            var certificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.CourseId == course.CourseId);
-            var latestCertificate = certificates.OrderByDescending(c => c.IssueDate).FirstOrDefault();
-            string certificateId = latestCertificate?.CertificateId;
-
-            // 9. Tạo entity Decision với liên kết certificate nếu có
+            // 7. Tạo entity Decision
             var decision = new Decision
             {
                 DecisionId = Guid.NewGuid().ToString(),
@@ -203,22 +161,19 @@ namespace OCMS_Services.Service
                 IssueDate = issueDate,
                 IssuedByUserId = issuedByUserId,
                 DecisionTemplateId = latestTemplate.DecisionTemplateId,
-                DecisionStatus = DecisionStatus.Draft,
-                CertificateId = certificateId // Liên kết với certificate nếu có
+                DecisionStatus = 0, // Draft
+                CertificateId = primaryCertificate.CertificateId
             };
 
-            // 10. Lưu vào database
+            // 8. Lưu vào database
             await _unitOfWork.DecisionRepository.AddAsync(decision);
             await _unitOfWork.SaveChangesAsync();
 
-            // 11. Thông báo cho HeadMaster
+            // 9. Thông báo cho HeadMaster
             await NotifyHeadMasterForSignatureAsync(decision.DecisionId, course.CourseName);
 
-            // 12. Map to response - AutoMapper sẽ bỏ qua CertificateId khi mapping nếu không có trong CreateDecisionResponse
-            var response = _mapper.Map<CreateDecisionResponse>(decision);
-
-            // Trả về response không bao gồm CertificateId
-            return response;
+            // 10. Map to response
+            return _mapper.Map<CreateDecisionResponse>(decision);
         }
         #endregion
 
@@ -259,7 +214,32 @@ namespace OCMS_Services.Service
         private string GenerateDecisionCode()
         {
             return $"QD-{DateTime.Now.Year}-{Guid.NewGuid().ToString().Substring(0, 4)}";
-        }        
+        }
+
+        private async Task<string> GenerateStudentRowsAsync(IEnumerable<Certificate> certificates)
+        {
+            var studentRows = new StringBuilder();
+            int index = 1;
+            foreach (var cert in certificates)
+            {
+                var trainee = await _userRepository.GetByIdAsync(cert.UserId);
+                if (trainee != null)
+                {
+                    string department = trainee.Specialty?.SpecialtyName ?? "Chưa xác định";
+                    studentRows.AppendLine("<tr>");
+                    studentRows.AppendLine($"  <td>{index}</td>");
+                    studentRows.AppendLine($"  <td>{trainee.FullName}</td>");
+                    studentRows.AppendLine($"  <td>{trainee.Username}</td>");
+                    studentRows.AppendLine($"  <td>{department}</td>");
+                    // Thêm cột Ghi chú cho Recurrent_Decision nếu cần
+                    if (certificates.First().Course.CourseLevel != CourseLevel.Initial)
+                        studentRows.AppendLine("  <td></td>");
+                    studentRows.AppendLine("</tr>");
+                    index++;
+                }
+            }
+            return studentRows.ToString();
+        }
 
         private async Task NotifyHeadMasterForSignatureAsync(string decisionId, string courseName)
         {
