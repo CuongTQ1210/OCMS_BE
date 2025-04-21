@@ -220,10 +220,12 @@ namespace OCMS_Services.Service
             try
             {
                 var jsonDoc = JsonDocument.Parse(result);
-                var resultElement = jsonDoc.RootElement.GetProperty("result");
+
+                if (!jsonDoc.RootElement.TryGetProperty("result", out var resultElement))
+                    throw new InvalidOperationException($"The 'result' property is missing. Raw response: {result}");
 
                 if (!resultElement.TryGetProperty("file_data", out var fileDataElement))
-                    throw new KeyNotFoundException("The 'file_data' key was not found in the response.");
+                    throw new InvalidOperationException($"The 'file_data' property is missing in 'result'. Raw result: {resultElement}");
 
                 string fileData = fileDataElement.GetString();
                 if (string.IsNullOrEmpty(fileData))
@@ -233,11 +235,7 @@ namespace OCMS_Services.Service
             }
             catch (JsonException ex)
             {
-                throw new InvalidOperationException("Failed to parse the signing service response.", ex);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                throw new InvalidOperationException("Required data missing in the signing service response.", ex);
+                throw new InvalidOperationException($"Failed to parse the signing service response. Raw: {result}", ex);
             }
 
             // Step 10: Upload signed PDF to blob storage
