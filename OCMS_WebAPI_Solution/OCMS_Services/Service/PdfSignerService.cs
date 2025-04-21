@@ -117,7 +117,17 @@ namespace OCMS_Services.Service
 
             // Khởi tạo Puppeteer
             await new BrowserFetcher().DownloadAsync();
-            var launchOptions = new LaunchOptions { Headless = true };
+            await new BrowserFetcher().DownloadAsync();
+            var launchOptions = new LaunchOptions
+            {
+                Headless = true,
+                Args = new[] {
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu"
+    }
+            }; 
             using var browser = await Puppeteer.LaunchAsync(launchOptions);
             using var page = await browser.NewPageAsync();
 
