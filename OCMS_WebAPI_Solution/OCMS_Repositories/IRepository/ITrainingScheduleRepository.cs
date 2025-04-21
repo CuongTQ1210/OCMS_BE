@@ -13,5 +13,7 @@ namespace OCMS_Repositories.IRepository
         Task<IEnumerable<TrainingSchedule>> GetSchedulesByTrainingPlanIdAsync(string trainingPlanId);
 
         Task<List<TraineeAssign>> GetTraineeAssignmentsWithSchedulesAsync(string traineeId);
+
+        Task<List<TrainingSchedule>> GetSchedulesBySubjectIdAsync(string subjectId);
     }
 }
