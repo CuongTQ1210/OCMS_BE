@@ -4,7 +4,6 @@ using OCMS_BOs.RequestModel;
 using OCMS_BOs.ResponseModel;
 using OCMS_BOs.ViewModel;
 using OCMS_Repositories;
-using OCMS_Repositories.IRepository;
 using OCMS_Services.IService;
 using OfficeOpenXml;
 using System;
@@ -21,13 +20,12 @@ namespace OCMS_Services.Service
         private readonly UnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly ICertificateService _certificateService;
-        private readonly ITrainingScheduleRepository _trainingScheduleRepository;
-        public GradeService(UnitOfWork unitOfWork, IMapper mapper, ICertificateService certificateService,ITrainingScheduleRepository trainingScheduleRepository)
+
+        public GradeService(UnitOfWork unitOfWork, IMapper mapper, ICertificateService certificateService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _certificateService = certificateService;
-            _trainingScheduleRepository = trainingScheduleRepository;
         }
 
         #region Get All Grade
@@ -88,14 +86,11 @@ namespace OCMS_Services.Service
             {
                 throw new Exception("Course not found.");
             }
-
             // Check if subject has any schedule
-            var schedule = await _trainingScheduleRepository.GetSchedulesBySubjectIdAsync(dto.SubjectId);
-            if (schedule == null)
+            if (subject.Schedules == null || !subject.Schedules.Any())
             {
                 throw new InvalidOperationException("Subject does not have any training schedule.");
             }
-            
             if (course.Status== CourseStatus.Pending || course.Status == CourseStatus.Rejected || course.Progress==Progress.NotYet || course.Progress == Progress.Completed)
             {
                 throw new InvalidOperationException("Course isn't suitable to create grade.");
@@ -124,7 +119,6 @@ namespace OCMS_Services.Service
                 grade.gradeStatus = grade.TotalScore >= passScore ? GradeStatus.Pass : GradeStatus.Fail;
             }
             await _unitOfWork.GradeRepository.AddAsync(grade);
-            await _unitOfWork.SaveChangesAsync();
             if (grade.gradeStatus == GradeStatus.Pass)
             {
                 var traineeAssign = await _unitOfWork.TraineeAssignRepository.GetByIdAsync(grade.TraineeAssignID);
