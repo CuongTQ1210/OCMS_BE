@@ -11,6 +11,9 @@ using System.Net.Mail;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using iText.Html2pdf;
+using iText.Html2pdf.Resolver.Font;
+using iText.StyledXmlParser.Css.Media;
 
 namespace OCMS_Services.Service
 {
@@ -75,80 +78,69 @@ namespace OCMS_Services.Service
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadAsStringAsync();
         }
-        private async Task<byte[]> ConvertHtmlToPdf(string htmlContent)
+        private async Task<byte[]> ConvertHtmlToPdf(string innerHtmlContent)
         {
-            // Wrap HTML with fixed size and adjustments
-            htmlContent = $$"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            @page {
-                size: A4;
-                margin: 0;
-            }
-            body {
-                margin: 0;
-                padding: 0;
-                font-size: 10pt;
-                width: 100%;
-                box-sizing: border-box;
-            }
-            .pdf-container {
-                width: 1123px; /* A4 landscape */
-                height: 794px;
-                padding: 40px;
-                box-sizing: border-box;
-                position: relative;
-            }
-            img {
-                max-width: 100%;
-                height: auto;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="pdf-container">
-            {{htmlContent}}
-        </div>
-    </body>
-    </html>
-    """;
+            // Full HTML wrapping (pdfHTML-safe)
+            string htmlContent = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        @page {{
+            size: A4;
+            margin: 0;
+        }}
+        body {{
+            margin: 0;
+            padding: 0;
+            font-size: 10pt;
+            width: 100%;
+            box-sizing: border-box;
+        }}
+        .pdf-container {{
+            width: 1123px;
+            height: 794px;
+            padding: 40px;
+            box-sizing: border-box;
+            position: relative;
+        }}
+        img {{
+            max-width: 100%;
+            height: auto;
+        }}
+    </style>
+</head>
+<body>
+    <div class='pdf-container'>
+        {innerHtmlContent}
+    </div>
+</body>
+</html>";
 
-            // Khởi tạo Puppeteer
-            await new BrowserFetcher().DownloadAsync();
-            var launchOptions = new LaunchOptions { Headless = true };
-            using var browser = await Puppeteer.LaunchAsync(launchOptions);
-            using var page = await browser.NewPageAsync();
 
-            // Set viewport to ensure proper rendering
-            await page.SetViewportAsync(new ViewPortOptions
-            {
-                Width = 1240,  // ~A4 width in pixels at 150dpi
-                Height = 1754, // ~A4 height in pixels at 150dpi
-                DeviceScaleFactor = 1.5
-            });
+            // Prepare output memory stream
+            using var outputStream = new MemoryStream();
 
-            // Đặt nội dung HTML
-            await page.SetContentAsync(htmlContent);
+            // Optional: configure properties
+            var converterProperties = new ConverterProperties();
 
-            // Optimize PDF settings
-            var pdfOptions = new PdfOptions
-            {
-                Format = PuppeteerSharp.Media.PaperFormat.A4,
-                PrintBackground = true,
-                MarginOptions = new PuppeteerSharp.Media.MarginOptions
-                {
-                    Top = "5mm",
-                    Bottom = "5mm",
-                    Left = "5mm",
-                    Right = "5mm"
-                },
-                Scale = 0.9m // Slightly reduced scale to ensure content fits
-            };
+            // If your HTML contains images with relative paths
+            // converterProperties.SetBaseUri("wwwroot"); // or wherever your assets are stored
 
-            byte[] pdfBytes = await page.PdfDataAsync(pdfOptions);
-            return pdfBytes;
+            // Optional: support Vietnamese/Unicode fonts (you can customize this part)
+            var fontProvider = new DefaultFontProvider(false, false, false);
+            fontProvider.AddStandardPdfFonts();
+            fontProvider.AddSystemFonts(); // optional, for local font access
+            converterProperties.SetFontProvider(fontProvider);
+
+            // Optional: media device description for responsive CSS
+            var mediaDeviceDescription = new MediaDeviceDescription(MediaType.SCREEN);
+            converterProperties.SetMediaDeviceDescription(mediaDeviceDescription);
+
+            // Convert HTML to PDF
+            HtmlConverter.ConvertToPdf(htmlContent, outputStream, converterProperties);
+
+            return outputStream.ToArray();
         }
         #endregion
 
