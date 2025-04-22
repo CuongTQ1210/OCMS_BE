@@ -54,6 +54,7 @@ namespace OCMS_Repositories
                 _dbSet.Remove(entity);
             }
         }
+        
 
         public async Task DeleteRangeAsync(IEnumerable<T> entities)
         {

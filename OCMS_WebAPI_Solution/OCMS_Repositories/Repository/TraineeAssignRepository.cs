@@ -39,7 +39,25 @@ namespace OCMS_Repositories.Repository
                 .Where(ta => ta.CourseId == courseId && ta.RequestStatus == RequestStatus.Approved)
                 .ToListAsync();
         }
-
+        public async Task<List<TraineeAssignModel>> GetTraineeAssignmentsByRequestIdAsync(string requestId)
+        {
+            return await _context.TraineeAssignments
+                .Where(ta => ta.RequestId == requestId)
+                .Select(ta => new TraineeAssignModel
+                {
+                    TraineeAssignId = ta.TraineeAssignId,
+                    TraineeId = ta.TraineeId,
+                    CourseId = ta.CourseId,
+                    Notes = ta.Notes,
+                    RequestStatus = ta.RequestStatus.ToString(),
+                    AssignByUserId = ta.AssignByUserId,
+                    AssignDate = ta.AssignDate,
+                    ApproveByUserId = ta.ApproveByUserId,
+                    ApprovalDate = ta.ApprovalDate,
+                    RequestId = ta.RequestId
+                })
+                .ToListAsync();
+        }
         public async Task<List<TraineeAssignModel>> GetTraineeAssignsBySubjectIdAsync(string subjectId)
         {
             var subject = await _context.Subjects.FindAsync(subjectId);
