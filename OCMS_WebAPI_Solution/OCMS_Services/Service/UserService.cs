@@ -193,8 +193,26 @@ namespace OCMS_Services.Service
             var user = await _unitOfWork.UserRepository.GetByIdAsync(userId);
             if (user == null)
                 throw new Exception("User not found.");
-
+            if (user.Status == AccountStatus.Deactivated)
+                throw new InvalidOperationException("User is already deactivated.");
             user.Status = AccountStatus.Deactivated; // or false if it's a boolean field
+
+            await _unitOfWork.UserRepository.UpdateAsync(user);
+            await _unitOfWork.SaveChangesAsync();
+
+            return true;
+        }
+        #endregion
+
+        #region activate user
+        public async Task<bool> ActivateUserAsync(string userId)
+        {
+            var user = await _unitOfWork.UserRepository.GetByIdAsync(userId);
+            if (user == null)
+                throw new Exception("User not found.");
+            if (user.Status == AccountStatus.Active)
+                throw new InvalidOperationException("User is already active.");
+            user.Status = AccountStatus.Active; // or true if it's a boolean
 
             await _unitOfWork.UserRepository.UpdateAsync(user);
             await _unitOfWork.SaveChangesAsync();

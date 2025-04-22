@@ -24,6 +24,7 @@ namespace OCMS_Services.IService
         Task<IEnumerable<UserModel>> GetUsersByRoleAsync(string roleId);
 
         Task<bool> DeactivateUserAsync(string userId);
+        Task<bool> ActivateUserAsync(string userId);
         Task<string> UpdateUserAvatarAsync(string userId, IFormFile file);
     }
 }

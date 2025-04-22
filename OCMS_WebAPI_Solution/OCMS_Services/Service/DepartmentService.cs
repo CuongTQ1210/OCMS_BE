@@ -46,7 +46,8 @@ namespace OCMS_Services.Service
 
             if (department.Status == DepartmentStatus.Inactive)
                 throw new InvalidOperationException($"Cannot assign user to an inactive department (ID: '{departmentId}').");
-
+            if(user.SpecialtyId !=department.SpecialtyId)
+                throw new InvalidOperationException($"Cannot assign user (SpecialtyId : {user.SpecialtyId} to this department (ID: '{departmentId}') with SpecialtyId {department.SpecialtyId}");
             user.DepartmentId = departmentId;
             user.UpdatedAt = DateTime.UtcNow;
 
@@ -225,8 +226,30 @@ namespace OCMS_Services.Service
             {
                 throw new KeyNotFoundException($"Department with ID '{departmentId}' not found.");
             }
-
+            if (department.Status == DepartmentStatus.Inactive)
+                throw new InvalidOperationException("Department is already deactivated.");
             department.Status = DepartmentStatus.Inactive;
+            department.UpdatedAt = DateTime.Now;
+
+            await _unitOfWork.DepartmentRepository.UpdateAsync(department);
+            await _unitOfWork.SaveChangesAsync();
+
+            return true;
+        }
+        #endregion
+        #region active department
+        public async Task<bool> ActivateDepartmentAsync(string departmentId)
+        {
+            var department = await _unitOfWork.DepartmentRepository.GetByIdAsync(departmentId);
+            if (department == null)
+            {
+                throw new KeyNotFoundException($"Department with ID '{departmentId}' not found.");
+            }
+
+            if (department.Status == DepartmentStatus.Active)
+                throw new InvalidOperationException("Department is already activated.");
+
+            department.Status = DepartmentStatus.Active;
             department.UpdatedAt = DateTime.Now;
 
             await _unitOfWork.DepartmentRepository.UpdateAsync(department);

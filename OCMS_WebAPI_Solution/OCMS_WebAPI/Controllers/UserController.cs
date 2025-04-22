@@ -144,7 +144,7 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
-
+        #region deactive user
         [HttpPut("deactivate/{userId}")]
         public async Task<IActionResult> DeactivateUser(string userId)
         {
@@ -161,8 +161,25 @@ namespace OCMS_WebAPI.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
+        #endregion
+        #region active user
+        [HttpPut("activate/{userId}")]
+        public async Task<IActionResult> ActivateUser(string userId)
+        {
+            try
+            {
+                var result = await _userService.ActivateUserAsync(userId);
+                if (result)
+                    return Ok(new { message = "User activated successfully." });
 
-
+                return BadRequest("Failed to activate user.");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+#endregion
         #region Update Password
         [HttpPut("{id}/password")]
         [CustomAuthorize]

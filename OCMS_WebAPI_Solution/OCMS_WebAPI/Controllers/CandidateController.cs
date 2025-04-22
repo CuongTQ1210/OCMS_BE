@@ -23,7 +23,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Import Candidates
         [HttpPost("import")]
-        [CustomAuthorize("Admin", "HR")]
+        [CustomAuthorize("Admin", "HR", "Training staff")]
         public async Task<IActionResult> ImportCandidates(IFormFile file)
         {
             var importedByUserId = User.FindFirst(ClaimTypes.NameIdentifier).Value;
@@ -56,7 +56,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get All Candidates
         [HttpGet]
-        [CustomAuthorize("Admin", "HR", "Reviewer")]
+        [CustomAuthorize("Admin", "HR", "Reviewer", "Training staff")]
         public async Task<IActionResult> GetAllCandidates()
         {
             try
@@ -73,7 +73,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get Candidate By Id
         [HttpGet("{id}")]
-        [CustomAuthorize("Admin", "HR", "Reviewer", "HeadMaster")]
+        [CustomAuthorize("Admin", "HR", "Reviewer", "HeadMaster", "Training staff")]
         public async Task<IActionResult> GetCandidateById(string id)
         {
             try
@@ -107,7 +107,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Update Candidate
         [HttpPut("{id}")]
-        [CustomAuthorize("Admin", "HR")]
+        [CustomAuthorize("Admin", "HR", "Training staff")]
         public async Task<IActionResult> UpdateCandidate(string id, [FromBody] CandidateUpdateDTO updatedCandidate)
         {
             try

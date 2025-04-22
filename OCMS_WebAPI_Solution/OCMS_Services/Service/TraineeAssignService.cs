@@ -492,7 +492,7 @@ namespace OCMS_Services.Service
             if (subject == null)
                 throw new KeyNotFoundException($"Request with ID '{requestId}' was not found.");
 
-            return await _traineeAssignRepository.GetTraineeAssignsBySubjectIdAsync(requestId);
+            return await _traineeAssignRepository.GetTraineeAssignmentsByRequestIdAsync(requestId);
         }
         #endregion
 

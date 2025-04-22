@@ -180,7 +180,7 @@ namespace OCMS_WebAPI.Controllers
             }
         }
 
-        [HttpGet("subject/{requestId}/trainees")]
+        [HttpGet("subject/{requestId}/traineesByRequestId")]
         [CustomAuthorize("Admin", "Instructor")]
         public async Task<IActionResult> GetTraineesByRequestId(string requestId)
         {
