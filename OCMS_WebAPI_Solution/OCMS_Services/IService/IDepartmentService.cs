@@ -17,7 +17,7 @@ namespace OCMS_Services.IService
         Task<bool> DeleteDepartmentAsync(string departmentId);
         Task<DepartmentModel> CreateDepartmentAsync(DepartmentCreateDTO dto);
         Task<bool> RemoveUserFromDepartmentAsync(string userId);
-
+        Task<bool> ActivateDepartmentAsync(string departmentId);
         Task<bool> AssignUserToDepartmentAsync(string userId, string departmentId);
     }
 
