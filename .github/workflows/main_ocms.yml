@@ -1,215 +1,262 @@
-    # Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-    # More GitHub Actions for Azure: https://github.com/Azure/actions
-    name: Build and deploy ASP.Net Core app to Azure Web App - ocms
-    on:
-      push:
-        branches:
-          - main
-        paths-ignore:
-          - '**.md'
-          - '.github/workflows/*.md'
-          - 'docs/**'
-      workflow_dispatch:
+﻿# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+name: Build and deploy ASP.Net Core app to Azure Web App - ocms
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - '.github/workflows/*.md'
+      - 'docs/**'
+  workflow_dispatch:
 
-    jobs:
-      build:
-        runs-on: windows-latest
-        timeout-minutes: 15
-        permissions:
-          contents: read # This is required for actions/checkout
-          security-events: write # This is required for security scans
-        steps:
-          - uses: actions/checkout@v4
-      
-          - name: Set up .NET Core
-            uses: actions/setup-dotnet@v4
-            with:
-              dotnet-version: '8.x'
-      
-          - name: Cache NuGet packages
-            uses: actions/cache@v3
-            with:
-              path: ~/.nuget/packages
-              key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
-              restore-keys: ${{ runner.os }}-nuget-
-      
-          - name: Restore dependencies
-            run: dotnet restore ./OCMS_WebAPI_Solution/OCMS_WebAPI_Solution.sln
-      
-          - name: Run tests
-            run: dotnet test ./OCMS_WebAPI_Solution/OCMS_WebAPI_Solution.sln --no-restore --verbosity normal
-      
-          - name: Security scan with CodeQL
-            uses: github/codeql-action/init@v3
-            with:
-              languages: csharp
-      
-          - name: Build with dotnet
-            run: dotnet build ./OCMS_WebAPI_Solution/OCMS_WebAPI_Solution.sln --configuration Release --no-restore
-      
-          - name: Perform CodeQL Analysis
-            uses: github/codeql-action/analyze@v3
-      
-          - name: dotnet publish
-            run: dotnet publish ./OCMS_WebAPI_Solution/OCMS_WebAPI_Solution.sln -c Release -o "${{env.DOTNET_ROOT}}/myapp" /p:DebugSymbols=false /p:DebugType=None
-      
-          - name: Remove unnecessary files
-            run: |
-              Remove-Item -Path "${{env.DOTNET_ROOT}}/myapp/*.pdb" -Force -ErrorAction SilentlyContinue
-              Remove-Item -Path "${{env.DOTNET_ROOT}}/myapp/ref" -Recurse -Force -ErrorAction SilentlyContinue
-      
-          - name: Optimize artifact size
-            run: |
-              # Find and remove any test assemblies as they're not needed in production
-              Get-ChildItem -Path "${{env.DOTNET_ROOT}}/myapp" -Filter "*.Tests.dll" -Recurse | Remove-Item -Force
-              # Compress any JSON files to save space
-              Get-ChildItem -Path "${{env.DOTNET_ROOT}}/myapp" -Filter "*.json" -Recurse | ForEach-Object {
-                $content = Get-Content $_.FullName -Raw | ConvertFrom-Json
-                $content | ConvertTo-Json -Depth 100 -Compress | Set-Content $_.FullName -Force
-              }
-      
-          - name: Upload artifact for deployment job
-            uses: actions/upload-artifact@v4
-            with:
-              name: .net-app
-              path: ${{env.DOTNET_ROOT}}/myapp
-              retention-days: 5
-              compression-level: 9 # Use maximum compression to reduce size
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read # This is required for actions/checkout
+      security-events: write # This is required for security scans
+    steps:
+      - uses: actions/checkout@v4
+  
+      - name: Set up .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+  
+      - name: Cache NuGet packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+  
+      - name: Restore dependencies
+        run: dotnet restore ./OCMS_WebAPI_Solution/OCMS_WebAPI_Solution.sln
+  
+      - name: Run tests
+        run: dotnet test ./OCMS_WebAPI_Solution/OCMS_WebAPI_Solution.sln --no-restore --verbosity normal
+  
+      - name: Security scan with CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: csharp
+  
+      - name: Build with dotnet
+        run: dotnet build ./OCMS_WebAPI_Solution/OCMS_WebAPI_Solution.sln --configuration Release --no-restore
+  
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+  
+      - name: dotnet publish
+        run: dotnet publish ./OCMS_WebAPI_Solution/OCMS_WebAPI_Solution.sln -c Release -o "${{env.DOTNET_ROOT}}/myapp" /p:DebugSymbols=false /p:DebugType=None
+  
+      - name: Remove unnecessary files
+        run: |
+          Remove-Item -Path "${{env.DOTNET_ROOT}}/myapp/*.pdb" -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "${{env.DOTNET_ROOT}}/myapp/ref" -Recurse -Force -ErrorAction SilentlyContinue
+  
+      - name: Optimize artifact size
+        run: |
+          # Find and remove any test assemblies as they're not needed in production
+          Get-ChildItem -Path "${{env.DOTNET_ROOT}}/myapp" -Filter "*.Tests.dll" -Recurse | Remove-Item -Force
+          # Compress any JSON files to save space
+          Get-ChildItem -Path "${{env.DOTNET_ROOT}}/myapp" -Filter "*.json" -Recurse | ForEach-Object {
+            $content = Get-Content $_.FullName -Raw | ConvertFrom-Json
+            $content | ConvertTo-Json -Depth 100 -Compress | Set-Content $_.FullName -Force
+          }
+  
+      - name: Upload artifact for deployment job
+        uses: actions/upload-artifact@v4
+        with:
+          name: .net-app
+          path: ${{env.DOTNET_ROOT}}/myapp
+          retention-days: 5
+          compression-level: 9 # Use maximum compression to reduce size
 
-      deploy-production:
-        runs-on: windows-latest
-        needs: build
-        timeout-minutes: 10
-        environment:
-          name: 'Production'
-          url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-        permissions:
-          id-token: write # This is required for requesting the JWT
-          contents: read # This is required for actions/checkout
-        steps:
-          - name: Download artifact from build job
-            uses: actions/download-artifact@v4
-            with:
-              name: .net-app
-              path: .net-app
-      
-          - name: Login to Azure
-            uses: azure/login@v2
-            with:
-              client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_9539F4CBEEB146DE99A0A866D56B71B7 }}
-              tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_B07DDFD930AD4287BD101A0957068C04 }}
-              subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_FBE1CF4B226B4E5A8B25FF5C1AABC326 }}
+  deploy-production:
+    runs-on: windows-latest
+    needs: build
+    timeout-minutes: 10
+    environment:
+      name: 'Production'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+    permissions:
+      id-token: write # This is required for requesting the JWT
+      contents: read # This is required for actions/checkout
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
+          path: .net-app
+  
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_9539F4CBEEB146DE99A0A866D56B71B7 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_B07DDFD930AD4287BD101A0957068C04 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_FBE1CF4B226B4E5A8B25FF5C1AABC326 }}
 
-          # Clean up disk space on Azure Web App before deployment
-          - name: Clean up Azure Web App disk space
-            run: |
-              # Get publishing credentials for the web app
-              $publishProfile = az webapp deployment list-publishing-profiles --resource-group ocms-resourse --name ocms --query "[?publishMethod=='MSDeploy'].{userName:userName,userPWD:userPWD,publishUrl:publishUrl}[0]" | ConvertFrom-Json
+      # Phần mới: Kiểm tra xem Puppeteer đã cài đặt chưa và cài đặt nếu cần
+      - name: Check and Install Puppeteer Site Extension
+        run: |
+          # Kiểm tra xem extension đã cài đặt chưa
+          Write-Host "Checking if Puppeteer Site Extension is already installed..."
+          $extensions = az webapp list-extensions --resource-group ocms-resourse --name ocms --query "[?name=='Puppeteer'].name" -o tsv
           
-              # Construct the Kudu API URL
-              $kuduApiUrl = "https://$($publishProfile.userName):$($publishProfile.userPWD)@ocms-bea4aagveeejawff.scm.southeastasia-01.azurewebsites.net/api"
-          
-              # Clean up log files
-              Write-Host "Cleaning up log files..."
-              $command = @"
-              try {
-                # Remove old deployment logs
-                Get-ChildItem -Path D:\home\LogFiles -Recurse -File | Where-Object {$_.LastWriteTime -lt (Get-Date).AddDays(-7)} | Remove-Item -Force
+          if (-not $extensions) {
+            Write-Host "Puppeteer Site Extension not found. Installing..."
             
-                # Clean up temp folder
-                Get-ChildItem -Path D:\local\Temp -Recurse -File | Remove-Item -Force -ErrorAction SilentlyContinue
+            # Tắt WEBSITE_RUN_FROM_PACKAGE để có thể cài extension
+            az webapp config appsettings set --resource-group ocms-resourse --name ocms --settings WEBSITE_RUN_FROM_PACKAGE=0
             
-                # Remove old deployment artifacts
-                Get-ChildItem -Path D:\home\site\deployments -Recurse | Where-Object {$_.LastWriteTime -lt (Get-Date).AddDays(-3)} | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+            # Cài đặt extension
+            az webapp install-extension --resource-group ocms-resourse --name ocms --extension-id Puppeteer
             
-                Write-Output "Cleanup completed successfully"
-              } catch {
-                Write-Output "Error during cleanup: $_"
-                exit 1
-              }
-              "@
-          
-              $commandBytes = [System.Text.Encoding]::UTF8.GetBytes($command)
-              $commandBase64 = [Convert]::ToBase64String($commandBytes)
-          
-              try {
-                # Run the cleanup command via Kudu API
-                $response = Invoke-RestMethod -Uri "$kuduApiUrl/command" -Method POST -Body (@{ command = "powershell.exe -EncodedCommand $commandBase64" } | ConvertTo-Json) -ContentType "application/json" -ErrorAction Stop
-                Write-Host "Cleanup result: $($response.Output)"
-              }
-              catch {
-                Write-Host "Warning: Failed to clean up disk space: $_"
-                # Continue with deployment even if cleanup fails
-              }
+            # Đợi một chút để extension được cài đặt hoàn toàn
+            Write-Host "Waiting for extension installation to complete..."
+            Start-Sleep -Seconds 30
+            
+            # Khởi động lại web app
+            az webapp restart --resource-group ocms-resourse --name ocms
+            
+            Write-Host "Puppeteer Site Extension installed successfully!"
+          } else {
+            Write-Host "Puppeteer Site Extension is already installed."
+          }
 
-          - name: Deploy to Azure Web App
-            id: deploy-to-webapp
-            uses: azure/webapps-deploy@v3
-            with:
-              app-name: 'ocms'
-              package: .net-app
-              # Add deployment timeout to handle large deployments
-              timeout: 600 # 10 minutes
+      # Kiểm tra vị trí Chrome sau khi cài đặt
+      - name: Verify Chrome installation
+        run: |
+          $publishProfile = az webapp deployment list-publishing-profiles --resource-group ocms-resourse --name ocms --query "[?publishMethod=='MSDeploy'].{userName:userName,userPWD:userPWD}[0]" | ConvertFrom-Json
+          
+          $kuduApiUrl = "https://$($publishProfile.userName):$($publishProfile.userPWD)@ocms.scm.azurewebsites.net/api"
+          
+          try {
+            Write-Host "Checking Chrome executable locations..."
+            $command = "find /home -name chrome -type f -executable 2>/dev/null || echo 'No Chrome found'"
+            
+            $response = Invoke-RestMethod -Uri "$kuduApiUrl/command" -Method POST -Body (@{ command = "bash -c `"$command`"" } | ConvertTo-Json) -ContentType "application/json" -ErrorAction Stop
+            Write-Host "Chrome locations:"
+            Write-Host $response.Output
+          }
+          catch {
+            Write-Host "Failed to find Chrome: $_"
+          }
+
+      # Clean up disk space on Azure Web App before deployment
+      - name: Clean up Azure Web App disk space
+        run: |
+          # Get publishing credentials for the web app
+          $publishProfile = az webapp deployment list-publishing-profiles --resource-group ocms-resourse --name ocms --query "[?publishMethod=='MSDeploy'].{userName:userName,userPWD:userPWD,publishUrl:publishUrl}[0]" | ConvertFrom-Json
       
-          - name: Health check production
-            run: |
-              $maxRetries = 5
-              $retryCount = 0
-              $success = $false
-          
-              do {
-                try {
-                  $response = Invoke-WebRequest -Uri "${{ steps.deploy-to-webapp.outputs.webapp-url }}/swagger/index.html" -UseBasicParsing -TimeoutSec 30
-                  if ($response.StatusCode -eq 200) {
-                    $success = $true
-                    Write-Host "Health check passed!"
-                    break
-                  }
-                }
-                catch {
-                  $retryCount++
-                  Write-Host "Health check failed. Retrying in 10 seconds... ($retryCount/$maxRetries)"
-                  Write-Host "Error: $($_.Exception.Message)"
-                  Start-Sleep -Seconds 10
-                }
-              } while ($retryCount -lt $maxRetries -and -not $success)
-          
-              if (-not $success) {
-                Write-Host "Health check failed after $maxRetries attempts. Deployment may have issues."
-                exit 1
-              }
+          # Construct the Kudu API URL
+          $kuduApiUrl = "https://$($publishProfile.userName):$($publishProfile.userPWD)@ocms-bea4aagveeejawff.scm.southeastasia-01.azurewebsites.net/api"
       
-          - name: Log deployment status
-            if: always()
-            run: |
-              echo "============== DEPLOYMENT STATUS SUMMARY =============="
-              echo "Status: ${{ job.status }}"
-              echo "Timestamp: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
-              echo "Environment: Production"
-              echo "Application: ocms"
-              echo "Deployed URL: ${{ steps.deploy-to-webapp.outputs.webapp-url }}"
-              echo "Triggered by: ${{ github.actor }}"
-              echo "Commit: ${{ github.sha }}"
-              echo "======================================================"
+          # Clean up log files
+          Write-Host "Cleaning up log files..."
+          $command = @"
+          try {
+            # Remove old deployment logs
+            Get-ChildItem -Path D:\home\LogFiles -Recurse -File | Where-Object {$_.LastWriteTime -lt (Get-Date).AddDays(-7)} | Remove-Item -Force
+        
+            # Clean up temp folder
+            Get-ChildItem -Path D:\local\Temp -Recurse -File | Remove-Item -Force -ErrorAction SilentlyContinue
+        
+            # Remove old deployment artifacts
+            Get-ChildItem -Path D:\home\site\deployments -Recurse | Where-Object {$_.LastWriteTime -lt (Get-Date).AddDays(-3)} | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        
+            Write-Output "Cleanup completed successfully"
+          } catch {
+            Write-Output "Error during cleanup: $_"
+            exit 1
+          }
+          "@
       
-          # Add disk space usage report after deployment
-          - name: Report disk space usage
-            if: always()
-            run: |
-              $publishProfile = az webapp deployment list-publishing-profiles --resource-group ocms-resourse --name ocms --query "[?publishMethod=='MSDeploy'].{userName:userName,userPWD:userPWD,publishUrl:publishUrl}[0]" | ConvertFrom-Json
-          
-              $kuduApiUrl = "https://$($publishProfile.userName):$($publishProfile.userPWD)@ocms-bea4aagveeejawff.scm.southeastasia-01.azurewebsites.net/api"
-          
-              $command = "Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Root -eq 'D:\'} | Select-Object Name, Used, Free, @{Name='UsedGB';Expression={$_.Used/1GB}}, @{Name='FreeGB';Expression={$_.Free/1GB}}"
-          
-              $commandBytes = [System.Text.Encoding]::UTF8.GetBytes($command)
-              $commandBase64 = [Convert]::ToBase64String($commandBytes)
-          
-              try {
-                $response = Invoke-RestMethod -Uri "$kuduApiUrl/command" -Method POST -Body (@{ command = "powershell.exe -EncodedCommand $commandBase64" } | ConvertTo-Json) -ContentType "application/json" -ErrorAction Stop
-                Write-Host "Disk Space Report:"
-                Write-Host $response.Output
+          $commandBytes = [System.Text.Encoding]::UTF8.GetBytes($command)
+          $commandBase64 = [Convert]::ToBase64String($commandBytes)
+      
+          try {
+            # Run the cleanup command via Kudu API
+            $response = Invoke-RestMethod -Uri "$kuduApiUrl/command" -Method POST -Body (@{ command = "powershell.exe -EncodedCommand $commandBase64" } | ConvertTo-Json) -ContentType "application/json" -ErrorAction Stop
+            Write-Host "Cleanup result: $($response.Output)"
+          }
+          catch {
+            Write-Host "Warning: Failed to clean up disk space: $_"
+            # Continue with deployment even if cleanup fails
+          }
+
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'ocms'
+          package: .net-app
+          # Add deployment timeout to handle large deployments
+          timeout: 600 # 10 minutes
+  
+      - name: Health check production
+        run: |
+          $maxRetries = 5
+          $retryCount = 0
+          $success = $false
+      
+          do {
+            try {
+              $response = Invoke-WebRequest -Uri "${{ steps.deploy-to-webapp.outputs.webapp-url }}/swagger/index.html" -UseBasicParsing -TimeoutSec 30
+              if ($response.StatusCode -eq 200) {
+                $success = $true
+                Write-Host "Health check passed!"
+                break
               }
-              catch {
-                Write-Host "Failed to get disk space report: $_"
-              }
+            }
+            catch {
+              $retryCount++
+              Write-Host "Health check failed. Retrying in 10 seconds... ($retryCount/$maxRetries)"
+              Write-Host "Error: $($_.Exception.Message)"
+              Start-Sleep -Seconds 10
+            }
+          } while ($retryCount -lt $maxRetries -and -not $success)
+      
+          if (-not $success) {
+            Write-Host "Health check failed after $maxRetries attempts. Deployment may have issues."
+            exit 1
+          }
+  
+      - name: Log deployment status
+        if: always()
+        run: |
+          echo "============== DEPLOYMENT STATUS SUMMARY =============="
+          echo "Status: ${{ job.status }}"
+          echo "Timestamp: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+          echo "Environment: Production"
+          echo "Application: ocms"
+          echo "Deployed URL: ${{ steps.deploy-to-webapp.outputs.webapp-url }}"
+          echo "Triggered by: ${{ github.actor }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "======================================================"
+  
+      # Add disk space usage report after deployment
+      - name: Report disk space usage
+        if: always()
+        run: |
+          $publishProfile = az webapp deployment list-publishing-profiles --resource-group ocms-resourse --name ocms --query "[?publishMethod=='MSDeploy'].{userName:userName,userPWD:userPWD,publishUrl:publishUrl}[0]" | ConvertFrom-Json
+      
+          $kuduApiUrl = "https://$($publishProfile.userName):$($publishProfile.userPWD)@ocms-bea4aagveeejawff.scm.southeastasia-01.azurewebsites.net/api"
+      
+          $command = "Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Root -eq 'D:\'} | Select-Object Name, Used, Free, @{Name='UsedGB';Expression={$_.Used/1GB}}, @{Name='FreeGB';Expression={$_.Free/1GB}}"
+      
+          $commandBytes = [System.Text.Encoding]::UTF8.GetBytes($command)
+          $commandBase64 = [Convert]::ToBase64String($commandBytes)
+      
+          try {
+            $response = Invoke-RestMethod -Uri "$kuduApiUrl/command" -Method POST -Body (@{ command = "powershell.exe -EncodedCommand $commandBase64" } | ConvertTo-Json) -ContentType "application/json" -ErrorAction Stop
+            Write-Host "Disk Space Report:"
+            Write-Host $response.Output
+          }
+          catch {
+            Write-Host "Failed to get disk space report: $_"
+          }
