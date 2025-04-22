@@ -130,7 +130,7 @@ namespace OCMS_Services.Service
                 var launchOptions = new LaunchOptions
                 {
                     Headless = true,
-                    ExecutablePath = "/home/site/wwwroot/SiteExtensions/Puppeteer/chrome/chrome", // Đường dẫn cho Puppeteer extension
+                    ExecutablePath = "home/site/wwwroot/ChromeHeadlessShell/Win64-132.0.6834.83/chrome-headless-shell-win64/chrome-headless-shell.exe", // Đường dẫn cho Puppeteer extension
                     Args = new[]
                     {
                         "--no-sandbox",

@@ -133,7 +133,7 @@ jobs:
         run: |
           $publishProfile = az webapp deployment list-publishing-profiles --resource-group ocms-resourse --name ocms --query "[?publishMethod=='MSDeploy'].{userName:userName,userPWD:userPWD}[0]" | ConvertFrom-Json
           
-          $kuduApiUrl = "https://$($publishProfile.userName):$($publishProfile.userPWD)@ocms.scm.azurewebsites.net/api"
+          $kuduApiUrl = "https://$($publishProfile.userName):$($publishProfile.userPWD)@ocms-bea4aagveeejawff.scm.southeastasia-01.azurewebsites.net/api"
           
           try {
             Write-Host "Checking Chrome executable locations..."
