@@ -87,26 +87,49 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         [HttpPut("assign-to-department/{departmentId}/{userId}")]
-        [CustomAuthorize("Admin","HR", "AOC Manager")]
+        [CustomAuthorize("Admin", "HR", "AOC Manager")]
         public async Task<IActionResult> AddUserToDepartment(string departmentId, string userId)
         {
-            var result = await _departmentService.AssignUserToDepartmentAsync(userId, departmentId);
+            try
+            {
+                var result = await _departmentService.AssignUserToDepartmentAsync(userId, departmentId);
 
-            if (!result)
-                return NotFound(new { message = "User not found or already removed from department." });
+                if (!result)
+                    return NotFound(new { message = "User not found or already removed from department." });
 
-            return Ok(new { message = "User add to department successfully." });
+                return Ok(new { message = "User added to department successfully." });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
+
         [HttpPut("remove-from-department/{userId}")]
-        [CustomAuthorize("Admin","HR","AOC Manager")]
+        [CustomAuthorize("Admin", "HR", "AOC Manager")]
         public async Task<IActionResult> RemoveUserFromDepartment(string userId)
         {
-            var result = await _departmentService.RemoveUserFromDepartmentAsync(userId);
+            try
+            {
+                var result = await _departmentService.RemoveUserFromDepartmentAsync(userId);
 
-            if (!result)
-                return NotFound(new { message = "User not found or already removed from department." });
+                if (!result)
+                    return NotFound(new { message = "User not found or already removed from department." });
 
-            return Ok(new { message = "User removed from department successfully." });
+                return Ok(new { message = "User removed from department successfully." });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
         // DELETE: api/department/{id}
         [HttpDelete("{id}")]
