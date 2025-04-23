@@ -150,5 +150,29 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        // PUT: api/department/activate/{id}
+        [HttpPut("activate/{id}")]
+        [CustomAuthorize("Admin")]
+        public async Task<IActionResult> ActivateDepartment(string id)
+        {
+            try
+            {
+                var result = await _departmentService.ActivateDepartmentAsync(id);
+
+                if (!result)
+                    return BadRequest(new { message = "Department is already active." });
+
+                return Ok(new { message = "Department activated successfully." });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }
