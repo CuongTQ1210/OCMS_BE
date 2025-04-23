@@ -83,105 +83,83 @@ namespace OCMS_Services.Service
             {
                 // Wrap HTML with fixed size and adjustments
                 htmlContent = $$"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                @page {
-                    size: A4;
-                    margin: 0;
-                }
-                body {
-                    margin: 0;
-                    padding: 0;
-                    font-size: 10pt;
-                    width: 100%;
-                    box-sizing: border-box;
-                }
-                .pdf-container {
-                    width: 1123px; /* A4 landscape */
-                    height: 794px;
-                    padding: 40px;
-                    box-sizing: border-box;
-                    position: relative;
-                }
-                img {
-                    max-width: 100%;
-                    height: auto;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="pdf-container">
-                {{htmlContent}}
-            </div>
-        </body>
-        </html>
-        """;
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        @page {
+                            size: A4;
+                            margin: 0;
+                        }
+                        body {
+                            margin: 0;
+                            padding: 0;
+                            font-size: 10pt;
+                            width: 100%;
+                            box-sizing: border-box;
+                        }
+                        .pdf-container {
+                            width: 1123px; /* A4 landscape */
+                            height: 794px;
+                            padding: 40px;
+                            box-sizing: border-box;
+                            position: relative;
+                        }
+                        img {
+                            max-width: 100%;
+                            height: auto;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="pdf-container">
+                        {{htmlContent}}
+                    </div>
+                </body>
+                </html>
+                """;
 
                 Console.WriteLine("HTML content prepared with proper styling");
 
                 // Khởi tạo Puppeteer
-                var browserFetcher = new BrowserFetcher();
-                Console.WriteLine("Browser fetcher initialized");
+                Console.WriteLine("Initializing BrowserFetcher and downloading Chromium...");
+                await new BrowserFetcher().DownloadAsync();
+                Console.WriteLine("Chromium downloaded successfully");
 
-                string buildId = "1095492";
-
-                // Check if an environment executable path is specified
-                string executablePath = Environment.GetEnvironmentVariable("PUPPETEER_EXECUTABLE_PATH");
-                Console.WriteLine($"Environment Chrome path: {executablePath ?? "Not specified, will use downloaded version"}");
-
-                bool hasCustomChrome = !string.IsNullOrEmpty(executablePath);
-
-                // If not using custom Chrome path, use fetched browser path
-                if (!hasCustomChrome)
-                {
-                    Console.WriteLine($"Downloading Chromium build {buildId}...");
-                    await browserFetcher.DownloadAsync(buildId);
-                    executablePath = browserFetcher.GetExecutablePath(buildId);
-                    Console.WriteLine($"Using downloaded Chromium at: {executablePath}");
-                }
-
-                // Azure Windows-specific launch options
+                Console.WriteLine("Setting up browser launch options: Headless=true");
                 var launchOptions = new LaunchOptions
                 {
                     Headless = true,
-                    ExecutablePath = executablePath,
-                    Args = new[] {
+                    ExecutablePath = "home/site/wwwroot/ChromeHeadlessShell/Win64-132.0.6834.83/chrome-headless-shell-win64/chrome-headless-shell.exe", // Đường dẫn cho Puppeteer extension
+                    Args = new[]
+                    {
                         "--no-sandbox",
                         "--disable-setuid-sandbox",
                         "--disable-dev-shm-usage",
-                        "--disable-gpu",
-                        "--disable-extensions",
-                        "--disable-web-security",
-                        "--no-first-run",
-                        "--mute-audio",
-                        "--disable-infobars"
-                    },
-                    Timeout = 120000 // Increase timeout to 2 minutes
+                        "--disable-features=site-per-process"
+                    }
                 };
 
-                Console.WriteLine("Launching browser with options: " +
-                                 $"Headless={launchOptions.Headless}, " +
-                                 $"ExecutablePath={launchOptions.ExecutablePath}, " +
-                                 $"Timeout={launchOptions.Timeout}ms");
-
+                Console.WriteLine("Launching browser...");
                 using var browser = await Puppeteer.LaunchAsync(launchOptions);
                 Console.WriteLine("Browser launched successfully");
 
+                Console.WriteLine("Creating new page...");
                 using var page = await browser.NewPageAsync();
                 Console.WriteLine("New page created");
 
                 // Set viewport to ensure proper rendering
+                Console.WriteLine("Setting viewport: 1240x1754 with scale factor 1.5");
                 await page.SetViewportAsync(new ViewPortOptions
                 {
                     Width = 1240,  // ~A4 width in pixels at 150dpi
                     Height = 1754, // ~A4 height in pixels at 150dpi
                     DeviceScaleFactor = 1.5
                 });
-                Console.WriteLine("Viewport set: 1240x1754 with scale factor 1.5");
+                Console.WriteLine("Viewport set successfully");
 
                 // Đặt nội dung HTML
+                Console.WriteLine("Setting HTML content to page...");
                 try
                 {
                     await page.SetContentAsync(htmlContent);
@@ -195,6 +173,7 @@ namespace OCMS_Services.Service
                 }
 
                 // Optimize PDF settings
+                Console.WriteLine("Configuring PDF options: A4 format with 5mm margins and 0.9 scale");
                 var pdfOptions = new PdfOptions
                 {
                     Format = PuppeteerSharp.Media.PaperFormat.A4,
@@ -208,11 +187,12 @@ namespace OCMS_Services.Service
                     },
                     Scale = 0.9m // Slightly reduced scale to ensure content fits
                 };
-                Console.WriteLine("PDF options configured: A4 format with 5mm margins and 0.9 scale");
+                Console.WriteLine("PDF options configured successfully");
 
+                // Generate PDF
+                Console.WriteLine("Generating PDF...");
                 try
                 {
-                    Console.WriteLine("Generating PDF...");
                     byte[] pdfBytes = await page.PdfDataAsync(pdfOptions);
                     Console.WriteLine($"PDF generated successfully: {pdfBytes.Length} bytes");
                     return pdfBytes;

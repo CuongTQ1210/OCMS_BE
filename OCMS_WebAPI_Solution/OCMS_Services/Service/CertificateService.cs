@@ -297,6 +297,7 @@ namespace OCMS_Services.Service
             return (true, "Certificate revoked successfully");
         }
         #endregion
+
         #region Get all revoked certificates with SAS URL
         public async Task<List<CertificateModel>> GetRevokedCertificatesWithSasUrlAsync()
         {
@@ -319,8 +320,6 @@ namespace OCMS_Services.Service
             return revokedCertificates;
         }
         #endregion
-
-
 
         #region Helper Methods
         private async Task<string> GetCachedTemplateHtmlAsync(string templateFileUrl)
