@@ -187,6 +187,7 @@ namespace OCMS_Services.Service
             return user;
         }
         #endregion
+
         #region deactivate user
         public async Task<bool> DeactivateUserAsync(string userId)
         {
@@ -267,8 +268,8 @@ namespace OCMS_Services.Service
             // Store token in Redis with 15-minute expiration
             await _redis.StringSetAsync(token, user.UserId, TimeSpan.FromMinutes(15));
 
-            var baseUrl = "https://ocms-bea4aagveeejawff.southeastasia-01.azurewebsites.net"; // Có thể lấy từ cấu hình
-            var resetLink = $"{baseUrl}/reset-password?token={token}";
+            var baseUrl = "https://ocms-teal.vercel.app"; // Có thể lấy từ cấu hình
+            var resetLink = $"{baseUrl}/reset-password/{token}";
             string emailBody = $"Click the following link to reset your password: {resetLink}";
 
             await _emailService.SendEmailAsync(user.Email, "Password Reset", emailBody);
