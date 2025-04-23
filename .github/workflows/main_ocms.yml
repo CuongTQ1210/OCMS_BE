@@ -100,53 +100,6 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_B07DDFD930AD4287BD101A0957068C04 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_FBE1CF4B226B4E5A8B25FF5C1AABC326 }}
 
-      # Phần mới: Kiểm tra xem Puppeteer đã cài đặt chưa và cài đặt nếu cần
-      - name: Check and Install Puppeteer Site Extension
-        run: |
-          # Kiểm tra xem extension đã cài đặt chưa
-          Write-Host "Checking if Puppeteer Site Extension is already installed..."
-          $extensions = az webapp list-extensions --resource-group ocms-resourse --name ocms --query "[?name=='Puppeteer'].name" -o tsv
-          
-          if (-not $extensions) {
-            Write-Host "Puppeteer Site Extension not found. Installing..."
-            
-            # Tắt WEBSITE_RUN_FROM_PACKAGE để có thể cài extension
-            az webapp config appsettings set --resource-group ocms-resourse --name ocms --settings WEBSITE_RUN_FROM_PACKAGE=0
-            
-            # Cài đặt extension
-            az webapp install-extension --resource-group ocms-resourse --name ocms --extension-id Puppeteer
-            
-            # Đợi một chút để extension được cài đặt hoàn toàn
-            Write-Host "Waiting for extension installation to complete..."
-            Start-Sleep -Seconds 30
-            
-            # Khởi động lại web app
-            az webapp restart --resource-group ocms-resourse --name ocms
-            
-            Write-Host "Puppeteer Site Extension installed successfully!"
-          } else {
-            Write-Host "Puppeteer Site Extension is already installed."
-          }
-
-      # Kiểm tra vị trí Chrome sau khi cài đặt
-      - name: Verify Chrome installation
-        run: |
-          $publishProfile = az webapp deployment list-publishing-profiles --resource-group ocms-resourse --name ocms --query "[?publishMethod=='MSDeploy'].{userName:userName,userPWD:userPWD}[0]" | ConvertFrom-Json
-          
-          $kuduApiUrl = "https://$($publishProfile.userName):$($publishProfile.userPWD)@ocms-bea4aagveeejawff.scm.southeastasia-01.azurewebsites.net/api"
-          
-          try {
-            Write-Host "Checking Chrome executable locations..."
-            $command = "find /home -name chrome -type f -executable 2>/dev/null || echo 'No Chrome found'"
-            
-            $response = Invoke-RestMethod -Uri "$kuduApiUrl/command" -Method POST -Body (@{ command = "bash -c `"$command`"" } | ConvertTo-Json) -ContentType "application/json" -ErrorAction Stop
-            Write-Host "Chrome locations:"
-            Write-Host $response.Output
-          }
-          catch {
-            Write-Host "Failed to find Chrome: $_"
-          }
-
       # Clean up disk space on Azure Web App before deployment
       - name: Clean up Azure Web App disk space
         run: |
