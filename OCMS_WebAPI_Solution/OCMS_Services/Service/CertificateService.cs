@@ -143,6 +143,7 @@ namespace OCMS_Services.Service
 
                 // 8. Generate certificates in batch with efficient processing
                 var certToCreate = new List<Certificate>();
+                var certToUpdate = new List<Certificate>();
                 var generationTasks = eligibleTrainees.Select(async ta =>
                 {
                     if (!traineeDict.TryGetValue(ta.TraineeId, out var trainee))
@@ -151,12 +152,48 @@ namespace OCMS_Services.Service
                     try
                     {
                         var grades = gradesByTraineeAssign[ta.TraineeAssignId];
-                        return await GenerateCertificateAsync(
-                            trainee, course, templateId, templateHtml, templateType, grades, issuedByUserId, issueDate);
+
+                        if (course.CourseLevel == CourseLevel.Recurrent)
+                        {
+                            // Find Initial Certificate to extend
+                            var initialCert = (await _unitOfWork.CertificateRepository.GetAllAsync(c =>
+                                c.UserId == trainee.UserId &&
+                                c.Status == CertificateStatus.Active &&
+                                c.Course.CourseLevel == CourseLevel.Initial &&  // assuming you store CourseLevel in Certificate
+                                c.Course.CourseName == course.CourseName))      // match by course name
+                                .OrderByDescending(c => c.IssueDate)
+                                .FirstOrDefault();
+
+                            if (initialCert != null)
+                            {
+                                initialCert.ExpirationDate = (initialCert.ExpirationDate ?? DateTime.Now).AddYears(2);
+                                initialCert.IssueByUserId = issuedByUserId;
+                                initialCert.IssueDate = DateTime.Now;
+                                initialCert.Status = CertificateStatus.Pending;
+                                
+                                lock (certToUpdate)  // for thread safety in parallel
+                                {
+                                    certToUpdate.Add(initialCert);
+                                }
+
+                                return initialCert; // not new, but added to report
+                            }
+                            else
+                            {
+                                _logger.LogWarning($"No Initial certificate found for recurrent trainee {trainee.UserId} in course {course.CourseName}");
+                                return null;
+                            }
+                        }
+                        else
+                        {
+                            // Generate new certificate (Initial case)
+                            return await GenerateCertificateAsync(
+                                trainee, course, templateId, templateHtml, templateType, grades, issuedByUserId, issueDate);
+                        }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, $"Failed to create certificate for trainee {ta.TraineeId}");
+                        _logger.LogError(ex, $"Failed to process certificate for trainee {ta.TraineeId}");
                         return null;
                     }
                 });
