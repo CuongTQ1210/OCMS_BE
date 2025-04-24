@@ -59,15 +59,48 @@ namespace OCMS_Services.Service
             var course = await _courseRepository.GetCourseWithDetailsAsync(request.CourseId);
             if (course == null)
                 throw new InvalidOperationException("Course not found");
+            IEnumerable<Certificate> certificates = new List<Certificate>();
+            IEnumerable<TraineeAssign> traineeAssigns = await _unitOfWork.TraineeAssignRepository
+                .GetAllAsync(t => t.CourseId == request.CourseId && t.RequestStatus == RequestStatus.Approved);
 
-            if (course.Progress != Progress.Completed)
-                throw new InvalidOperationException("Course has not been completed yet");
+            if (!traineeAssigns.Any())
+                throw new InvalidOperationException("No approved trainees found for this course");
 
-            var approvedCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(
-                c => c.CourseId == request.CourseId && c.Status == CertificateStatus.Active);
+            var matchedCertificates = new List<Certificate>();
 
-            if (!approvedCertificates.Any())
-                throw new InvalidOperationException("No approved certificates found for this course");
+            foreach (var trainee in traineeAssigns)
+            {
+                Certificate? cert;
+
+                if (course.CourseLevel == CourseLevel.Recurrent)
+                {
+                    // Get the Initial certificate for this trainee
+                    cert = (await _unitOfWork.CertificateRepository.GetAllAsync(c =>
+                        c.UserId == trainee.TraineeId &&
+                        c.Course.CourseLevel == CourseLevel.Initial &&
+                        c.Course.CourseName == course.CourseName)) // or use CourseCode if more reliable
+                        .OrderByDescending(c => c.IssueDate)
+                        .FirstOrDefault();
+                }
+                else
+                {
+                    // Get certificate for this course
+                    cert = (await _unitOfWork.CertificateRepository.GetAllAsync(c =>
+                        c.UserId == trainee.TraineeId &&
+                        c.CourseId == request.CourseId))
+                        .OrderByDescending(c => c.IssueDate)
+                        .FirstOrDefault();
+                }
+
+                if (cert != null)
+                    matchedCertificates.Add(cert);
+            }
+
+            // Make sure we have certificates
+            if (!matchedCertificates.Any())
+                throw new InvalidOperationException("No matching certificates found for the course");
+
+            certificates = matchedCertificates;
 
             // 2. Xác định template dựa trên CourseLevel
             string templateNamePrefix;
@@ -120,12 +153,16 @@ namespace OCMS_Services.Service
             {
                 templateHtml = latestTemplate.TemplateContent;
             }
-
             // 4. Chuẩn bị dữ liệu
             var decisionCode = GenerateDecisionCode();
             var issueDate = DateTime.Now;
-            var studentRows = await GenerateStudentRowsAsync(approvedCertificates);
-            var courseSchedules = await _unitOfWork.TrainingScheduleRepository.GetAllAsync(ts => ts.Subject.CourseId == request.CourseId);
+
+            // 👇 Generate student rows (dùng certificates nếu có, fallback to trainees)
+            string studentRows = await GenerateStudentRowsAsync(certificates);
+
+            var courseSchedules = await _unitOfWork.TrainingScheduleRepository
+                .GetAllAsync(ts => ts.Subject.CourseId == request.CourseId);
+
             var startDate = courseSchedules.Any() ? courseSchedules.Min(s => s.StartDateTime) : issueDate;
             var endDate = courseSchedules.Any() ? courseSchedules.Max(s => s.EndDateTime) : issueDate;
 
@@ -137,7 +174,7 @@ namespace OCMS_Services.Service
                 .Replace("{{Year}}", issueDate.Year.ToString())
                 .Replace("{{CourseCode}}", course.CourseName)
                 .Replace("{{CourseTitle}}", course.CourseName ?? $"Khóa {course.CourseName}")
-                .Replace("{{StudentCount}}", approvedCertificates.Count().ToString())
+                .Replace("{{StudentCount}}", certificates.Any() ? certificates.Count().ToString() : traineeAssigns.Count().ToString())
                 .Replace("{{StartDate}}", startDate.ToString("dd/MM/yyyy"))
                 .Replace("{{EndDate}}", endDate.ToString("dd/MM/yyyy"))
                 .Replace("{{StudentRows}}", studentRows);
@@ -147,11 +184,8 @@ namespace OCMS_Services.Service
             using var stream = new MemoryStream(Encoding.UTF8.GetBytes(decisionContent));
             var blobUrl = await _blobService.UploadFileAsync("decisions", blobName, stream, "text/html");
             var blobUrlWithoutSas = _blobService.GetBlobUrlWithoutSasToken(blobUrl);
-            var primaryCertificate = approvedCertificates.FirstOrDefault();
-            if (primaryCertificate == null)
-                throw new InvalidOperationException("No certificate found to associate with the decision");
 
-            // 7. Tạo entity Decision
+            // 7. Tạo Decision entity
             var decision = new Decision
             {
                 DecisionId = Guid.NewGuid().ToString(),
@@ -162,23 +196,23 @@ namespace OCMS_Services.Service
                 IssuedByUserId = issuedByUserId,
                 DecisionTemplateId = latestTemplate.DecisionTemplateId,
                 DecisionStatus = 0, // Draft
-                CertificateId = primaryCertificate.CertificateId
+                CertificateId = certificates.FirstOrDefault()?.CertificateId // could be null for Initial if no certs
             };
 
-            // 8. Lưu vào database
+            // 8. Save decision
             await _unitOfWork.DecisionRepository.AddAsync(decision);
             await _unitOfWork.SaveChangesAsync();
 
-            // 9. Thông báo cho HeadMaster
+            // 9. Notify for signature
             await NotifyHeadMasterForSignatureAsync(decision.DecisionId, course.CourseName);
 
             // 10. Map to response
             return _mapper.Map<CreateDecisionResponse>(decision);
         }
-        #endregion
+            #endregion
 
-        #region Get all Draft Decisions
-        public async Task<IEnumerable<DecisionModel>> GetAllDraftDecisionsAsync()
+            #region Get all Draft Decisions
+            public async Task<IEnumerable<DecisionModel>> GetAllDraftDecisionsAsync()
         {
             return await GetDecisionsWithSasAsync(async () =>
                 await _unitOfWork.DecisionRepository.GetAllAsync(
@@ -225,12 +259,13 @@ namespace OCMS_Services.Service
                 var trainee = await _userRepository.GetByIdAsync(cert.UserId);
                 if (trainee != null)
                 {
-                    string department = trainee.Specialty?.SpecialtyName ?? "Chưa xác định";
+                    string specialtyId = trainee.SpecialtyId ?? "Chưa xác định";
+                    var specialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(specialtyId);
                     studentRows.AppendLine("<tr>");
                     studentRows.AppendLine($"  <td>{index}</td>");
                     studentRows.AppendLine($"  <td>{trainee.FullName}</td>");
                     studentRows.AppendLine($"  <td>{trainee.Username}</td>");
-                    studentRows.AppendLine($"  <td>{department}</td>");
+                    studentRows.AppendLine($"  <td>{specialty.SpecialtyName}</td>");
                     // Thêm cột Ghi chú cho Recurrent_Decision nếu cần
                     if (certificates.First().Course.CourseLevel != CourseLevel.Initial)
                         studentRows.AppendLine("  <td></td>");
@@ -239,6 +274,20 @@ namespace OCMS_Services.Service
                 }
             }
             return studentRows.ToString();
+        }
+
+        private async Task<string> GenerateStudentRowsFromTraineesAsync(IEnumerable<TraineeAssign> traineeAssigns)
+        {
+            var sb = new StringBuilder();
+            int index = 1;
+            foreach (var trainee in traineeAssigns)
+            {
+               var  traineeUser = await _unitOfWork.UserRepository.GetByIdAsync(trainee.TraineeId);
+
+                sb.AppendLine($"<tr><td>{index}</td><td>{traineeUser.FullName}</td><td>{traineeUser.DateOfBirth:dd/MM/yyyy}</td><td>{traineeUser.Username}</td></tr>");
+                index++;
+            }
+            return sb.ToString();
         }
 
         private async Task NotifyHeadMasterForSignatureAsync(string decisionId, string courseName)
