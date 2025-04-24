@@ -158,9 +158,7 @@ namespace OCMS_Services.Service
             var issueDate = DateTime.Now;
 
             // 👇 Generate student rows (dùng certificates nếu có, fallback to trainees)
-            string studentRows = certificates.Any()
-                ? await GenerateStudentRowsAsync(certificates)
-                : await GenerateStudentRowsFromTraineesAsync(traineeAssigns);
+            string studentRows = await GenerateStudentRowsAsync(certificates);
 
             var courseSchedules = await _unitOfWork.TrainingScheduleRepository
                 .GetAllAsync(ts => ts.Subject.CourseId == request.CourseId);
