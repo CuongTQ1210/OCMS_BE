@@ -22,12 +22,14 @@ namespace OCMS_Services.Service
         private readonly IMapper _mapper;
         private readonly ICertificateService _certificateService;
         private readonly ITrainingScheduleRepository _trainingScheduleRepository;
-        public GradeService(UnitOfWork unitOfWork, IMapper mapper, ICertificateService certificateService,ITrainingScheduleRepository trainingScheduleRepository)
+        private readonly IDecisionService _decisionService;
+        public GradeService(UnitOfWork unitOfWork, IMapper mapper, ICertificateService certificateService,ITrainingScheduleRepository trainingScheduleRepository, IDecisionService decisionService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _certificateService = certificateService;
             _trainingScheduleRepository = trainingScheduleRepository;
+            _decisionService = decisionService;
         }
 
         #region Get All Grade
@@ -130,15 +132,44 @@ namespace OCMS_Services.Service
                 var traineeAssign = await _unitOfWork.TraineeAssignRepository.GetByIdAsync(grade.TraineeAssignID);
                 if (traineeAssign != null)
                 {
-                    var existingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.CourseId == course.CourseId);
+                    var existingCertificates = await _unitOfWork.CertificateRepository
+                        .GetAllAsync(c => c.CourseId == course.CourseId);
                     var traineeWithCerts = new HashSet<string>(existingCertificates.Select(c => c.UserId));
-                    if(!traineeWithCerts.Contains(grade.TraineeAssignID))
+                    bool traineeHasCert = traineeWithCerts.Contains(traineeAssign.TraineeId);
+
+                    // 🧠 Decision logic based on course level
+                    if (course.CourseLevel == CourseLevel.Initial)
+                    {
+                        if (!traineeHasCert)
+                        {
+                            // 1. Then Generate Certificate
+                            await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(course.CourseId, gradedByUserId);
+                            // 2. Create Decision
+                            var decisionRequest = new CreateDecisionDTO { CourseId = course.CourseId };
+                            await _decisionService.CreateDecisionForCourseAsync(decisionRequest, gradedByUserId);
+
+                           
+                           
+                        }
+                    }
+                    else if (course.CourseLevel == CourseLevel.Recurrent)
                     {
                         await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(course.CourseId, gradedByUserId);
+
+                        var existingDecision = await _unitOfWork.DecisionRepository
+                            .GetAsync(d => d.Certificate.CourseId == course.CourseId);
+
+                        if (existingDecision == null)
+                        {
+                            var decisionRequest = new CreateDecisionDTO { CourseId = course.CourseId };
+                            await _decisionService.CreateDecisionForCourseAsync(decisionRequest, gradedByUserId);
+                        }
                     }
                 }
             }
             await _unitOfWork.SaveChangesAsync();
+
+
 
             return grade.GradeId;
         }
@@ -150,36 +181,80 @@ namespace OCMS_Services.Service
             var existing = await _unitOfWork.GradeRepository.GetAsync(g => g.GradeId == id);
             if (existing == null)
                 throw new KeyNotFoundException($"Grade with ID '{id}' not found.");
+
             var assignTrainee = await _unitOfWork.TraineeAssignRepository.GetByIdAsync(dto.TraineeAssignID);
+            if (assignTrainee == null)
+                throw new KeyNotFoundException($"Trainee assignment with ID '{dto.TraineeAssignID}' not found.");
+
+            var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(dto.SubjectId);
+            if (subject == null)
+                throw new Exception("Subject not found.");
+
             var course = await _unitOfWork.CourseRepository.GetByIdAsync(assignTrainee.CourseId);
+            if (course == null)
+                throw new Exception("Course not found.");
+
+            // Check if course is suitable for grading
+            if (course.Status == CourseStatus.Pending || course.Status == CourseStatus.Rejected ||
+                course.Progress == Progress.NotYet || course.Progress == Progress.Completed)
+            {
+                throw new InvalidOperationException("Course isn't suitable to update grade.");
+            }
+
+            // Check for existing certificates
             var existingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.CourseId == course.CourseId);
             var traineeWithCerts = new HashSet<string>(existingCertificates.Select(c => c.UserId));
-            if (traineeWithCerts.Any())
+            if (traineeWithCerts.Contains(assignTrainee.TraineeId))
                 throw new InvalidOperationException($"Cannot update grade for TraineeAssignID '{existing.TraineeAssignID}' because a certificate has already been issued.");
+
             await ValidateGradeDto(dto);
 
             _mapper.Map(dto, existing);
             existing.TotalScore = CalculateTotalScore(existing);
+            var passScore = subject.PassingScore;
+
             if (existing.ParticipantScore == 0 || existing.AssignmentScore == 0)
             {
                 existing.gradeStatus = GradeStatus.Fail;
             }
             else
             {
-                existing.gradeStatus = existing.TotalScore >= 5.0 ? GradeStatus.Pass : GradeStatus.Fail;
+                existing.gradeStatus = existing.TotalScore >= passScore ? GradeStatus.Pass : GradeStatus.Fail;
             }
-            existing.UpdateDate = DateTime.Now;  
+            existing.UpdateDate = DateTime.Now;
 
             await _unitOfWork.GradeRepository.UpdateAsync(existing);
+
             if (existing.gradeStatus == GradeStatus.Pass)
             {
-                if (!traineeWithCerts.Contains(existing.TraineeAssignID))
+                // Certificate and decision logic based on course level
+                if (course.CourseLevel == CourseLevel.Initial)
+                {
+                    if (!traineeWithCerts.Contains(assignTrainee.TraineeId))
+                    {
+                        // Generate certificate
+                        await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(course.CourseId, existing.GradedByInstructorId);
+                        // Create decision
+                        var decisionRequest = new CreateDecisionDTO { CourseId = course.CourseId };
+                        await _decisionService.CreateDecisionForCourseAsync(decisionRequest, existing.GradedByInstructorId);
+                    }
+                }
+                else if (course.CourseLevel == CourseLevel.Recurrent)
                 {
                     await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(course.CourseId, existing.GradedByInstructorId);
+
+                    var existingDecision = await _unitOfWork.DecisionRepository
+                        .GetAsync(d => d.Certificate.CourseId == course.CourseId);
+
+                    if (existingDecision == null)
+                    {
+                        var decisionRequest = new CreateDecisionDTO { CourseId = course.CourseId };
+                        await _decisionService.CreateDecisionForCourseAsync(decisionRequest, existing.GradedByInstructorId);
+                    }
                 }
             }
-            await _unitOfWork.SaveChangesAsync();
 
+            await _unitOfWork.SaveChangesAsync();
             return true;
         }
         #endregion
@@ -237,7 +312,8 @@ namespace OCMS_Services.Service
                 TotalRecords = 0,
                 SuccessCount = 0,
                 FailedCount = 0,
-                Errors = new List<string>()
+                Errors = new List<string>(),
+                Warnings = new List<string>()
             };
 
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
@@ -246,7 +322,7 @@ namespace OCMS_Services.Service
                 var worksheet = package.Workbook.Worksheets["GradeImport"];
                 if (worksheet == null)
                 {
-                    result.Errors.Add("Missing 'GradeImport' sheet.");
+                    result.Errors.Add("Missing 'Grade deneyImport' sheet.");
                     return result;
                 }
 
@@ -274,17 +350,31 @@ namespace OCMS_Services.Service
                     result.Errors.Add($"Course not found for Subject '{subjectName}'.");
                     return result;
                 }
-                if (course.Status == CourseStatus.Pending || course.Status == CourseStatus.Rejected || course.Progress == Progress.NotYet || course.Progress == Progress.Completed)
+
+                // Validate course status
+                if (course.Status == CourseStatus.Pending || course.Status == CourseStatus.Rejected ||
+                    course.Progress == Progress.NotYet || course.Progress == Progress.Completed)
                 {
-                    throw new InvalidOperationException("Course isn't suitable to create grade.");
+                    result.Errors.Add("Course isn't suitable to create grades.");
+                    return result;
                 }
+
+                // Check if subject has a schedule
+                var schedule = await _trainingScheduleRepository.GetSchedulesBySubjectIdAsync(subjectId);
+                if (schedule == null)
+                {
+                    result.Errors.Add("Subject does not have any training schedule.");
+                    return result;
+                }
+
                 var existingGrades = await _unitOfWork.GradeRepository.GetAllAsync();
                 var existingGradeKeys = existingGrades.Select(g => (g.TraineeAssignID, g.SubjectId)).ToHashSet();
 
                 var existingTraineeAssigns = await _unitOfWork.TraineeAssignRepository.GetAllAsync();
                 var assignMap = existingTraineeAssigns
                     .Where(a => a.CourseId == courseId)
-                    .ToDictionary(a => a.TraineeId, a => a.TraineeAssignId);
+                    .ToDictionary(a => a.TraineeId, a => (a.TraineeAssignId, a.TraineeId));
+
                 var newGrades = new List<Grade>();
                 int rowCount = worksheet.Dimension.Rows;
                 result.TotalRecords = rowCount - 2;
@@ -299,12 +389,15 @@ namespace OCMS_Services.Service
                         continue;
                     }
 
-                    if (!assignMap.TryGetValue(traineeId, out string assignId))
+                    if (!assignMap.TryGetValue(traineeId, out var assignData))
                     {
                         result.Errors.Add($"Row {row}: No TraineeAssign found for TraineeId '{traineeId}' in Course '{courseId}'.");
                         result.FailedCount++;
                         continue;
                     }
+
+                    string assignId = assignData.TraineeAssignId;
+                    string traineeUserId = assignData.TraineeId;
 
                     if (existingGradeKeys.Contains((assignId, subjectId)))
                     {
@@ -340,16 +433,17 @@ namespace OCMS_Services.Service
 
                     var grade = new Grade
                     {
+                        GradeId = $"G-{Guid.NewGuid().ToString("N")[..8].ToUpper()}",
                         TraineeAssignID = assignId,
                         SubjectId = subjectId,
                         ParticipantScore = participant,
                         AssignmentScore = assignment,
                         FinalExamScore = finalExam,
                         FinalResitScore = finalResit,
-                        GradedByInstructorId= importedByUserId,
+                        GradedByInstructorId = importedByUserId,
                         Remarks = remarks
                     };
-                    grade.GradeId = $"G-{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
+
                     var passScore = subject.PassingScore;
                     grade.TotalScore = CalculateTotalScore(grade);
 
@@ -371,21 +465,53 @@ namespace OCMS_Services.Service
                     await _unitOfWork.GradeRepository.AddRangeAsync(newGrades);
                     await _unitOfWork.SaveChangesAsync();
 
-                    // Improve logging before certificate generation
-                    // Check and automatically generate certificates for eligible trainees
+                    // Process certificates and decisions for passing grades
                     try
                     {
-                        var certificates = await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(courseId, importedByUserId);
-                        if (certificates.Any())
+                        var passingGrades = newGrades.Where(g => g.gradeStatus == GradeStatus.Pass).ToList();
+                        if (passingGrades.Any())
                         {
-                            result.AdditionalInfo = $"Successfully generated {certificates.Count} certificates for passing trainees.";
+                            // Get existing certificates for the course
+                            var existingCertificates = await _unitOfWork.CertificateRepository
+                                .GetAllAsync(c => c.CourseId == courseId);
+                            var traineeWithCerts = new HashSet<string>(existingCertificates.Select(c => c.UserId));
+
+                            if (course.CourseLevel == CourseLevel.Initial)
+                            {
+                                // Generate certificates only for trainees without existing certificates
+                                foreach (var grade in passingGrades)
+                                {
+                                    var traineeAssign = await _unitOfWork.TraineeAssignRepository.GetByIdAsync(grade.TraineeAssignID);
+                                    if (traineeAssign != null && !traineeWithCerts.Contains(traineeAssign.TraineeId))
+                                    {
+                                        await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(courseId, importedByUserId);
+                                        // Create decision
+                                        var decisionRequest = new CreateDecisionDTO { CourseId = courseId };
+                                        await _decisionService.CreateDecisionForCourseAsync(decisionRequest, importedByUserId);
+                                    }
+                                }
+                            }
+                            else if (course.CourseLevel == CourseLevel.Recurrent)
+                            {
+                                // Generate certificates for all passing trainees
+                                await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(courseId, importedByUserId);
+
+                                // Create decision if none exists
+                                var existingDecision = await _unitOfWork.DecisionRepository
+                                    .GetAsync(d => d.Certificate.CourseId == courseId);
+                                if (existingDecision == null)
+                                {
+                                    var decisionRequest = new CreateDecisionDTO { CourseId = courseId };
+                                    await _decisionService.CreateDecisionForCourseAsync(decisionRequest, importedByUserId);
+                                }
+                            }
+
+                            result.AdditionalInfo = $"Successfully processed {passingGrades.Count} passing grades with certificate and decision generation.";
                         }
                     }
                     catch (Exception ex)
                     {
-                        // Log error but don't fail the grade import process
-                        result.Warnings = result.Warnings ?? new List<string>();
-                        result.Warnings.Add($"Grades were imported successfully but certificate generation failed: {ex.Message}");
+                        result.Warnings.Add($"Grades were imported successfully, but certificate/decision generation failed: {ex.Message}");
                     }
                 }
             }
