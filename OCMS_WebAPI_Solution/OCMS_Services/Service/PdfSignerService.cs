@@ -2,15 +2,10 @@
 using OCMS_Repositories;
 using OCMS_Services.IService;
 using PuppeteerSharp;
-using System;
-using System.Collections.Generic;
-using System.Drawing.Printing;
-using System.Linq;
 using System.Net.Http.Headers;
 using System.Net.Mail;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace OCMS_Services.Service
 {
@@ -75,149 +70,86 @@ namespace OCMS_Services.Service
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadAsStringAsync();
         }
+
         private async Task<byte[]> ConvertHtmlToPdf(string htmlContent)
         {
-            Console.WriteLine("Starting HTML to PDF conversion process");
+            // Wrap HTML với kích thước cố định và các điều chỉnh
+            htmlContent = $$"""
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            font-size: 10pt;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .pdf-container {
+            width: 1123px; /* A4 landscape */
+            height: 794px;
+            padding: 40px;
+            box-sizing: border-box;
+            position: relative;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="pdf-container">
+        {{htmlContent}}
+    </div>
+</body>
+</html>
+""";
 
-            try
+            // Cấu hình kết nối tới Browserless.io
+            string apiKey = "SBWO5HqUBObzJndcfc2ee4a49c814df8ab832ad04f"; // Thay bằng API key thực tế của bạn
+            string browserWSEndpoint = $"wss://chrome.browserless.io?token={apiKey}";
+
+            // Kết nối tới browser của dịch vụ bên thứ ba
+            using var browser = await Puppeteer.ConnectAsync(new ConnectOptions
             {
-                // Wrap HTML with fixed size and adjustments
-                htmlContent = $$"""
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <style>
-                        @page {
-                            size: A4;
-                            margin: 0;
-                        }
-                        body {
-                            margin: 0;
-                            padding: 0;
-                            font-size: 10pt;
-                            width: 100%;
-                            box-sizing: border-box;
-                        }
-                        .pdf-container {
-                            width: 1123px; /* A4 landscape */
-                            height: 794px;
-                            padding: 40px;
-                            box-sizing: border-box;
-                            position: relative;
-                        }
-                        img {
-                            max-width: 100%;
-                            height: auto;
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div class="pdf-container">
-                        {{htmlContent}}
-                    </div>
-                </body>
-                </html>
-                """;
+                BrowserWSEndpoint = browserWSEndpoint
+            });
+            using var page = await browser.NewPageAsync();
 
-                Console.WriteLine("HTML content prepared with proper styling");
-
-                // Khởi tạo Puppeteer
-                Console.WriteLine("Initializing BrowserFetcher and downloading Chromium...");
-                await new BrowserFetcher().DownloadAsync();
-                Console.WriteLine("Chromium downloaded successfully");
-
-                Console.WriteLine("Setting up browser launch options: Headless=true");
-                var launchOptions = new LaunchOptions
-                {
-                    Headless = true,
-                    ExecutablePath = "home/site/wwwroot/ChromeHeadlessShell/Win64-132.0.6834.83/chrome-headless-shell-win64/chrome-headless-shell.exe", // Đường dẫn cho Puppeteer extension
-                    Args = new[]
-                    {
-                        "--no-sandbox",
-                        "--disable-setuid-sandbox",
-                        "--disable-dev-shm-usage",
-                        "--disable-features=site-per-process"
-                    }
-                };
-
-                Console.WriteLine("Launching browser...");
-                using var browser = await Puppeteer.LaunchAsync(launchOptions);
-                Console.WriteLine("Browser launched successfully");
-
-                Console.WriteLine("Creating new page...");
-                using var page = await browser.NewPageAsync();
-                Console.WriteLine("New page created");
-
-                // Set viewport to ensure proper rendering
-                Console.WriteLine("Setting viewport: 1240x1754 with scale factor 1.5");
-                await page.SetViewportAsync(new ViewPortOptions
-                {
-                    Width = 1240,  // ~A4 width in pixels at 150dpi
-                    Height = 1754, // ~A4 height in pixels at 150dpi
-                    DeviceScaleFactor = 1.5
-                });
-                Console.WriteLine("Viewport set successfully");
-
-                // Đặt nội dung HTML
-                Console.WriteLine("Setting HTML content to page...");
-                try
-                {
-                    await page.SetContentAsync(htmlContent);
-                    Console.WriteLine("HTML content set to page successfully");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error setting page content: {ex.Message}");
-                    Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                    throw;
-                }
-
-                // Optimize PDF settings
-                Console.WriteLine("Configuring PDF options: A4 format with 5mm margins and 0.9 scale");
-                var pdfOptions = new PdfOptions
-                {
-                    Format = PuppeteerSharp.Media.PaperFormat.A4,
-                    PrintBackground = true,
-                    MarginOptions = new PuppeteerSharp.Media.MarginOptions
-                    {
-                        Top = "5mm",
-                        Bottom = "5mm",
-                        Left = "5mm",
-                        Right = "5mm"
-                    },
-                    Scale = 0.9m // Slightly reduced scale to ensure content fits
-                };
-                Console.WriteLine("PDF options configured successfully");
-
-                // Generate PDF
-                Console.WriteLine("Generating PDF...");
-                try
-                {
-                    byte[] pdfBytes = await page.PdfDataAsync(pdfOptions);
-                    Console.WriteLine($"PDF generated successfully: {pdfBytes.Length} bytes");
-                    return pdfBytes;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error generating PDF: {ex.Message}");
-                    Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                    throw;
-                }
-            }
-            catch (Exception ex)
+            // Cấu hình viewport để render chính xác
+            await page.SetViewportAsync(new ViewPortOptions
             {
-                Console.WriteLine($"HTML to PDF conversion failed: {ex.Message}");
-                Console.WriteLine($"Exception type: {ex.GetType().Name}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                Width = 1240,  // ~A4 width in pixels at 150dpi
+                Height = 1754, // ~A4 height in pixels at 150dpi
+                DeviceScaleFactor = 1.5
+            });
 
-                if (ex.InnerException != null)
+            // Đặt nội dung HTML
+            await page.SetContentAsync(htmlContent);
+
+            // Tối ưu hóa cài đặt PDF
+            var pdfOptions = new PdfOptions
+            {
+                Format = PuppeteerSharp.Media.PaperFormat.A4,
+                PrintBackground = true,
+                MarginOptions = new PuppeteerSharp.Media.MarginOptions
                 {
-                    Console.WriteLine($"Inner exception: {ex.InnerException.Message}");
-                    Console.WriteLine($"Inner exception type: {ex.InnerException.GetType().Name}");
-                }
+                    Top = "5mm",
+                    Bottom = "5mm",
+                    Left = "5mm",
+                    Right = "5mm"
+                },
+                Scale = 0.9m // Giảm tỷ lệ để nội dung vừa khít
+            };
 
-                throw;
-            }
+            byte[] pdfBytes = await page.PdfDataAsync(pdfOptions);
+            return pdfBytes;
         }
         #endregion
 

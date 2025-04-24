@@ -9,10 +9,10 @@ namespace OCMS_WebAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class DecisonController : ControllerBase
+    public class DecisionController : ControllerBase
     {
         private readonly IDecisionService _decisionService;
-        public DecisonController(IDecisionService decisionService)
+        public DecisionController(IDecisionService decisionService)
         {
             _decisionService = decisionService;
         }
