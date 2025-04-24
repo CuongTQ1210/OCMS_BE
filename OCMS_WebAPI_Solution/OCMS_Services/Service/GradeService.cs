@@ -322,7 +322,7 @@ namespace OCMS_Services.Service
                 var worksheet = package.Workbook.Worksheets["GradeImport"];
                 if (worksheet == null)
                 {
-                    result.Errors.Add("Missing 'Grade deneyImport' sheet.");
+                    result.Errors.Add("Missing 'GradeImport' sheet.");
                     return result;
                 }
 
