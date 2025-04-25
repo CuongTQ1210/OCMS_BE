@@ -213,6 +213,7 @@ namespace OCMS_Services.Service
         }
         #endregion
 
+        #region Get Requests for HeadMaster
         public async Task<List<RequestModel>> GetRequestsForHeadMasterAsync()
         {
             var validRequestTypes = new[]
@@ -236,7 +237,9 @@ namespace OCMS_Services.Service
 
             return _mapper.Map<List<RequestModel>>(requests);
         }
+        #endregion
 
+        #region Get Requests for Training Staff
         public async Task<List<RequestModel>> GetRequestsForEducationOfficerAsync()
         {
             var validRequestTypes = new[]
@@ -253,6 +256,9 @@ namespace OCMS_Services.Service
 
             return _mapper.Map<List<RequestModel>>(requests);
         }
+        #endregion
+
+        #region Helper Methods
         private string GenerateRequestId()
         {
             return $"REQ-{Guid.NewGuid().ToString("N").Substring(0, 6).ToUpper()}";
@@ -275,10 +281,23 @@ namespace OCMS_Services.Service
                         .Include(p => p.Courses)
                         .ThenInclude(c => c.Trainees)
                          .FirstOrDefaultAsync();
-
                     if (plan == null)
                     {
                         throw new KeyNotFoundException("Training plan not found.");
+                    }
+
+                    // Step 0: Check if PlanLevel matches RequestType
+                    bool isPlanLevelValid = (requestType, plan.PlanLevel) switch
+                    {
+                        (RequestType.NewPlan, PlanLevel.Initial) => true,
+                        (RequestType.RecurrentPlan, PlanLevel.Recurrent) => true,
+                        (RequestType.RelearnPlan, PlanLevel.Relearn) => true,
+                        _ => false
+                    };
+
+                    if (!isPlanLevelValid)
+                    {
+                        throw new InvalidOperationException($"RequestType '{requestType}' does not match PlanLevel '{plan.PlanLevel}' for training plan '{plan.PlanId}'.");
                     }
 
                     // Step 1: Has at least one course
@@ -358,6 +377,7 @@ namespace OCMS_Services.Service
                     return true;
             }
         }
+        #endregion
 
         #region Delete Request
         public async Task<bool> DeleteRequestAsync(string requestId)
