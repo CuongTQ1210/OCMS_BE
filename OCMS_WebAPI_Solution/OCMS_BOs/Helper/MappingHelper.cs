@@ -22,6 +22,7 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.AvatarUrl, opt => opt.MapFrom(src => src.AvatarUrl)) // ✅ Added mapping
                 .ForMember(dest => dest.DepartmentId, opt => opt.MapFrom(src => src.DepartmentId))
                 .ForMember(dest => dest.SpecialtyId, opt => opt.MapFrom(src => src.SpecialtyId))
+                .ForMember(dest => dest.AccountStatus, opt=> opt.MapFrom(src=>src.Status.ToString()))
                 .ReverseMap();
             CreateMap<UserUpdateDTO, User>()
                 .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.FullName))

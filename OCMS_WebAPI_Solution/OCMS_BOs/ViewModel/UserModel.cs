@@ -1,4 +1,5 @@
-﻿using System;
+﻿using OCMS_BOs.Entities;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -24,6 +25,6 @@ namespace OCMS_BOs.ViewModel
 
         public string AvatarUrl { get; set; }
         public string AvatarUrlWithSas { get; set; }
-
+        public string AccountStatus { get; set; }
     }
 }
