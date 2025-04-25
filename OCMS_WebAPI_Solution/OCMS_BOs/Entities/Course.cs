@@ -12,18 +12,21 @@ namespace OCMS_BOs.Entities
     {
         [Key]
         public string CourseId { get; set; }
+
         [ForeignKey("TrainingPlan")]
         public string TrainingPlanId { get; set; }
         public TrainingPlan TrainingPlan { get; set; }
+
         public string CourseName { get; set; }
+        public string? Description { get; set; }
         public CourseLevel CourseLevel { get; set; } // Initial, Relearn, Recurrent
         public CourseStatus Status { get; set; } // pending, approved, rejected
         public Progress Progress { get; set; } //Ongoing, Completed
+
         [ForeignKey("ApproveUser")]
         public string? ApproveByUserId { get; set; }
         public User? ApproveByUser { get; set; }
         public DateTime? ApprovalDate { get; set; }
-
 
         [ForeignKey("CreateUser")]
         public string CreatedByUserId { get; set; }
@@ -32,7 +35,15 @@ namespace OCMS_BOs.Entities
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+        // ✅ New Related Course (Self-reference like ParentSpecialty)
+        [ForeignKey("RelatedCourse")]
+        public string? RelatedCourseId { get; set; }
+        public Course? RelatedCourse { get; set; }
+
+        // Optional: If you want to see courses that reference this one
+        public ICollection<Course> RelatedCourses { get; set; }
+
         public List<Subject> Subjects { get; set; }
-        public List<TraineeAssign> Trainees { get;   set;}
+        public List<TraineeAssign> Trainees { get; set; }
     }
 }
