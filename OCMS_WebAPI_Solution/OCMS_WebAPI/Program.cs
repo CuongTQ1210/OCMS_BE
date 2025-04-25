@@ -18,7 +18,9 @@ using OfficeOpenXml;
 using OCMS_Services.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
+
 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
 var keyVaultEndpoint = new Uri(builder.Configuration["KeyVault:Endpoint"]);
 builder.Configuration.AddAzureKeyVault(
    keyVaultEndpoint,
@@ -40,8 +42,15 @@ builder.Services.AddDbContext<OCMSDbContext>(options =>
 builder.Services.AddAzureClients(azureBuilder =>
     azureBuilder.AddBlobServiceClient(builder.Configuration.GetValue<string>("AzureBlobStorage")));
 
+builder.Services.AddHostedService<StatusCheckBackgroundService>();
+
 // Add Redis
 builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(builder.Configuration.GetValue<string>("Redis:ConnectionString")));
+
+builder.Services.AddSingleton(new StatusCheckBackgroundService(
+        serviceProvider: null, // Sẽ được DI container inject
+        logger: null, // Sẽ được DI container inject
+        checkInterval: TimeSpan.FromHours(12)));
 
 // Add Email Service
 builder.Services.AddTransient<IEmailService>(provider =>
@@ -101,6 +110,8 @@ builder.Services.AddHttpClient<IPdfSignerService, PdfSignerService>();
 builder.Services.AddScoped<IDecisionTemplateService, DecisionTemplateService>();
 builder.Services.AddScoped<IDecisionService, DecisionService>();
 builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<IProgressTrackingService, ProgressTrackingService>();
+
 // Register Lazy<T> factories
 builder.Services.AddScoped(provider => new Lazy<ITrainingScheduleService>(() => provider.GetRequiredService<ITrainingScheduleService>()));
 builder.Services.AddScoped(provider => new Lazy<ITrainingPlanService>(() => provider.GetRequiredService<ITrainingPlanService>()));

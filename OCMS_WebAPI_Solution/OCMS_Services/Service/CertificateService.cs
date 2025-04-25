@@ -80,9 +80,9 @@ namespace OCMS_Services.Service
             {
                 // 1. Get course data efficiently
                 var course = await _courseRepository.GetCourseWithDetailsAsync(courseId);
-                if (course == null || !course.Subjects.Any())
+                if (course == null || !course.Subjects.Any() || course.Status != CourseStatus.Approved)
                 {
-                    throw new Exception($"Course with ID {courseId} not found or has no subjects");
+                    throw new Exception($"Course with ID {courseId} not found or not active or has no subjects!");
                 }
 
                 int subjectCount = course.Subjects.Count;
@@ -95,6 +95,12 @@ namespace OCMS_Services.Service
                 }
 
                 var certificateTemplate = await _unitOfWork.CertificateTemplateRepository.GetByIdAsync(templateId);
+                if (certificateTemplate == null || certificateTemplate.templateStatus != TemplateStatus.Active)
+                {
+                    _logger.LogWarning($"Template with ID {templateId} not found or not active");
+                    throw new Exception($"Certificate template with ID {templateId} not found or not active");
+                }
+
                 var templateHtml = await GetCachedTemplateHtmlAsync(certificateTemplate.TemplateFile);
                 var templateType = GetTemplateTypeFromName(certificateTemplate.TemplateName);
 
@@ -155,32 +161,41 @@ namespace OCMS_Services.Service
 
                         if (course.CourseLevel == CourseLevel.Recurrent)
                         {
-                            // Find Initial Certificate to extend
-                            var initialCert = (await _unitOfWork.CertificateRepository.GetAllAsync(c =>
-                                c.UserId == trainee.UserId &&
-                                c.Status == CertificateStatus.Active &&
-                                c.Course.CourseLevel == CourseLevel.Initial &&  // assuming you store CourseLevel in Certificate
-                                c.Course.CourseName == course.CourseName))      // match by course name
-                                .OrderByDescending(c => c.IssueDate)
-                                .FirstOrDefault();
+                            var initialCourseId = course.RelatedCourseId;
 
-                            if (initialCert != null)
+                            if (!string.IsNullOrEmpty(initialCourseId))
                             {
-                                initialCert.ExpirationDate = (initialCert.ExpirationDate ?? DateTime.Now).AddYears(2);
-                                initialCert.IssueByUserId = issuedByUserId;
-                                initialCert.IssueDate = DateTime.Now;
-                                initialCert.Status = CertificateStatus.Pending;
-                                
-                                lock (certToUpdate)  // for thread safety in parallel
-                                {
-                                    certToUpdate.Add(initialCert);
-                                }
+                                var initialCert = (await _unitOfWork.CertificateRepository.GetAllAsync(c =>
+                                    c.UserId == trainee.UserId &&
+                                    c.CourseId == initialCourseId &&
+                                    c.Status == CertificateStatus.Active))
+                                    .OrderByDescending(c => c.IssueDate)
+                                    .FirstOrDefault();
 
-                                return initialCert; // not new, but added to report
+                                if (initialCert != null)
+                                {
+                                    initialCert.ExpirationDate = (initialCert.ExpirationDate ?? DateTime.Now).AddYears(2);
+                                    initialCert.IssueByUserId = issuedByUserId;
+                                    initialCert.IssueDate = DateTime.Now;
+                                    initialCert.Status = CertificateStatus.Pending;
+
+                                    lock (certToUpdate)  // for thread safety in parallel
+                                    {
+                                        certToUpdate.Add(initialCert);
+                                    }
+
+                                    await _unitOfWork.CertificateRepository.UpdateAsync(initialCert);
+                                    return initialCert; // not new, but added to report
+                                }
+                                else
+                                {
+                                    _logger.LogWarning($"No Initial certificate found for recurrent trainee {trainee.UserId} in course {course.CourseName}");
+                                    return null;
+                                }
                             }
                             else
                             {
-                                _logger.LogWarning($"No Initial certificate found for recurrent trainee {trainee.UserId} in course {course.CourseName}");
+                                _logger.LogWarning($"Recurrent course {course.CourseId} has no related initial course specified");
                                 return null;
                             }
                         }
@@ -218,7 +233,7 @@ namespace OCMS_Services.Service
                             await _unitOfWork.SaveChangesAsync();
                             await _unitOfWork.CommitTransactionAsync();
 
-                            createdCertificates =  _mapper.Map<List<CertificateModel>>(certToCreate);
+                            createdCertificates = _mapper.Map<List<CertificateModel>>(certToCreate);
 
                             // 10. Notify HeadMasters efficiently
                             await NotifyTrainingStaffsAsync(createdCertificates.Count, course.CourseName);
@@ -233,7 +248,7 @@ namespace OCMS_Services.Service
                         }
                     });
                 }
-                
+
                 return createdCertificates;
 
 
@@ -319,7 +334,7 @@ namespace OCMS_Services.Service
             {
                 return (false, "Certificate is already revoked");
             }
-            if(certificate.Status != CertificateStatus.Active)
+            if (certificate.Status != CertificateStatus.Active)
             {
                 return (false, "Certificate must be active to revoke.");
             }
@@ -414,6 +429,11 @@ namespace OCMS_Services.Service
             {
                 var templates = await _unitOfWork.CertificateTemplateRepository.GetAllAsync(
                     t => t.templateStatus == TemplateStatus.Active);
+                if (!templates.Any())
+                {
+                    _logger.LogWarning($"No active certificate templates found");
+                    return null;
+                }
 
                 // Filter templates based on course level
                 var matchingTemplates = new List<CertificateTemplate>();
@@ -422,9 +442,6 @@ namespace OCMS_Services.Service
                 {
                     case CourseLevel.Initial:
                         matchingTemplates = templates.Where(t => t.TemplateName.Contains("Initial")).ToList();
-                        break;
-                    case CourseLevel.Recurrent:
-                        matchingTemplates = templates.Where(t => t.TemplateName.Contains("Recurrent")).ToList();
                         break;
                     case CourseLevel.Relearn:
                         matchingTemplates = templates.Where(t => t.TemplateName.Contains("Initial")).ToList();
@@ -439,7 +456,8 @@ namespace OCMS_Services.Service
 
                 // If multiple matching templates exist, select the one with the highest sequence number
                 templateId = matchingTemplates
-                    .OrderByDescending(t => {
+                    .OrderByDescending(t =>
+                    {
                         // Extract the sequence number (last 3 digits after last dash)
                         var parts = t.CertificateTemplateId.Split('-');
                         if (parts.Length >= 3 && int.TryParse(parts[2], out int sequenceNumber))
@@ -459,7 +477,6 @@ namespace OCMS_Services.Service
         private string GetTemplateTypeFromName(string templateName)
         {
             if (templateName.Contains("Initial")) return "Initial";
-            if (templateName.Contains("Recurrent")) return "Recurrent";
             if (templateName.Contains("Professional")) return "Professional";
             return "Standard";
         }
@@ -504,8 +521,8 @@ namespace OCMS_Services.Service
                 Status = CertificateStatus.Pending,
                 CertificateURL = certificateUrl,
                 IsRevoked = false,
-                Course= courseExist,
-                User=userExist,
+                Course = courseExist,
+                User = userExist,
                 SignDate = DateTime.Now
             };
         }
@@ -560,8 +577,6 @@ namespace OCMS_Services.Service
                 .Replace("[Ngày bắt đầu]", startDate)
                 .Replace("[NGÀY KẾT THÚC]", endDate)
                 .Replace("[Ngày kết thúc]", endDate)
-                .Replace("[MÃ QUYẾT ĐỊNH]", $"ATO-{DateTime.Now.Year}-{course.CourseId.Substring(0, 4)}")
-                .Replace("[Mã quyết định]", $"ATO-{DateTime.Now.Year}-{course.CourseId.Substring(0, 4)}")
                 .Replace("[MÃ CHỨNG CHỈ]", certificateCode)
                 .Replace("[Mã chứng chỉ]", certificateCode);
 
@@ -714,7 +729,7 @@ namespace OCMS_Services.Service
 
         private async Task<List<CertificateModel>> GetAllPendingCertificatesAsync()
         {
-            var pendingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.Status ==CertificateStatus.Pending);
+            var pendingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.Status == CertificateStatus.Pending);
 
             return _mapper.Map<List<CertificateModel>>(pendingCertificates);
         }
