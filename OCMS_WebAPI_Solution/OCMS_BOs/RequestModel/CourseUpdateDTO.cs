@@ -8,9 +8,10 @@ using System.Threading.Tasks;
 namespace OCMS_BOs.RequestModel
 {
     public class CourseUpdateDTO
-    {
-        public string TrainingPlanId { get; set; }
+    { 
+        public string Description { get; set; }
         public string CourseName { get; set; }
-        public CourseLevel CourseLevel { get; set; }
+
+        public string? CourseRelatedId { get; set; }
     }
 }

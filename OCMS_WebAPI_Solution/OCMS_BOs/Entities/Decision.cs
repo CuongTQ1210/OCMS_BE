@@ -38,9 +38,6 @@ namespace OCMS_BOs.Entities
         public string DecisionTemplateId { get; set; }
         public DecisionTemplate DecisionTemplate { get; set; }
 
-        [ForeignKey("DigitalSignature")]
-        public string? DigitalSignatureId { get; set; }
-        public DigitalSignature? DigitalSignature { get; set; }
 
         [Required]
         public DateTime SignDate { get; set; }

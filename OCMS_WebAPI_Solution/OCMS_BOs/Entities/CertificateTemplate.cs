@@ -17,7 +17,7 @@ namespace OCMS_BOs.Entities
         public string Description { get; set; }
         public string TemplateFile { get; set; } // Path to PDF
 
-        [ForeignKey("CreateUser")]
+        [ForeignKey("CreateByUser")]
         public string CreatedByUserId { get; set; }
         public User CreateByUser { get; set; }
         public TemplateStatus templateStatus { get; set; }

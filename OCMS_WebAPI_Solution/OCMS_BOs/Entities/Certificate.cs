@@ -37,9 +37,7 @@ namespace OCMS_BOs.Entities
 
        
         public CertificateStatus Status { get; set; } // active, expired, revoked, returned
-        [ForeignKey("DigitalSignature")]
-        public string? DigitalSignatureId { get; set; }
-        public DigitalSignature DigitalSignature { get; set; }
+        
         public DateTime SignDate { get; set; } = DateTime.UtcNow;
         public DateTime? ExpirationDate { get; set; }
 
