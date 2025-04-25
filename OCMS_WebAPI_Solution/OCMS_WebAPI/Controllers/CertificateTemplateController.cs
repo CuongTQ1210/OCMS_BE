@@ -50,7 +50,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get Certificate Template
         [HttpGet("{templateId}")]
-        [CustomAuthorize("Admin")]
+        [CustomAuthorize("Admin", "HeadMaster")]
         public async Task<ActionResult<GetCertificateTemplateResponse>> GetCertificateTemplate(string templateId)
         {
             var template = await _certificateTemplateService.GetCertificateTemplateByIdAsync(templateId);
@@ -66,7 +66,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get All Certificate Templates
         [HttpGet]
-        [CustomAuthorize("Admin")]
+        [CustomAuthorize("Admin","HeadMaster")]
         public async Task<ActionResult<GetAllCertificateTemplatesResponse>> GetAllCertificateTemplates()
         {
             var templates = await _certificateTemplateService.GetAllCertificateTemplatesAsync();

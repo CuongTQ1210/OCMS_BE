@@ -20,7 +20,7 @@ namespace OCMS_WebAPI.Controllers
         }
         
         [HttpPost("{certificateId}")]
-        [CustomAuthorize("HeadMaster")]
+        [CustomAuthorize("Admin","HeadMaster")]
         public async Task<IActionResult> SignPdfFromCertificateId(string certificateId)
         {
             if (string.IsNullOrWhiteSpace(certificateId))
@@ -82,7 +82,7 @@ namespace OCMS_WebAPI.Controllers
         }
 
         [HttpPost("{decisionId}/sign")]
-        [CustomAuthorize("HeadMaster")]
+        [CustomAuthorize("Admin","HeadMaster")]
         public async Task<IActionResult> SignDecisionAsync(string decisionId)
         {
             try

@@ -29,14 +29,11 @@ namespace OCMS_BOs
         public DbSet<Grade> Grades { get; set; }
         public DbSet<Certificate> Certificates { get; set; }
         public DbSet<CertificateTemplate> CertificateTemplates { get; set; }
-        public DbSet<CourseParticipant> CourseParticipants { get; set; }
-        public DbSet<CourseResult> CourseResults { get; set; }
         public DbSet<ExternalCertificate> ExternalCertificates { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<Decision> Decisions { get; set; }
         public DbSet<Department> Departments { get; set; }
-        public DbSet<DigitalSignature> DigitalSignatures { get; set; }
         public DbSet<InstructorAssignment> InstructorAssignments { get; set; }
         public DbSet<Report> Reports { get; set; }
         public DbSet<Request> Requests { get; set; }
@@ -136,18 +133,7 @@ namespace OCMS_BOs
             });
 
             // Fluent API for CourseParticipants
-            modelBuilder.Entity<CourseParticipant>(entity =>
-            {
-                entity.HasKey(cp => cp.ParticipantId);
-                entity.Property(cp => cp.Role)
-                      .IsRequired();
-                entity.Property(cp => cp.Status)
-                      .IsRequired();
-                entity.Property(cp => cp.CreatedAt)
-                      .HasDefaultValueSql("CURRENT_TIMESTAMP");
-                entity.Property(cp => cp.UpdatedAt)
-                      .HasDefaultValueSql("CURRENT_TIMESTAMP");
-            });
+            
             modelBuilder.Entity<Department>(entity =>
 {
     entity.HasKey(d => d.DepartmentId);
