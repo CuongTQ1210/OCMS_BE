@@ -193,8 +193,6 @@ app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 
-// Add CORS middleware
-app.UseCors("AllowAll");
 
 // Home redirect to Swagger
 app.Use(async (context, next) =>
@@ -210,6 +208,8 @@ app.Use(async (context, next) =>
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Add CORS middleware
+app.UseCors("AllowAll");
 app.MapControllers();
 app.UseApiAuditLogging(); 
 app.Run();

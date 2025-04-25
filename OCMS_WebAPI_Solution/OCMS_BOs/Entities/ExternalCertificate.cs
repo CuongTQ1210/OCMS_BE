@@ -23,8 +23,7 @@ namespace OCMS_BOs.Entities
         public string? UserId { get; set; }
         public User? User { get; set; }
         [ForeignKey("VerifyUser")]
-        public string VerifyByUserId { get; set; } 
-        public User VerifyByUser { get; set; }        
+        public string VerifyByUserId { get; set; }    
         public DateTime VerifyDate { get; set; }
         public VerificationStatus VerificationStatus { get; set; }
         [Required]

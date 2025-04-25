@@ -23,7 +23,6 @@ namespace OCMS_Repositories
         private GenericRepository<InstructorAssignment> _instructorAssignRepository;
         private GenericRepository<Request> _requestRepository;
         private GenericRepository<TrainingSchedule> _trainingScheduleRepository;
-        private GenericRepository<CourseParticipant> _courseParticipantRepository;
         private GenericRepository<Notification> _notificationRepository;
         private GenericRepository<ExternalCertificate> _externalCertificateRepository;
         private GenericRepository<InstructorAssignment> _instructorAssignmentRepository;
