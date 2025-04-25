@@ -17,12 +17,8 @@ namespace OCMS_Services.Service
 {
     public class DecisionService : IDecisionService
     {
-        private readonly IDecisionTemplateService _templateService;
-        private readonly IPdfSignerService _pdfSignerService;
         private readonly IBlobService _blobService;
         private readonly UnitOfWork _unitOfWork;
-        private readonly ILogger<DecisionService> _logger;
-        private readonly IDecisionRepository _decisionRepository;
         private readonly IUserRepository _userRepository;
         private readonly ICourseRepository _courseRepository;
         private readonly INotificationService _notificationService;
@@ -33,19 +29,13 @@ namespace OCMS_Services.Service
             IPdfSignerService pdfSignerService,
             IBlobService blobService,
             UnitOfWork unitOfWork,
-            ILogger<DecisionService> logger,
-            IDecisionRepository decisionRepository,
             IUserRepository userRepository,
             ICourseRepository courseRepository,
             INotificationService notificationService,
             IMapper mapper)
         {
-            _templateService = templateService ?? throw new ArgumentNullException(nameof(templateService));
-            _pdfSignerService = pdfSignerService ?? throw new ArgumentNullException(nameof(pdfSignerService));
             _blobService = blobService ?? throw new ArgumentNullException(nameof(blobService));
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _decisionRepository = decisionRepository ?? throw new ArgumentNullException(nameof(decisionRepository));
             _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
             _courseRepository = courseRepository ?? throw new ArgumentNullException(nameof(courseRepository));
             _notificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
@@ -57,8 +47,9 @@ namespace OCMS_Services.Service
         {
             // 1. Lấy khóa học và chứng chỉ đã được phê duyệt
             var course = await _courseRepository.GetCourseWithDetailsAsync(request.CourseId);
-            if (course == null)
-                throw new InvalidOperationException("Course not found");
+            if (course == null || course.Status != CourseStatus.Approved)
+                throw new InvalidOperationException("Course not found or not active");
+
             IEnumerable<Certificate> certificates = new List<Certificate>();
             IEnumerable<TraineeAssign> traineeAssigns = await _unitOfWork.TraineeAssignRepository
                 .GetAllAsync(t => t.CourseId == request.CourseId && t.RequestStatus == RequestStatus.Approved);
@@ -77,8 +68,7 @@ namespace OCMS_Services.Service
                     // Get the Initial certificate for this trainee
                     cert = (await _unitOfWork.CertificateRepository.GetAllAsync(c =>
                         c.UserId == trainee.TraineeId &&
-                        c.Course.CourseLevel == CourseLevel.Initial &&
-                        c.Course.CourseName == course.CourseName)) // or use CourseCode if more reliable
+                        c.CourseId == course.RelatedCourseId))
                         .OrderByDescending(c => c.IssueDate)
                         .FirstOrDefault();
                 }
@@ -157,7 +147,7 @@ namespace OCMS_Services.Service
             var decisionCode = GenerateDecisionCode();
             var issueDate = DateTime.Now;
 
-            // 👇 Generate student rows (dùng certificates nếu có, fallback to trainees)
+            // Generate student rows (dùng certificates nếu có, fallback to trainees)
             string studentRows = await GenerateStudentRowsAsync(certificates);
 
             var courseSchedules = await _unitOfWork.TrainingScheduleRepository
@@ -203,16 +193,33 @@ namespace OCMS_Services.Service
             await _unitOfWork.DecisionRepository.AddAsync(decision);
             await _unitOfWork.SaveChangesAsync();
 
-            // 9. Notify for signature
+            //9. Update certificates with decision code
+            var courseCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(
+                c => c.CourseId == request.CourseId && c.Status == CertificateStatus.Active);
+            using (var httpClient = new HttpClient())
+            {
+                foreach (var cert in courseCertificates)
+                {
+                    var sasUrl = await _blobService.GetBlobUrlWithSasTokenAsync(cert.CertificateURL, TimeSpan.FromMinutes(5), "r");
+                    string currentHtml = await httpClient.GetStringAsync(sasUrl);
+                    string updatedHtml = currentHtml.Replace("[MÃ QUYẾT ĐỊNH]", decision.DecisionCode);
+                    using var certStream = new MemoryStream(Encoding.UTF8.GetBytes(updatedHtml));
+                    var uri = new Uri(cert.CertificateURL);
+                    var blobNameCert = uri.Segments.Last();
+                    await _blobService.UploadFileAsync("certificates", blobNameCert, certStream, "text/html");
+                }
+            }
+
+            // 10. Notify for signature
             await NotifyHeadMasterForSignatureAsync(decision.DecisionId, course.CourseName);
 
-            // 10. Map to response
+            // 11. Map to response
             return _mapper.Map<CreateDecisionResponse>(decision);
         }
-            #endregion
+        #endregion
 
-            #region Get all Draft Decisions
-            public async Task<IEnumerable<DecisionModel>> GetAllDraftDecisionsAsync()
+        #region Get all Draft Decisions
+        public async Task<IEnumerable<DecisionModel>> GetAllDraftDecisionsAsync()
         {
             return await GetDecisionsWithSasAsync(async () =>
                 await _unitOfWork.DecisionRepository.GetAllAsync(
@@ -274,20 +281,6 @@ namespace OCMS_Services.Service
                 }
             }
             return studentRows.ToString();
-        }
-
-        private async Task<string> GenerateStudentRowsFromTraineesAsync(IEnumerable<TraineeAssign> traineeAssigns)
-        {
-            var sb = new StringBuilder();
-            int index = 1;
-            foreach (var trainee in traineeAssigns)
-            {
-               var  traineeUser = await _unitOfWork.UserRepository.GetByIdAsync(trainee.TraineeId);
-
-                sb.AppendLine($"<tr><td>{index}</td><td>{traineeUser.FullName}</td><td>{traineeUser.DateOfBirth:dd/MM/yyyy}</td><td>{traineeUser.Username}</td></tr>");
-                index++;
-            }
-            return sb.ToString();
         }
 
         private async Task NotifyHeadMasterForSignatureAsync(string decisionId, string courseName)
