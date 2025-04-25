@@ -268,13 +268,14 @@ namespace OCMS_Services.Service
                 {
                     string specialtyId = trainee.SpecialtyId ?? "Chưa xác định";
                     var specialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(specialtyId);
+                    var course = await _unitOfWork.CourseRepository.GetByIdAsync(cert.CourseId);
                     studentRows.AppendLine("<tr>");
                     studentRows.AppendLine($"  <td>{index}</td>");
                     studentRows.AppendLine($"  <td>{trainee.FullName}</td>");
                     studentRows.AppendLine($"  <td>{trainee.Username}</td>");
                     studentRows.AppendLine($"  <td>{specialty.SpecialtyName}</td>");
                     // Thêm cột Ghi chú cho Recurrent_Decision nếu cần
-                    if (certificates.First().Course.CourseLevel != CourseLevel.Initial)
+                    if (course.CourseLevel != CourseLevel.Initial)
                         studentRows.AppendLine("  <td></td>");
                     studentRows.AppendLine("</tr>");
                     index++;
