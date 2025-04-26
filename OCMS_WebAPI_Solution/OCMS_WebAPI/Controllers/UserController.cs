@@ -144,7 +144,8 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
-        #region deactive user
+
+        #region Deactive user
         [HttpPut("deactivate/{userId}")]
         public async Task<IActionResult> DeactivateUser(string userId)
         {
@@ -162,7 +163,8 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
-        #region active user
+
+        #region Active user
         [HttpPut("activate/{userId}")]
         public async Task<IActionResult> ActivateUser(string userId)
         {
@@ -180,6 +182,7 @@ namespace OCMS_WebAPI.Controllers
             }
         }
 #endregion
+
         #region Update Password
         [HttpPut("{id}/password")]
         [CustomAuthorize]

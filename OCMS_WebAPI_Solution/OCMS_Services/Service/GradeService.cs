@@ -23,13 +23,15 @@ namespace OCMS_Services.Service
         private readonly ICertificateService _certificateService;
         private readonly ITrainingScheduleRepository _trainingScheduleRepository;
         private readonly IDecisionService _decisionService;
-        public GradeService(UnitOfWork unitOfWork, IMapper mapper, ICertificateService certificateService,ITrainingScheduleRepository trainingScheduleRepository, IDecisionService decisionService)
+        private readonly IProgressTrackingService _progressTrackingService;
+        public GradeService(UnitOfWork unitOfWork, IMapper mapper, ICertificateService certificateService,ITrainingScheduleRepository trainingScheduleRepository, IDecisionService decisionService, IProgressTrackingService progressTrackingService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _certificateService = certificateService;
             _trainingScheduleRepository = trainingScheduleRepository;
             _decisionService = decisionService;
+            _progressTrackingService = progressTrackingService;
         }
 
         #region Get All Grade
@@ -56,6 +58,7 @@ namespace OCMS_Services.Service
             return gradeModels;
         }
         #endregion
+
         #region Get Grade By ID
         public async Task<GradeModel> GetByIdAsync(string id)
         {
@@ -169,7 +172,8 @@ namespace OCMS_Services.Service
             }
             await _unitOfWork.SaveChangesAsync();
 
-
+            // Kiểm tra và cập nhật trạng thái
+            await _progressTrackingService.CheckAndUpdateSubjectStatus(dto.SubjectId);
 
             return grade.GradeId;
         }
@@ -254,7 +258,11 @@ namespace OCMS_Services.Service
                 }
             }
 
-            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.SaveChangesAsync();        
+            
+            // Kiểm tra và cập nhật trạng thái
+            await _progressTrackingService.CheckAndUpdateSubjectStatus(dto.SubjectId);
+
             return true;
         }
         #endregion
@@ -512,6 +520,13 @@ namespace OCMS_Services.Service
                     catch (Exception ex)
                     {
                         result.Warnings.Add($"Grades were imported successfully, but certificate/decision generation failed: {ex.Message}");
+                    }
+
+                    // Kiểm tra và cập nhật trạng thái cho tất cả subject có điểm mới
+                    var affectedSubjectIds = newGrades.Select(g => g.SubjectId).Distinct().ToList();
+                    foreach (var affectedSubjectId in affectedSubjectIds)
+                    {
+                        await _progressTrackingService.CheckAndUpdateSubjectStatus(affectedSubjectId);
                     }
                 }
             }
