@@ -89,7 +89,7 @@ namespace OCMS_Services.Service
                 RequestDate = DateTime.Now,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now,
-                ApprovedBy = null,
+                ApproveByUserId = null,
                 ApprovedDate = null
             };
 
@@ -379,7 +379,7 @@ namespace OCMS_Services.Service
             if (request == null || request.Status != RequestStatus.Pending)
                 return false;
 
-            request.ApprovedBy = approvedByUserId;
+            request.ApproveByUserId = approvedByUserId;
             request.ApprovedDate = DateTime.Now;
             request.UpdatedAt = DateTime.Now;
             if (request != null && request.Status == RequestStatus.Pending)
@@ -709,7 +709,7 @@ namespace OCMS_Services.Service
             var request = await _unitOfWork.RequestRepository.GetByIdAsync(requestId);
             
             request.UpdatedAt = DateTime.Now;
-            request.ApprovedBy = rejectByUserId;
+            request.ApproveByUserId = rejectByUserId;
             request.ApprovedDate = DateTime.Now;
             if (request != null && request.Status == RequestStatus.Pending)
             {

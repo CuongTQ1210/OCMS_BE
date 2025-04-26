@@ -31,6 +31,7 @@ namespace OCMS_Repositories
         private GenericRepository<Grade> _gradeRepository;
         private GenericRepository<Decision> _decisionRepository;
         private GenericRepository<DecisionTemplate> _decisionTemplateRepository;
+        private GenericRepository<Report> _reportRepository;
 
         public UnitOfWork(OCMSDbContext context)
         {
@@ -131,7 +132,10 @@ namespace OCMS_Repositories
         {
             get => _decisionTemplateRepository ??= new GenericRepository<DecisionTemplate>(_context);
         }
-
+        public GenericRepository<Report> ReportRepository
+        {
+            get => _reportRepository ??= new GenericRepository<Report>(_context);
+        }
         public async Task<IDbContextTransaction> BeginTransactionAsync()
         {
             _transaction = await _context.Database.BeginTransactionAsync();
