@@ -78,10 +78,7 @@ namespace OCMS_BOs
                 entity.Property(u => u.Status)
                       .IsRequired()
                       .HasDefaultValue(AccountStatus.Active); // Default status is active
-
-                entity.Property(u => u.IsDeleted)
-                      .IsRequired()
-                      .HasDefaultValue(false); // Default is not deleted
+                 
 
                 entity.Property(u => u.CreatedAt)
                       .IsRequired()
@@ -210,8 +207,7 @@ namespace OCMS_BOs
                     SpecialtyId = "SPEC-001",
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
-                    Status = AccountStatus.Active,
-                    IsDeleted = false
+                    Status = AccountStatus.Active
                 },
                 new User
                 {
@@ -228,8 +224,7 @@ namespace OCMS_BOs
                     SpecialtyId = "SPEC-001",
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
-                    Status = AccountStatus.Active,
-                    IsDeleted = false
+                    Status = AccountStatus.Active
                 },
                 new User
                 {
@@ -246,8 +241,7 @@ namespace OCMS_BOs
                     SpecialtyId = "SPEC-001",
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
-                    Status = AccountStatus.Active,
-                    IsDeleted = false
+                    Status = AccountStatus.Active
                 },
                 new User
                 {
@@ -264,8 +258,7 @@ namespace OCMS_BOs
                     SpecialtyId = "SPEC-001",
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
-                    Status = AccountStatus.Active,
-                    IsDeleted = false
+                    Status = AccountStatus.Active
                 },
                 new User
                 {
@@ -282,8 +275,7 @@ namespace OCMS_BOs
                     SpecialtyId = "SPEC-001",
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
-                    Status = AccountStatus.Active,
-                    IsDeleted = false
+                    Status = AccountStatus.Active
                 },
                 new User
                 {
@@ -300,8 +292,7 @@ namespace OCMS_BOs
                     SpecialtyId = "SPEC-001",
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
-                    Status = AccountStatus.Active,
-                    IsDeleted = false
+                    Status = AccountStatus.Active
                 },
                 new User
                 {
@@ -318,8 +309,7 @@ namespace OCMS_BOs
                     SpecialtyId = "SPEC-001",
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
-                    Status = AccountStatus.Active,
-                    IsDeleted = false
+                    Status = AccountStatus.Active
                 },
                 new User
                 {
@@ -336,8 +326,7 @@ namespace OCMS_BOs
                     SpecialtyId = "SPEC-001",
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
-                    Status = AccountStatus.Active,
-                    IsDeleted = false
+                    Status = AccountStatus.Active
                 }
             );
 
