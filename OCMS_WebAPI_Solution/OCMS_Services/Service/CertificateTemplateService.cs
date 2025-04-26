@@ -214,9 +214,6 @@ namespace OCMS_Services.Service
             if (description.Contains("initial") || description.Contains("khởi đầu"))
                 return "INI";
 
-            if (description.Contains("recurrent") || description.Contains("định kỳ"))
-                return "REC";
-
             if (description.Contains("professional") || description.Contains("chuyên nghiệp"))
                 return "PRO";
 
@@ -227,9 +224,9 @@ namespace OCMS_Services.Service
         private async Task<string> GenerateNextTemplateIdAsync(string templateType)
         {
             // Validate template type
-            if (!new[] { "INI", "REC", "PRO" }.Contains(templateType))
+            if (!new[] { "INI", "PRO" }.Contains(templateType))
             {
-                throw new ArgumentException("Invalid template type. Must be INI, REC, or PRO.");
+                throw new ArgumentException("Invalid template type. Must be INI, or PRO.");
             }
 
             // Tìm template có ID lớn nhất của loại này
@@ -256,7 +253,6 @@ namespace OCMS_Services.Service
             return templateType switch
             {
                 "INI" => $"Initial Certificate Template - {description}",
-                "REC" => $"Recurrent Certificate Template - {description}",
                 "PRO" => $"Professional Certificate Template - {description}",
                 _ => "Unnamed Certificate Template"
             };

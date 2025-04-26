@@ -33,7 +33,6 @@ namespace OCMS_WebAPI.Controllers
             return null;
         }
 
-        // Helper method để lấy UserId từ Claims
         private string GetUserId()
         {
             return User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
