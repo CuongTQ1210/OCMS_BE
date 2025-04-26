@@ -26,7 +26,7 @@ namespace OCMS_Services.Middleware
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
-            _checkInterval = checkInterval ?? TimeSpan.FromHours(12); // Mặc định chạy 2 lần/ngày
+            _checkInterval = checkInterval ?? TimeSpan.FromHours(1); // Mặc định chạy mỗi giờ
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -81,8 +81,15 @@ namespace OCMS_Services.Middleware
         {
             var now = DateTime.Now;
 
+            // Nếu interval là 1 giờ, chạy mỗi giờ một lần
+            if (_checkInterval.TotalHours == 1)
+            {
+                // Tính giờ kế tiếp (làm tròn lên giờ tiếp theo)
+                var nextHour = now.Date.AddHours(now.Hour + 1);
+                return nextHour;
+            }
             // Nếu interval là 12 giờ, chạy vào 00:00 và 12:00
-            if (_checkInterval.TotalHours == 12)
+            else if (_checkInterval.TotalHours == 12)
             {
                 var today = now.Date;
 

@@ -60,6 +60,14 @@ namespace OCMS_Services.Service
                     return;
                 }
 
+                // THÊM: Kiểm tra xem subject đã bắt đầu chưa
+                bool hasStarted = schedules.Any(s => DateTime.Now >= s.StartDateTime);
+                if (!hasStarted)
+                {
+                    _logger.LogInformation($"Subject {subjectId} has not started yet");
+                    return;
+                }
+
                 // Kiểm tra tất cả lịch học đã kết thúc
                 bool allSchedulesEnded = schedules.All(s =>
                     DateTime.Now > s.EndDateTime && s.Status != ScheduleStatus.Completed);
@@ -285,6 +293,24 @@ namespace OCMS_Services.Service
             try
             {
                 _logger.LogInformation("Starting system-wide status check");
+
+                // Kiểm tra các Schedule đã đến thời gian bắt đầu
+                var startingSchedules = await _unitOfWork.TrainingScheduleRepository.FindAsync(
+                    s => s.Status == ScheduleStatus.Approved && s.StartDateTime <= DateTime.Now);
+
+                foreach (var schedule in startingSchedules)
+                {
+                    schedule.Status = ScheduleStatus.Incoming;
+                    schedule.ModifiedDate = DateTime.Now;
+                    await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
+                    _logger.LogInformation($"Updated Schedule {schedule.ScheduleID} to Incoming");
+                }
+
+                if (startingSchedules.Any())
+                {
+                    await _unitOfWork.SaveChangesAsync();
+                    _logger.LogInformation($"Updated {startingSchedules.Count()} schedules to Incoming status");
+                }
 
                 // 1. Kiểm tra các Schedule đã qua EndDateTime
                 var expiredSchedules = await _unitOfWork.TrainingScheduleRepository.FindAsync(

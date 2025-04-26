@@ -17,9 +17,9 @@ namespace OCMS_WebAPI.Controllers
             _reportService = reportService;
         }
 
-        // 1️⃣ Expired Certificate Report
-        [CustomAuthorize("Admin","HR", "Reviewer")]
+        #region Export Reports
         [HttpGet("export-expired-certificates")]
+        [CustomAuthorize("Admin", "HR", "Reviewer")]
         public async Task<IActionResult> ExportExpiredCertificates()
         {
             var data = await _reportService.GetExpiredCertificatesAsync();
@@ -39,10 +39,11 @@ namespace OCMS_WebAPI.Controllers
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 fileName);
         }
+        #endregion
 
-        // 2️⃣ Trainee Info Report (by trainee ID)
-        [CustomAuthorize("Admin", "HR", "Reviewer")]
+        #region Export Trainee Info
         [HttpGet("export-trainee-info/{traineeId}")]
+        [CustomAuthorize("Admin", "HR", "Reviewer")]
         public async Task<IActionResult> ExportTraineeInfo(string traineeId)
         {
             try
@@ -61,10 +62,11 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest(ex.Message);
             }
         }
+        #endregion
 
-        // 3️⃣ Course Result Report (All Courses)
-        [CustomAuthorize("Admin", "HR", "Reviewer")]
+        #region Export Course Result
         [HttpGet("export-course-result")]
+        [CustomAuthorize("Admin", "HR", "Reviewer")]
         public async Task<IActionResult> ExportCourseResult()
         {
             var excelFile = await _reportService.ExportCourseResultReportToExcelAsync();
@@ -76,5 +78,6 @@ namespace OCMS_WebAPI.Controllers
                 fileName
             );
         }
+        #endregion
     }
 }

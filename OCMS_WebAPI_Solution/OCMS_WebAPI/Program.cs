@@ -50,7 +50,7 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Conn
 builder.Services.AddSingleton(new StatusCheckBackgroundService(
         serviceProvider: null, // Sẽ được DI container inject
         logger: null, // Sẽ được DI container inject
-        checkInterval: TimeSpan.FromHours(12)));
+        checkInterval: TimeSpan.FromHours(1)));
 
 // Add Email Service
 builder.Services.AddTransient<IEmailService>(provider =>
