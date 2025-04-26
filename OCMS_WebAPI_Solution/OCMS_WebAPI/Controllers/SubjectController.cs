@@ -19,14 +19,17 @@ namespace OCMS_WebAPI.Controllers
             _subjectService = subjectService;
         }
 
+        #region Get all Subjects
         [HttpGet]
-        [Authorize]
+        [CustomAuthorize]
         public async Task<IActionResult> GetAllSubjects()
         {
             var subjects = await _subjectService.GetAllSubjectsAsync();
             return Ok(new { message = "Subjects retrieved successfully.",  subjects });
         }
+        #endregion
 
+        #region Get Subject By Id
         [HttpGet("{id}")]
         [Authorize]
         public async Task<IActionResult> GetSubjectById(string id)
@@ -41,6 +44,9 @@ namespace OCMS_WebAPI.Controllers
                 return NotFound(new { message = ex.Message });
             }
         }
+        #endregion
+
+        #region Get Subjects By Course Id
         [HttpGet("course/{courseId}")]
         [Authorize]
         public async Task<IActionResult> GetSubjectsByCourseId(string courseId)
@@ -59,6 +65,9 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        #endregion
+
+        #region Create Subject
         [HttpPost]
         [CustomAuthorize("Admin", "Training staff")]
         public async Task<IActionResult> CreateSubject([FromBody] SubjectDTO dto)
@@ -75,7 +84,9 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        #endregion
 
+        #region Update Subject
         [HttpPut("{id}")]
         [CustomAuthorize("Admin", "Training staff")]
         public async Task<IActionResult> UpdateSubject(string id, [FromBody] SubjectDTO dto)
@@ -95,7 +106,9 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        #endregion
 
+        #region Delete Subject
         [HttpDelete("{id}")]
         [CustomAuthorize("Admin", "Training staff")]
         public async Task<IActionResult> DeleteSubject(string id)
@@ -112,5 +125,6 @@ namespace OCMS_WebAPI.Controllers
                 return NotFound(new { message = ex.Message });
             }
         }
+        #endregion
     }
 }

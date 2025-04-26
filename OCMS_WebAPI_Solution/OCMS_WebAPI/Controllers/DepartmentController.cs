@@ -17,6 +17,7 @@ namespace OCMS_WebAPI.Controllers
             _departmentService = departmentService;
         }
 
+        #region Get All Departments
         [HttpGet]
         [CustomAuthorize]
         public async Task<IActionResult> GetAllDepartments()
@@ -31,6 +32,9 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        #endregion
+
+        #region Get Active Departments
         // GET: api/department/{id}
         [HttpGet("{id}")]
         [CustomAuthorize]
@@ -50,7 +54,9 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        #endregion
 
+        #region Create Department
         // POST: api/department
         [HttpPost]
         [CustomAuthorize("Admin")]
@@ -66,7 +72,9 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        #endregion
 
+        #region Update Department
         // PUT: api/department/{id}
         [HttpPut("{id}")]
         [CustomAuthorize("Admin")]
@@ -86,6 +94,9 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        #endregion
+
+        #region Assign User to Department
         [HttpPut("assign-to-department/{departmentId}/{userId}")]
         [CustomAuthorize("Admin", "HR", "AOC Manager")]
         public async Task<IActionResult> AddUserToDepartment(string departmentId, string userId)
@@ -108,7 +119,9 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        #endregion
 
+        #region Remove User from Department
         [HttpPut("remove-from-department/{userId}")]
         [CustomAuthorize("Admin", "HR", "AOC Manager")]
         public async Task<IActionResult> RemoveUserFromDepartment(string userId)
@@ -131,6 +144,9 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        #endregion
+
+        #region Delete Department
         // DELETE: api/department/{id}
         [HttpDelete("{id}")]
         [CustomAuthorize("Admin")]
@@ -150,7 +166,9 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        #endregion
 
+        #region Activate Department
         // PUT: api/department/activate/{id}
         [HttpPut("activate/{id}")]
         [CustomAuthorize("Admin")]
@@ -174,5 +192,6 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        #endregion
     }
 }

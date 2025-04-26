@@ -18,7 +18,8 @@ namespace OCMS_WebAPI.Controllers
         {
             _pdfSignerService = pdfSignerService;
         }
-        
+
+        #region Sign Certificate
         [HttpPost("{certificateId}")]
         [CustomAuthorize("Admin","HeadMaster")]
         public async Task<IActionResult> SignPdfFromCertificateId(string certificateId)
@@ -37,7 +38,9 @@ namespace OCMS_WebAPI.Controllers
                 return StatusCode(500, $"Error processing the PDF: {ex.Message}");
             }
         }
+        #endregion
 
+        #region Send Certificate Email
         /// <summary>
         /// Sends an email with a SAS URL for the signed certificate.
         /// </summary>
@@ -80,7 +83,9 @@ namespace OCMS_WebAPI.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, new { Error = "An unexpected error occurred.", Details = ex.Message });
             }
         }
+        #endregion
 
+        #region Sign Decision
         [HttpPost("{decisionId}/sign")]
         [CustomAuthorize("Admin","HeadMaster")]
         public async Task<IActionResult> SignDecisionAsync(string decisionId)
@@ -113,5 +118,6 @@ namespace OCMS_WebAPI.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, new { Message = "An error occurred while signing the decision.", Details = ex.Message });
             }
         }
+        #endregion
     }
 }

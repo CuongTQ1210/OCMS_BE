@@ -20,8 +20,9 @@ namespace OCMS_WebAPI.Controllers
             _requestService = requestService;
         }
 
+        #region Create Request
         [HttpPost]
-        [Authorize]
+        [CustomAuthorize]
         public async Task<IActionResult> CreateRequest([FromBody] RequestDTO requestDto)
         {
             if (!ModelState.IsValid)
@@ -45,9 +46,11 @@ namespace OCMS_WebAPI.Controllers
                 return StatusCode(500, new { message = "An error occurred while creating the request", error = ex.Message });
             }
         }
+        #endregion
 
+        #region Get All Requests
         [HttpGet("{id}")]
-        [Authorize]
+        [CustomAuthorize]
         public async Task<IActionResult> GetRequest(string id)
         {
             var request = await _requestService.GetRequestByIdAsync(id);
@@ -56,6 +59,9 @@ namespace OCMS_WebAPI.Controllers
 
             return Ok(request);
         }
+        #endregion
+
+        #region Get Requests By Training Staff
         [HttpGet("edu-officer/requests")]
         [CustomAuthorize("Training staff")]
         public async Task<IActionResult> GetRequestForEduOfficer()
@@ -82,6 +88,9 @@ namespace OCMS_WebAPI.Controllers
                 return StatusCode(500, new { message = "An unexpected error occurred.", error = ex.Message });
             }
         }
+        #endregion
+
+        #region Get Requests By Head Master
         [HttpGet("head-master/requests")]
         [CustomAuthorize("HeadMaster")]
         public async Task<IActionResult> GetRequestForHeadMaster()
@@ -108,7 +117,9 @@ namespace OCMS_WebAPI.Controllers
                 return StatusCode(500, new { message = "An unexpected error occurred.", error = ex.Message });
             }
         }
-        // ✅ Get All Requests (Only for Admin & Director)
+        #endregion
+
+        #region Get all Requests
         [HttpGet]
         [CustomAuthorize("Admin")]
         public async Task<IActionResult> GetAllRequests()
@@ -117,8 +128,9 @@ namespace OCMS_WebAPI.Controllers
             var requests = await _requestService.GetAllRequestsAsync();
             return Ok(requests);
         }
+        #endregion
 
-        // ✅ Delete Request (Only for Admin)
+        #region Delete Request
         [HttpDelete("{id}")]
         [CustomAuthorize("Admin")]
         public async Task<IActionResult> DeleteRequest(string id)
@@ -130,7 +142,9 @@ namespace OCMS_WebAPI.Controllers
 
             return NoContent();
         }
+        #endregion
 
+        #region Approve Request
         [HttpPut("{id}/approve")]
         [CustomAuthorize("HeadMaster", "Training staff")]
         public async Task<IActionResult> ApproveRequest(string id)
@@ -143,8 +157,9 @@ namespace OCMS_WebAPI.Controllers
 
             return Ok("Request approved successfully");
         }
+        #endregion
 
-        // ✅ Reject Request (Only for HeadMaster)
+        #region Reject Request
         [HttpPut("{id}/reject")]
         [CustomAuthorize("HeadMaster", "Training staff")]
         public async Task<IActionResult> RejectRequest(string id, [FromBody] RejectRequestDTO dto)
@@ -158,5 +173,6 @@ namespace OCMS_WebAPI.Controllers
 
             return Ok("Request rejected successfully");
         }
+        #endregion
     }
 }
