@@ -457,7 +457,7 @@ namespace OCMS_Services.Service
                         var schedules = await _trainingScheduleRepository.GetSchedulesByTrainingPlanIdAsync(plan.PlanId);
                         foreach (var schedule in schedules)
                         {
-                            schedule.Status = ScheduleStatus.Incoming;
+                            schedule.Status = ScheduleStatus.Approved;
                             schedule.ModifiedDate = DateTime.Now;
                             await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
                         }
