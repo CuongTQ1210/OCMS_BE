@@ -1,6 +1,8 @@
 ﻿using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using OCMS_BOs.Entities;
 using OCMS_BOs.RequestModel;
+using OCMS_BOs.ViewModel;
 using OCMS_Repositories;
 using OCMS_Services.IService;
 using OfficeOpenXml;
@@ -18,13 +20,73 @@ namespace OCMS_Services.Service
         private readonly UnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly ICertificateService _certificateService;
-        public ReportService(UnitOfWork unitOfWork, IMapper mapper, ICertificateService certificateService)
+        private readonly IBlobService _storageService; // New dependency for Blob Storage
+        private const string ReportContainerName = "reports"; // Blob container name for reports
+
+        public ReportService(UnitOfWork unitOfWork, IMapper mapper, ICertificateService certificateService, IBlobService storageService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _certificateService = certificateService;
+            _storageService = storageService;
         }
-        public async Task GenerateExcelReport(List<ExpiredCertificateReportDto> data, string filePath)
+
+        // Helper method to save a report to the database and upload the file to Blob Storage
+        private async Task<Report> SaveReportAsync(string reportName, ReportType reportType, byte[] fileBytes, string fileName, string generateByUserId, DateTime startDate, DateTime endDate, string content)
+        {
+            // Upload the file to Azure Blob Storage
+            using var stream = new MemoryStream(fileBytes);
+            var fileUrl = await _storageService.UploadFileAsync(
+                containerName: ReportContainerName,
+                blobName: fileName,
+                fileStream: stream,
+                contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            );
+
+            // Create the Report entity
+            var report = new Report
+            {
+                ReportId = $"R-{Guid.NewGuid().ToString("N")[..8].ToUpper()}",
+                ReportName = reportName,
+                ReportType = reportType,
+                GenerateByUserId = generateByUserId,
+                GenerateDate = DateTime.UtcNow,
+                StartDate = startDate,
+                EndDate = endDate,
+                Content = content,
+                Format = "Excel",
+                FileUrl = fileUrl // Store the Blob Storage URL
+            };
+
+            // Save to database
+            await _unitOfWork.ReportRepository.AddAsync(report);
+            await _unitOfWork.SaveChangesAsync();
+
+            return report;
+        }
+        public async Task<List<ReportModel>> GetSavedReportsAsync()
+        {
+            var reports = await _unitOfWork.ReportRepository
+                .GetQueryable()
+                .Include(r => r.GenerateByUser)
+                .ToListAsync();
+
+            return reports.Select(r => new ReportModel
+            {
+                ReportId = r.ReportId,
+                ReportName = r.ReportName,
+                ReportType = r.ReportType.ToString(),
+                GenerateByUserId = r.GenerateByUserId,
+                GenerateByUserName = r.GenerateByUser?.FullName ?? "Unknown",
+                GenerateDate = r.GenerateDate.ToString("yyyy-MM-dd HH:mm:ss"),
+                StartDate = r.StartDate.ToString("yyyy-MM-dd"),
+                EndDate = r.EndDate.ToString("yyyy-MM-dd"),
+                Content = r.Content,
+                Format = r.Format,
+                FileUrl = r.FileUrl
+            }).ToList();
+        }
+        public async Task<(byte[] fileBytes, Report report)> GenerateExcelReport(List<ExpiredCertificateReportDto> data, string filePath, string generateByUserId)
         {
             using var package = new ExcelPackage();
             var sheet = package.Workbook.Worksheets.Add("Expired Certificates");
@@ -55,6 +117,27 @@ namespace OCMS_Services.Service
 
             sheet.Cells.AutoFitColumns();
             await package.SaveAsAsync(new FileInfo(filePath));
+
+            // Read the file bytes for upload and return
+            var fileBytes = await File.ReadAllBytesAsync(filePath);
+
+            // Save the report to the database and upload to Blob Storage
+            var fileName = Path.GetFileName(filePath);
+            var startDate = data.Min(c => c.IssueDate);
+            var endDate = data.Max(c => c.ExpirationDate ?? DateTime.UtcNow);
+            var content = $"Expired Certificates Report: {data.Count} certificates found.";
+            var report = await SaveReportAsync(
+                reportName: "Expired Certificates Report",
+                reportType: ReportType.ExpiredCertificate,
+                fileBytes: fileBytes,
+                fileName: fileName,
+                generateByUserId: generateByUserId,
+                startDate: startDate,
+                endDate: endDate,
+                content: content
+            );
+
+            return (fileBytes, report);
         }
         public async Task<List<ExpiredCertificateReportDto>> GetExpiredCertificatesAsync()
         {
@@ -78,7 +161,7 @@ namespace OCMS_Services.Service
 
             return expiredCerts;
         }
-        public async Task<byte[]> ExportTraineeInfoToExcelAsync(string traineeId)
+        public async Task<(byte[] fileBytes, Report report)> ExportTraineeInfoToExcelAsync(string traineeId, string generateByUserId)
         {
             var reportData = await GenerateTraineeInfoReportByTraineeIdAsync(traineeId);
 
@@ -121,7 +204,25 @@ namespace OCMS_Services.Service
             // Optional: auto-fit columns
             worksheet.Cells[worksheet.Dimension.Address].AutoFitColumns();
 
-            return await package.GetAsByteArrayAsync();
+            var fileBytes = await package.GetAsByteArrayAsync();
+
+            // Save the report to the database and upload to Blob Storage
+            var fileName = $"TraineeInfo_{traineeId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
+            var startDate = reportData.Min(r => r.AssignDate);
+            var endDate = DateTime.UtcNow;
+            var content = $"Trainee Info Report for Trainee ID: {traineeId}, {reportData.Count} records.";
+            var report = await SaveReportAsync(
+                reportName: $"Trainee Info Report - {traineeId}",
+                reportType: ReportType.TraineeResult,
+                fileBytes: fileBytes,
+                fileName: fileName,
+                generateByUserId: generateByUserId,
+                startDate: startDate,
+                endDate: endDate,
+                content: content
+            );
+
+            return (fileBytes, report);
         }
         public async Task<List<TraineeInfoReportDto>> GenerateTraineeInfoReportByTraineeIdAsync(string traineeId)
         {
@@ -199,7 +300,7 @@ namespace OCMS_Services.Service
 
             return report;
         }
-        public async Task<byte[]> ExportCourseResultReportToExcelAsync()
+        public async Task<(byte[] fileBytes, Report report)> ExportCourseResultReportToExcelAsync(string generateByUserId)
         {
             var reportData = await GenerateAllCourseResultReportAsync();
 
@@ -238,7 +339,25 @@ namespace OCMS_Services.Service
 
             worksheet.Cells.AutoFitColumns();
 
-            return await package.GetAsByteArrayAsync();
+            var fileBytes = await package.GetAsByteArrayAsync();
+
+            // Save the report to the database and upload to Blob Storage
+            var fileName = $"CourseResultReport_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
+            var startDate = DateTime.UtcNow.AddMonths(-12); // Example: Last 12 months
+            var endDate = DateTime.UtcNow;
+            var content = $"Course Result Report: {reportData.Count} courses reported.";
+            var report = await SaveReportAsync(
+                reportName: "Course Result Report",
+                reportType: ReportType.CourseResult,
+                fileBytes: fileBytes,
+                fileName: fileName,
+                generateByUserId: generateByUserId,
+                startDate: startDate,
+                endDate: endDate,
+                content: content
+            );
+
+            return (fileBytes, report);
         }
 
     }

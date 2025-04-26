@@ -24,9 +24,9 @@ namespace OCMS_BOs.Entities
 
         public RequestStatus Status { get; set; }
 
-        [ForeignKey("ApproveUser")]
-        public string? ApprovedBy { get; set; } // Nullable, only set if approved
-        public User? ApprovedUser { get; set; }
+        [ForeignKey("ApproveByUser")]
+        public string? ApproveByUserId { get; set; } // Nullable, only set if approved
+        public User? ApproveBy { get; set; }
         public DateTime? ApprovedDate { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
