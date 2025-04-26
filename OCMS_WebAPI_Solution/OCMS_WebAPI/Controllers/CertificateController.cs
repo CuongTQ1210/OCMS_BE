@@ -20,34 +20,7 @@ namespace OCMS_WebAPI.Controllers
             _certificateService = certificateService;
             _blobService = blobService;
         }
-        #region revoke certificate
-        [HttpPost("revoke/{certificateId}")]
-        [CustomAuthorize("Admin", "Training staff")]
-        public async Task<IActionResult> RevokeCertificate(string certificateId, [FromBody] RevokeCertificateDTO dto)
-        {
-            var result = await _certificateService.RevokeCertificateAsync(certificateId, dto);
-            if (!result.success)
-                return BadRequest(result.message);
-
-            return Ok(result.message);
-        }
-        #endregion
-        #region get revoked
-        [HttpGet("revoked")]
-        [CustomAuthorize("Admin", "Training staff", "HeadMaster")]
-        public async Task<IActionResult> GetAllRevokedCertificates()
-        {
-            try
-            {
-                var certificates = await _certificateService.GetRevokedCertificatesWithSasUrlAsync();
-                return Ok(certificates);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
-        #endregion
+        
 
         #region Get Pending Certificates
         [HttpGet("pending")]
@@ -129,6 +102,69 @@ namespace OCMS_WebAPI.Controllers
             try
             {
                 var certificates = await _certificateService.GetCertificatesByUserIdWithSasUrlAsync(userId);
+                return Ok(certificates);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        #endregion
+
+        #region Manual Certificate Generation
+        [HttpPost("manual-create")]
+        [CustomAuthorize("Training staff", "Admin")]
+        public async Task<IActionResult> CreateCertificateManually([FromBody]CreateCertificateDTO request)
+        {
+            if (request == null || string.IsNullOrEmpty(request.TraineeId) || string.IsNullOrEmpty(request.CourseId))
+                return BadRequest("Trainee ID and Course ID are required");
+
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var certificate = await _certificateService.CreateCertificateManuallyAsync(
+                    request.TraineeId,
+                    request.CourseId,
+                    userId);
+
+                return Ok(new
+                {
+                    Message = "Certificate created successfully",
+                    Certificate = certificate
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { Error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Error = ex.Message });
+            }
+        }
+        #endregion
+
+        #region revoke certificate
+        [HttpPost("revoke/{certificateId}")]
+        [CustomAuthorize("Admin", "Training staff")]
+        public async Task<IActionResult> RevokeCertificate(string certificateId, [FromBody] RevokeCertificateDTO dto)
+        {
+            var result = await _certificateService.RevokeCertificateAsync(certificateId, dto);
+            if (!result.success)
+                return BadRequest(result.message);
+
+            return Ok(result.message);
+        }
+        #endregion
+
+        #region get revoked
+        [HttpGet("revoked")]
+        [CustomAuthorize("Admin", "Training staff", "HeadMaster")]
+        public async Task<IActionResult> GetAllRevokedCertificates()
+        {
+            try
+            {
+                var certificates = await _certificateService.GetRevokedCertificatesWithSasUrlAsync();
                 return Ok(certificates);
             }
             catch (Exception ex)

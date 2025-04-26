@@ -20,22 +20,25 @@ namespace OCMS_WebAPI.Controllers
             _trainingScheduleService = trainingScheduleService ?? throw new ArgumentNullException(nameof(trainingScheduleService));
         }
 
+        #region Get All Training Schedules
         /// <summary>
         /// Retrieves all training schedules.
         /// </summary>
         [HttpGet]
-        [Authorize]
+        [CustomAuthorize]
         public async Task<IActionResult> GetAllTrainingSchedules()
         {
             var schedules = await _trainingScheduleService.GetAllTrainingSchedulesAsync();
             return Ok(new { message = "Training schedules retrieved successfully.",  schedules });
         }
+        #endregion
 
+        #region Get Training Schedules By Id
         /// <summary>
         /// Retrieves a specific training schedule by its ID.
         /// </summary>
         [HttpGet("{id}")]
-        [Authorize]
+        [CustomAuthorize]
         public async Task<IActionResult> GetTrainingScheduleById(string id)
         {
             try
@@ -48,7 +51,9 @@ namespace OCMS_WebAPI.Controllers
                 return NotFound(new { message = ex.Message });
             }
         }
+        #endregion
 
+        #region Create Training Schedule
         /// <summary>
         /// Creates a new training schedule.
         /// </summary>
@@ -71,7 +76,9 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        #endregion
 
+        #region Update Training Schedule
         /// <summary>
         /// Updates an existing training schedule.
         /// </summary>
@@ -93,7 +100,9 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        #endregion
 
+        #region Delete Training Schedule
         /// <summary>
         /// Deletes a training schedule by its ID.
         /// </summary>
@@ -114,7 +123,9 @@ namespace OCMS_WebAPI.Controllers
                 return NotFound(new { message = ex.Message });
             }
         }
+        #endregion
 
+        #region Get Subjects And Schedules By Instructor
         [HttpGet("instructor/subjects")]
         [CustomAuthorize("Instructor")]
         public async Task<IActionResult> GetSubjectsAndSchedules()
@@ -133,6 +144,9 @@ namespace OCMS_WebAPI.Controllers
                 return NotFound(new { message = ex.Message });
             }
         }
+        #endregion
+
+        #region Get Subjects And Schedules By Trainee
         [HttpGet("trainee/subjects")]
         [CustomAuthorize("Trainee")]
         public async Task<IActionResult> GetTraineeSubjectsAndSchedules()
@@ -159,5 +173,6 @@ namespace OCMS_WebAPI.Controllers
                 return StatusCode(500, new { message = "An unexpected error occurred.", error = ex.Message });
             }
         }
+        #endregion
     }
 }

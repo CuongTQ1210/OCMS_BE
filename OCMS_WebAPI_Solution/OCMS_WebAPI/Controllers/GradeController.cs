@@ -20,6 +20,7 @@ namespace OCMS_WebAPI.Controllers
         {
             _gradeService = gradeService;
         }
+
         #region Import Grade Trainee
         [HttpPost("import")]
         [CustomAuthorize("Admin", "Instructor")]
@@ -49,6 +50,7 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
+
         #region Get All Grades
         [HttpGet]
         [CustomAuthorize("Admin", "Training staff", "Reviewer", "Instructor")]
@@ -65,6 +67,7 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
+
         #region Get Passed Grades
         [HttpGet("passed")]
         [CustomAuthorize("Admin", "Training staff", "Reviewer")]
@@ -81,6 +84,7 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
+
         #region Get Grades By SubjectId
         [HttpGet("subject/{subjectId}")]
         [CustomAuthorize("Admin", "Training staff", "Reviewer")]
@@ -97,6 +101,7 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
+
         #region Get Grades By UserId
         [HttpGet("user/{userId}")]
         [CustomAuthorize("Admin", "Training staff", "Reviewer", "Trainee")]
@@ -211,7 +216,5 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
-
-
     }
 }

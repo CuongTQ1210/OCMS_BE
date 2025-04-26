@@ -78,7 +78,7 @@ namespace OCMS_BOs.Entities
         Approved = 2,
         Rejected = 3,
         Completed = 4,
-        Updating = 5, 
+        Updating = 5,
         Deleting = 6
     }
     public enum GradeStatus
@@ -124,6 +124,6 @@ namespace OCMS_BOs.Entities
     }
     public enum ScheduleStatus
     {
-        Pending = 0, Approved=1,Incoming = 2, Canceled = 3, Completed = 4
+        Pending = 0, Approved = 1, Incoming = 2, Canceled = 3, Completed = 4
     }
 }

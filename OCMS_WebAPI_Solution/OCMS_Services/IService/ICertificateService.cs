@@ -16,9 +16,8 @@ namespace OCMS_Services.IService
         Task<List<CertificateModel>> GetPendingCertificatesWithSasUrlAsync();
         Task<List<CertificateModel>> GetCertificatesByUserIdWithSasUrlAsync(string userId);
         Task<List<CertificateModel>> GetActiveCertificatesWithSasUrlAsync();
-
+        Task<CertificateModel> CreateCertificateManuallyAsync(string userId, string courseId, string issuedByUserId);
         Task<(bool success, string message)> RevokeCertificateAsync(string certificateId, RevokeCertificateDTO dto);
-
         Task<List<CertificateModel>> GetRevokedCertificatesWithSasUrlAsync();
     }
 }
