@@ -19,6 +19,7 @@ namespace OCMS_WebAPI.Controllers
             _courseService = courseService;
         }
 
+        #region Create Course
         /// <summary>
         /// Create a new course
         /// </summary>
@@ -50,7 +51,9 @@ namespace OCMS_WebAPI.Controllers
                 });
             }
         }
+        #endregion
 
+        #region Get All Courses
         /// <summary>
         /// Get all courses
         /// </summary>
@@ -78,7 +81,9 @@ namespace OCMS_WebAPI.Controllers
                 });
             }
         }
+        #endregion
 
+        #region Get Course By ID
         /// <summary>
         /// Get a course by ID
         /// </summary>
@@ -109,7 +114,9 @@ namespace OCMS_WebAPI.Controllers
                 });
             }
         }
+        #endregion
 
+        #region Update Course
         /// <summary>
         /// Update a course
         /// </summary>
@@ -144,7 +151,9 @@ namespace OCMS_WebAPI.Controllers
                 });
             }
         }
+        #endregion
 
+        #region Delete Course
         /// <summary>
         /// Delete a course
         /// </summary>
@@ -174,6 +183,6 @@ namespace OCMS_WebAPI.Controllers
                 });
             }
         }
+        #endregion
     }
-
 }

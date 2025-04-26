@@ -8,8 +8,8 @@ namespace OCMS_BOs.Entities
 {
     public enum AccountStatus
     {
-        Active=1,
-        Deactivated=0
+        Active = 1,
+        Deactivated = 0
     }
 
     public enum CertificateStatus
@@ -17,7 +17,7 @@ namespace OCMS_BOs.Entities
         Active = 1,
         Expired = 2,
         Revoked = 3,
-        Pending=0
+        Pending = 0
     }
 
     public enum CourseStatus
@@ -39,56 +39,51 @@ namespace OCMS_BOs.Entities
         Pending = 0,
         Approved = 1,
         Rejected = 2,
-        Updating=3,
-        Deleting=4
-    }
-
-    public enum CourseParticipantStatus
-    {
-        Active=1,
-        Withdrawn=0
+        Updating = 3,
+        Deleting = 4
     }
 
     public enum Progress
     {
-        NotYet= 0,
+        NotYet = 0,
         Ongoing = 1,
         Completed = 2
     }
     public enum DepartmentStatus
     {
-        Active=0,
-        Inactive=1
+        Active = 0,
+        Inactive = 1
     }
     public enum CandidateStatus
     {
-        Pending=0,
-        Approved=1,
-        Rejected=2,
+        Pending = 0,
+        Approved = 1,
+        Rejected = 2,
     }
     public enum VerificationStatus
     {
-        Pending=0,
-        Verified=1, Rejected=2
+        Pending = 0,
+        Verified = 1, Rejected = 2
     }
     public enum PlanLevel
     {
-        Initial=0,
-        Recurrent=1,
-        Relearn=2
+        Initial = 0,
+        Recurrent = 1,
+        Relearn = 2
     }
     public enum TrainingPlanStatus
     {
-        Draft=0,
-        Pending=1, 
-        Approved=2,
-        Rejected=3,
-        Completed=4,
-        Updating=5, Deleting=6
+        Draft = 0,
+        Pending = 1,
+        Approved = 2,
+        Rejected = 3,
+        Completed = 4,
+        Updating = 5,
+        Deleting = 6
     }
     public enum GradeStatus
     {
-        Pass=1, Fail=0
+        Pass = 1, Fail = 0
     }
     public enum GradeComponentType
     {
@@ -104,31 +99,31 @@ namespace OCMS_BOs.Entities
 
     public enum DigitalSignatureStatus
     {
-        Active=1, Expired =0 , Revoked=2
+        Active = 1, Expired = 0, Revoked = 2
     }
 
     public enum TemplateStatus
     {
-        Active=1,Inactive=0
+        Active = 1, Inactive = 0
     }
     public enum RequestType
     {
-        NewPlan=0,RecurrentPlan=1, RelearnPlan=2, Complaint=3, PlanChange=4, PlanDelete=5, CreateNew=6, CreateRecurrent=7, CreateRelearn=8, CandidateImport = 9, Update=10, Delete=11, AssignTrainee=12, AddTraineeAssign=13, CertificateTemplate = 14, DecisionTemplate=15, SignRequest=16
+        NewPlan = 0, RecurrentPlan = 1, RelearnPlan = 2, Complaint = 3, PlanChange = 4, PlanDelete = 5, CreateNew = 6, CreateRecurrent = 7, CreateRelearn = 8, CandidateImport = 9, Update = 10, Delete = 11, AssignTrainee = 12, AddTraineeAssign = 13, CertificateTemplate = 14, DecisionTemplate = 15, SignRequest = 16
     }
     public enum DecisionStatus
     {
-        Draft = 0, Signed = 1, Revoked=2
+        Draft = 0, Signed = 1, Revoked = 2
     }
     public enum ReportType
     {
-        ExpiredCertificate=1, CourseResult=2,TraineeResult=3,PlanResult=4 
+        ExpiredCertificate = 1, CourseResult = 2, TraineeResult = 3, PlanResult = 4
     }
     public enum ResultStatus
     {
-        Draft=0, Submitted=1, Approved=2, Rejected=3
+        Draft = 0, Submitted = 1, Approved = 2, Rejected = 3
     }
     public enum ScheduleStatus
     {
-        Pending=0, Incoming=1 , Canceled=2
+        Pending = 0, Approved = 1, Incoming = 2, Canceled = 3, Completed = 4
     }
 }

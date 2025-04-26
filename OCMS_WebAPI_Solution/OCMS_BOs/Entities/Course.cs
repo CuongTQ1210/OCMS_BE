@@ -35,7 +35,7 @@ namespace OCMS_BOs.Entities
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
-        // ✅ New Related Course (Self-reference like ParentSpecialty)
+        //New Related Course (Self-reference like ParentSpecialty)
         [ForeignKey("RelatedCourse")]
         public string? RelatedCourseId { get; set; }
         public Course? RelatedCourse { get; set; }

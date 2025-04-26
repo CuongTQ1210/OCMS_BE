@@ -19,22 +19,25 @@ namespace OCMS_WebAPI.Controllers
             _instructorAssignmentService = instructorAssignmentService ?? throw new ArgumentNullException(nameof(instructorAssignmentService));
         }
 
+        #region Get All Instructor Assignments
         /// <summary>
         /// Retrieves all instructor assignments.
         /// </summary>
         [HttpGet]
-        [Authorize]
+        [CustomAuthorize]
         public async Task<IActionResult> GetAllInstructorAssignments()
         {
             var assignments = await _instructorAssignmentService.GetAllInstructorAssignmentsAsync();
             return Ok(new { message = "Instructor assignments retrieved successfully.", data = assignments });
         }
+        #endregion
 
+        #region Get Instructor Assignments By Id
         /// <summary>
         /// Retrieves a specific instructor assignment by its ID.
         /// </summary>
         [HttpGet("{id}")]
-        [Authorize]
+        [CustomAuthorize]
         public async Task<IActionResult> GetInstructorAssignmentById(string id)
         {
             try
@@ -47,7 +50,9 @@ namespace OCMS_WebAPI.Controllers
                 return NotFound(new { message = ex.Message });
             }
         }
+        #endregion
 
+        #region Create Instructor Assignment
         /// <summary>
         /// Creates a new instructor assignment.
         /// </summary>
@@ -70,7 +75,9 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        #endregion
 
+        #region Update Instructor Assignment
         /// <summary>
         /// Updates an existing instructor assignment.
         /// </summary>
@@ -92,7 +99,9 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        #endregion
 
+        #region Delete Instructor Assignment
         /// <summary>
         /// Deletes an instructor assignment by its ID.
         /// </summary>
@@ -113,5 +122,6 @@ namespace OCMS_WebAPI.Controllers
                 return NotFound(new { message = ex.Message });
             }
         }
+        #endregion
     }
 }

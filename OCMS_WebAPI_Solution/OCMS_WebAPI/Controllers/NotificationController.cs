@@ -18,7 +18,7 @@ namespace OCMS_WebAPI.Controllers
             _notificationService = notificationService;
         }
 
-        // ✅ Endpoint to send a notification
+        #region Send Notification
         [HttpPost("send")]
         public async Task<IActionResult> SendNotification([FromBody] NotificationDTO notificationDto)
         {
@@ -33,15 +33,20 @@ namespace OCMS_WebAPI.Controllers
 
             return Ok(new { message = "Notification sent successfully." });
         }
+        #endregion
+
+        #region Mask As Read
         [HttpPost("mark-as-read/{notificationId}")]
         public async Task<IActionResult> MarkAsRead(int notificationId)
         {
             await _notificationService.MarkNotificationAsReadAsync(notificationId);
             return Ok(new { message = "Notification marked as read." });
         }
+        #endregion
 
+        #region Get Notifications By User Id
         [HttpGet("{userId}")]
-        [Authorize]
+        [CustomAuthorize]
         public async Task<IActionResult> GetUserNotifications(string userId)
         {
             var notifications = await _notificationService.GetUserNotificationsAsync(userId);
@@ -51,9 +56,11 @@ namespace OCMS_WebAPI.Controllers
 
             return Ok(new { message = "Notifications retrieved successfully.", data = notifications });
         }
+        #endregion
 
+        #region Get unread notifications
         [HttpGet("unread-count/{userId}")]
-        [Authorize]
+        [CustomAuthorize]
         public async Task<IActionResult> GetUnreadNotificationCount(string userId)
         {
             try
@@ -66,5 +73,6 @@ namespace OCMS_WebAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        #endregion
     }
 }
