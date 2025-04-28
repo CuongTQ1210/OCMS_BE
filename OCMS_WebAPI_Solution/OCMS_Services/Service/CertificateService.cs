@@ -278,12 +278,13 @@ namespace OCMS_Services.Service
             {
                 // Check if trainee already has a certificate for this course
                 var existingCertificate = await _unitOfWork.CertificateRepository.GetAllAsync(c =>
-                    c.UserId == userId && c.CourseId == courseId);
+                    c.UserId == userId && c.CourseId == courseId && c.Status == CertificateStatus.Active);
 
                 if (existingCertificate.Any())
                 {
-                    throw new InvalidOperationException($"Trainee already has a certificate for this course");
+                    throw new InvalidOperationException($"Trainee already has an active certificate for this course");
                 }
+                
 
                 // Get course data
                 var course = await _courseRepository.GetCourseWithDetailsAsync(courseId);
