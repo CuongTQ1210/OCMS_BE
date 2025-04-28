@@ -30,6 +30,10 @@ namespace OCMS_Services.Service
         #region Send Notification
         public async Task SendNotificationAsync(string userId, string title, string message, string type)
         {
+            var user = await _unitOfWork.UserRepository.GetByIdAsync(userId);
+            if (user == null) throw new KeyNotFoundException("User not Found.");
+            
+
             var notification = new Notification
             {
                 UserId = userId,
