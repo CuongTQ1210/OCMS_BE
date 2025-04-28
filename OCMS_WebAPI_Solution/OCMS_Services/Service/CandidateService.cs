@@ -313,6 +313,7 @@ namespace OCMS_Services.Service
 
                             if (result.SuccessCount > 0)
                             {
+                                var users = await _userRepository.GetUsersByRoleAsync("Training staff");
                                 var requestService = new RequestService(_unitOfWork, _mapper, _notificationService, _userRepository, _candidateRepository);
                                 var requestDto = new RequestDTO
                                 {
@@ -321,8 +322,7 @@ namespace OCMS_Services.Service
                                     Notes = "Danh sách ứng viên cần phê duyệt"
                                 };
 
-
-                                var importRequestId = await requestService.CreateRequestAsync(requestDto, importedByUserId);
+                                var importRequestId = await requestService.CreateRequestAsync(requestDto, users.First().UserId);
                                 foreach (var candidate in candidates)
                                 {
                                     candidate.ImportRequestId = importRequestId.RequestId;
