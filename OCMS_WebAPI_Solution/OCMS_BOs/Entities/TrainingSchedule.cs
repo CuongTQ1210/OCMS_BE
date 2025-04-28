@@ -31,9 +31,9 @@ namespace OCMS_BOs.Entities
         public string InstructorID { get; set; }
         public User Instructor { get; set; }
 
-        [ForeignKey("CreateUser")]
-        public string CreatedBy { get; set; }
-        public User CreatedByUser { get; set; }
+        [ForeignKey("CreateByUser")]
+        public string CreatedByUserId { get; set; }
+        public User CreatedBy { get; set; }
 
         public DateTime CreatedDate { get; set; }
         public DateTime ModifiedDate { get; set; }

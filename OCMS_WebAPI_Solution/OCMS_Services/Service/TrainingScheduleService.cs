@@ -52,7 +52,7 @@ namespace OCMS_Services.Service
             var schedules = await _unitOfWork.TrainingScheduleRepository.GetAllAsync(
                 s => s.Subject,
                 s => s.Instructor,
-                s => s.CreatedByUser
+                s => s.CreatedBy
             );
             return _mapper.Map<IEnumerable<TrainingScheduleModel>>(schedules);
         }
@@ -71,7 +71,7 @@ namespace OCMS_Services.Service
                 s => s.ScheduleID == scheduleId,
                 s => s.Subject,
                 s => s.Instructor,
-                s => s.CreatedByUser
+                s => s.CreatedBy
             );
             if (schedule == null)
                 throw new KeyNotFoundException($"Training schedule with ID {scheduleId} not found.");
@@ -104,15 +104,16 @@ namespace OCMS_Services.Service
 
             // Create or update InstructorAssignment
             await ManageInstructorAssignment(dto.SubjectID, dto.InstructorID, createdByUserId);
-
+            var instructor = await _unitOfWork.UserRepository.GetByIdAsync(dto.InstructorID);
             // Map DTO to entity
             var schedule = _mapper.Map<TrainingSchedule>(dto);
             schedule.ScheduleID = scheduleId;
-            schedule.CreatedBy = createdByUserId;
+            schedule.CreatedByUserId = createdByUserId;
             schedule.CreatedDate = DateTime.Now;
             schedule.ModifiedDate = DateTime.Now;
             schedule.Status = ScheduleStatus.Pending;
             schedule.StartDateTime = dto.StartDay;
+            schedule.Instructor = instructor;
             schedule.EndDateTime = dto.EndDay;
             await _unitOfWork.TrainingScheduleRepository.AddAsync(schedule);
             await _unitOfWork.SaveChangesAsync();
@@ -121,7 +122,7 @@ namespace OCMS_Services.Service
                 s => s.ScheduleID == schedule.ScheduleID,
                 s => s.Subject,
                 s => s.Instructor,
-                s => s.CreatedByUser
+                s => s.CreatedBy
             );
 
             return _mapper.Map<TrainingScheduleModel>(createdSchedule);
@@ -142,22 +143,25 @@ namespace OCMS_Services.Service
                 throw new Exception("Schedule is approved. Please send request to update if needed.");
             }    
             await ValidateTrainingScheduleAsync(dto, scheduleId);
-
+            var instructor = await _unitOfWork.UserRepository.GetByIdAsync(dto.InstructorID);
             // Apply update
             _mapper.Map(dto, schedule);
+            schedule.Instructor = instructor;
             schedule.ModifiedDate = DateTime.Now;
+            
+
 
             await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
             await _unitOfWork.SaveChangesAsync();
 
             // Update InstructorAssignment if needed
-            await ManageInstructorAssignment(dto.SubjectID, dto.InstructorID, schedule.CreatedBy);
+            await ManageInstructorAssignment(dto.SubjectID, dto.InstructorID, schedule.CreatedByUserId);
 
             var updatedSchedule = await _unitOfWork.TrainingScheduleRepository.GetAsync(
                 s => s.ScheduleID == scheduleId,
                 s => s.Subject,
                 s => s.Instructor,
-                s => s.CreatedByUser
+                s => s.CreatedBy
             );
 
             return _mapper.Map<TrainingScheduleModel>(updatedSchedule);
@@ -295,7 +299,10 @@ namespace OCMS_Services.Service
                         .Select(s => new TrainingScheduleModel
                         {
                             ScheduleID = s.ScheduleID,
+                            Notes= s.Notes,
                             DaysOfWeek = string.Join(",", s.DaysOfWeek),
+                            InstructorID= s.InstructorID,
+                            InstructorName=s.Instructor.FullName,
                             SubjectPeriod = s.SubjectPeriod,
                             ClassTime = s.ClassTime,
                             StartDateTime = s.StartDateTime,

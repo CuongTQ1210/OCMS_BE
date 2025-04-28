@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using OCMS_Services.IService;
 using OCMS_Services.Service;
 using OCMS_WebAPI.AuthorizeSettings;
+using System.Security.Claims;
 
 namespace OCMS_WebAPI.Controllers
 {
@@ -27,17 +28,24 @@ namespace OCMS_WebAPI.Controllers
             if (!data.Any())
                 return NotFound("No expired certificates found.");
 
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized("User not authenticated.");
+
             var fileName = $"ExpiredCertificates_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
             var filePath = Path.Combine(Path.GetTempPath(), fileName);
 
-            await _reportService.GenerateExcelReport(data, filePath);
+            // Generate the report and save it
+            var (fileBytes, report) = await _reportService.GenerateExcelReport(data, filePath, userId);
 
-            var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
-            System.IO.File.Delete(filePath); // Clean up temp file
+            // Clean up the temporary file
+            System.IO.File.Delete(filePath);
 
-            return File(fileBytes,
+            return File(
+                fileBytes,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                fileName);
+                fileName
+            );
         }
         #endregion
 
@@ -48,11 +56,15 @@ namespace OCMS_WebAPI.Controllers
         {
             try
             {
-                var excelFile = await _reportService.ExportTraineeInfoToExcelAsync(traineeId);
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized("User not authenticated.");
+
+                var (fileBytes, report) = await _reportService.ExportTraineeInfoToExcelAsync(traineeId, userId);
                 var fileName = $"TraineeInfo_{traineeId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
 
                 return File(
-                    excelFile,
+                    fileBytes,
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     fileName
                 );
@@ -69,15 +81,27 @@ namespace OCMS_WebAPI.Controllers
         [CustomAuthorize("Admin", "HR", "Reviewer")]
         public async Task<IActionResult> ExportCourseResult()
         {
-            var excelFile = await _reportService.ExportCourseResultReportToExcelAsync();
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized("User not authenticated.");
+
+            var (fileBytes, report) = await _reportService.ExportCourseResultReportToExcelAsync(userId);
             var fileName = $"CourseResultReport_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
 
             return File(
-                excelFile,
+                fileBytes,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 fileName
             );
         }
         #endregion
+        // 4️⃣ View Saved Reports
+        [CustomAuthorize("Admin", "HR", "Reviewer")]
+        [HttpGet("saved-reports")]
+        public async Task<IActionResult> GetSavedReports()
+        {
+            var reports = await _reportService.GetSavedReportsAsync();
+            return Ok(reports);
+        }
     }
 }
