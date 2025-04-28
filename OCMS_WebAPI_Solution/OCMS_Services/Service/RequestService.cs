@@ -96,7 +96,7 @@ namespace OCMS_Services.Service
             await _unitOfWork.RequestRepository.AddAsync(newRequest);
             await _unitOfWork.SaveChangesAsync();
 
-            // 🚀 Send notification to the director if NewPlan, RecurrentPlan, RelearnPlan
+            // Send notification to the director if NewPlan, RecurrentPlan, RelearnPlan
             if (newRequest.RequestType == RequestType.NewPlan ||
                 newRequest.RequestType == RequestType.RecurrentPlan ||
                 newRequest.RequestType == RequestType.RelearnPlan||
@@ -152,13 +152,13 @@ namespace OCMS_Services.Service
 
             if (newRequest.RequestType == RequestType.CandidateImport)
             {
-                var admins = await _userRepository.GetUsersByRoleAsync("Training staff");
-                foreach (var admin in admins)
+                var staffs = await _userRepository.GetUsersByRoleAsync("Training staff");
+                foreach (var staff in staffs)
                 {
                     await _notificationService.SendNotificationAsync(
-                        admin.UserId,
+                        staff.UserId,
                         "New Candidate Import Request",
-                        "A new candidate import request has been submitted for review.",
+                        $"A new {newRequest.RequestType} request has been submitted for review.",
                         "CandidateImport"
                     );
                 }
