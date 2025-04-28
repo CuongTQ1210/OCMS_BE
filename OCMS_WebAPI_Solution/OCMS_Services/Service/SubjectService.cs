@@ -33,7 +33,21 @@ namespace OCMS_Services.Service
                 p => p.Instructors,
                 p => p.Schedules
                 );
-            return _mapper.Map<IEnumerable<SubjectModel>>(subjects);
+
+            var courseIds = subjects.Select(s => s.CourseId).Distinct().ToList();
+            var courses = await _unitOfWork.CourseRepository.GetAllAsync(
+                c => courseIds.Contains(c.CourseId),
+                c => c.TrainingPlan
+            );
+
+            var subjectModels = _mapper.Map<IEnumerable<SubjectModel>>(subjects);
+            foreach (var subjectModel in subjectModels)
+            {
+                var course = courses.FirstOrDefault(c => c.CourseId == subjectModel.CourseId);
+                subjectModel.SpecialtyId = course?.TrainingPlan?.SpecialtyId;
+            }
+
+            return subjectModels;
         }
         #endregion
 
@@ -41,14 +55,23 @@ namespace OCMS_Services.Service
         public async Task<SubjectModel> GetSubjectByIdAsync(string subjectId)
         {
             var subject = await _unitOfWork.SubjectRepository.GetAsync(
-                p=> p.SubjectId== subjectId,
+                p => p.SubjectId == subjectId,
                 p => p.Instructors,
                 p => p.Schedules
-                );
+            );
             if (subject == null)
                 throw new KeyNotFoundException("Subject not found.");
 
-            return _mapper.Map<SubjectModel>(subject);
+            // Fetch Course and TrainingPlan
+            var course = await _unitOfWork.CourseRepository.GetAsync(
+                c => c.CourseId == subject.CourseId,
+                c => c.TrainingPlan
+            );
+
+            var subjectModel = _mapper.Map<SubjectModel>(subject);
+            subjectModel.SpecialtyId = course?.TrainingPlan?.SpecialtyId;
+
+            return subjectModel;
         }
         #endregion
 
