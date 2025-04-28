@@ -104,7 +104,7 @@ namespace OCMS_Services.Service
 
             // Create or update InstructorAssignment
             await ManageInstructorAssignment(dto.SubjectID, dto.InstructorID, createdByUserId);
-
+            var instructor = await _unitOfWork.UserRepository.GetByIdAsync(dto.InstructorID);
             // Map DTO to entity
             var schedule = _mapper.Map<TrainingSchedule>(dto);
             schedule.ScheduleID = scheduleId;
@@ -113,6 +113,7 @@ namespace OCMS_Services.Service
             schedule.ModifiedDate = DateTime.Now;
             schedule.Status = ScheduleStatus.Pending;
             schedule.StartDateTime = dto.StartDay;
+            schedule.Instructor = instructor;
             schedule.EndDateTime = dto.EndDay;
             await _unitOfWork.TrainingScheduleRepository.AddAsync(schedule);
             await _unitOfWork.SaveChangesAsync();
@@ -142,10 +143,13 @@ namespace OCMS_Services.Service
                 throw new Exception("Schedule is approved. Please send request to update if needed.");
             }    
             await ValidateTrainingScheduleAsync(dto, scheduleId);
-
+            var instructor = await _unitOfWork.UserRepository.GetByIdAsync(dto.InstructorID);
             // Apply update
             _mapper.Map(dto, schedule);
+            schedule.Instructor = instructor;
             schedule.ModifiedDate = DateTime.Now;
+            
+
 
             await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
             await _unitOfWork.SaveChangesAsync();
@@ -295,7 +299,10 @@ namespace OCMS_Services.Service
                         .Select(s => new TrainingScheduleModel
                         {
                             ScheduleID = s.ScheduleID,
+                            Notes= s.Notes,
                             DaysOfWeek = string.Join(",", s.DaysOfWeek),
+                            InstructorID= s.InstructorID,
+                            InstructorName=s.Instructor.FullName,
                             SubjectPeriod = s.SubjectPeriod,
                             ClassTime = s.ClassTime,
                             StartDateTime = s.StartDateTime,

@@ -20,14 +20,11 @@ namespace OCMS_WebAPI.Controllers
 
         #region Send Notification
         [HttpPost("send")]
-        public async Task<IActionResult> SendNotification([FromBody] NotificationDTO notificationDto)
+        public async Task<IActionResult> SendNotification([FromBody] NotificationDTO notificationDto, string userId)
         {
             if (notificationDto == null)
                 return BadRequest("Invalid notification data.");
 
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
-                return Unauthorized("User not authenticated.");
 
             await _notificationService.SendNotificationAsync(userId, notificationDto.Title, notificationDto.Message, notificationDto.NotificationType);
 
