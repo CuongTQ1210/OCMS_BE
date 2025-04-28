@@ -22,7 +22,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get External Certificates by Candidate Id
         [HttpGet("candidate/{candidateId}")]
-        [CustomAuthorize("Admin", "HR")]
+        [CustomAuthorize("Admin", "HR", "Training staff")]
         public async Task<IActionResult> GetByCandidateId(string candidateId)
         {
             var certificates = await _externalCertificateService.GetExternalCertificatesByCandidateIdAsync(candidateId);

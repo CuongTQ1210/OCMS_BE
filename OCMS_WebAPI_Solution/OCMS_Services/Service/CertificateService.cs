@@ -294,7 +294,7 @@ namespace OCMS_Services.Service
                 }
 
                 // Verify trainee is enrolled in this course
-                var traineeAssignment = await _traineeAssignRepository.GetTraineeAssignmentAsync(userId, courseId);
+                var traineeAssignment = await _traineeAssignRepository.GetTraineeAssignmentAsync(courseId, userId);
                 if (traineeAssignment == null)
                 {
                     throw new InvalidOperationException($"Trainee is not enrolled in this course");
