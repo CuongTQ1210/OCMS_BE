@@ -278,11 +278,11 @@ namespace OCMS_Services.Service
             {
                 // Check if trainee already has a certificate for this course
                 var existingCertificate = await _unitOfWork.CertificateRepository.GetAllAsync(c =>
-                    c.UserId == userId && c.CourseId == courseId);
+                    c.UserId == userId && c.CourseId == courseId && c.Status == CertificateStatus.Active);
 
                 if (existingCertificate.Any())
                 {
-                    throw new InvalidOperationException($"Trainee already has a certificate for this course");
+                    throw new InvalidOperationException($"Trainee already has an active certificate for this course");
                 }
 
                 // Get course data
@@ -293,7 +293,7 @@ namespace OCMS_Services.Service
                 }
 
                 // Verify trainee is enrolled in this course
-                var traineeAssignment = await _traineeAssignRepository.GetTraineeAssignmentAsync(userId, courseId);
+                var traineeAssignment = await _traineeAssignRepository.GetTraineeAssignmentAsync(courseId, userId);
                 if (traineeAssignment == null)
                 {
                     throw new InvalidOperationException($"Trainee is not enrolled in this course");
