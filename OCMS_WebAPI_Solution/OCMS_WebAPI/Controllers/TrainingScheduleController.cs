@@ -71,7 +71,7 @@ namespace OCMS_WebAPI.Controllers
                 return CreatedAtAction(nameof(GetTrainingScheduleById), new { id = schedule.ScheduleID },
                     new { message = "Training schedule created successfully.", data = schedule });
             }
-            catch (ArgumentException ex)
+            catch (Exception ex)
             {
                 return BadRequest(new { message = ex.Message });
             }
@@ -95,7 +95,7 @@ namespace OCMS_WebAPI.Controllers
             {
                 return NotFound(new { message = ex.Message });
             }
-            catch (ArgumentException ex)
+            catch (Exception ex)
             {
                 return BadRequest(new { message = ex.Message });
             }

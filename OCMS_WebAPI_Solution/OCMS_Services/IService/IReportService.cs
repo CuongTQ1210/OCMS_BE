@@ -1,4 +1,6 @@
-﻿using OCMS_BOs.RequestModel;
+﻿using OCMS_BOs.Entities;
+using OCMS_BOs.RequestModel;
+using OCMS_BOs.ViewModel;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,13 +11,14 @@ namespace OCMS_Services.IService
 {
     public interface IReportService
     {
-        Task<byte[]> ExportCourseResultReportToExcelAsync();
-        Task<byte[]> ExportTraineeInfoToExcelAsync(string traineeId);
+        Task<(byte[] fileBytes, Report report)> ExportCourseResultReportToExcelAsync(string generateByUserId);
+        Task<(byte[] fileBytes, Report report)> ExportTraineeInfoToExcelAsync(string traineeId, string generateByUserId);
 
-        Task GenerateExcelReport(List<ExpiredCertificateReportDto> data, string filePath);
+        Task<(byte[] fileBytes, Report report)> GenerateExcelReport(List<ExpiredCertificateReportDto> data, string filePath, string generateByUserId);
         Task<List<ExpiredCertificateReportDto>> GetExpiredCertificatesAsync();
 
         Task<List<TraineeInfoReportDto>> GenerateTraineeInfoReportByTraineeIdAsync(string traineeId);
+        Task<List<ReportModel>> GetSavedReportsAsync();
 
     }
 }

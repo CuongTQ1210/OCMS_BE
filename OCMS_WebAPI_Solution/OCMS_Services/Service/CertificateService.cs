@@ -284,6 +284,7 @@ namespace OCMS_Services.Service
                 {
                     throw new InvalidOperationException($"Trainee already has an active certificate for this course");
                 }
+                
 
                 // Get course data
                 var course = await _courseRepository.GetCourseWithDetailsAsync(courseId);

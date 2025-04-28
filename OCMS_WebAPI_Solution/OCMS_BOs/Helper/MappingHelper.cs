@@ -93,13 +93,13 @@ namespace OCMS_BOs.Helper
 
             CreateMap<Request, ViewModel.RequestModel>()
                 .ForMember(dest => dest.RequestById, opt => opt.MapFrom(src => src.RequestUserId))
-                .ForMember(dest => dest.ActionByUserId, opt => opt.MapFrom(src => src.ApprovedBy))
+                .ForMember(dest => dest.ActionByUserId, opt => opt.MapFrom(src => src.ApproveByUserId))
                 .ForMember(dest => dest.RequestType, opt => opt.MapFrom(src => src.RequestType.ToString())) // Convert Enum to String
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString())) // Convert Enum to String
             .ForMember(dest => dest.ActionDate, opt => opt.MapFrom(src => src.ApprovedDate));
             CreateMap<ViewModel.RequestModel, Request>()
                 .ForMember(dest => dest.RequestUserId, opt => opt.MapFrom(src => src.RequestById))
-                .ForMember(dest => dest.ApprovedBy, opt => opt.MapFrom(src => src.ActionByUserId))
+                .ForMember(dest => dest.ApproveByUserId, opt => opt.MapFrom(src => src.ActionByUserId))
                 .ForMember(dest => dest.RequestType, opt => opt.MapFrom(src => Enum.Parse<RequestType>(src.RequestType))) // Convert String to Enum
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => Enum.Parse<RequestStatus>(src.Status))) // Convert String to Enum
                          .ForMember(dest => dest.ApprovedDate, opt => opt.MapFrom(src => src.ActionDate));                
@@ -217,6 +217,7 @@ namespace OCMS_BOs.Helper
             // Mapping from TrainingSchedule to TrainingScheduleModel
             CreateMap<TrainingSchedule, TrainingScheduleModel>()
     .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.Subject.SubjectName))
+    .ForMember(dest => dest.InstructorName, opt => opt.MapFrom(src => src.Instructor != null ? src.Instructor.FullName : null)) // Adjust based on actual property name
     .ForMember(dest => dest.StartDateTime, opt => opt.MapFrom(src => src.StartDateTime))
     .ForMember(dest => dest.EndDateTime, opt => opt.MapFrom(src => src.EndDateTime))
     .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
@@ -226,7 +227,7 @@ namespace OCMS_BOs.Helper
             : ""))
     .ForMember(dest => dest.SubjectPeriod, opt => opt.MapFrom(src => src.SubjectPeriod))
     .ReverseMap()
-    .ForMember(dest => dest.DaysOfWeek, opt => opt.Ignore()); // still ignoring reverse mapping for DaysOfWeek
+    .ForMember(dest => dest.DaysOfWeek, opt => opt.Ignore()); // Still ignoring reverse mapping for DaysOfWeek
 
             // Mapping from TrainingScheduleDTO to TrainingSchedule
             CreateMap<TrainingScheduleDTO, TrainingSchedule>()
