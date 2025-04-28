@@ -36,6 +36,7 @@ namespace OCMS_Repositories.Repository
                 .Include(ta => ta.Course)
                     .ThenInclude(c => c.Subjects)
                         .ThenInclude(s => s.Schedules)
+                            .ThenInclude(s => s.Instructor) 
                 .ToListAsync();
         }
         public async Task<List<TrainingSchedule>> GetSchedulesBySubjectIdAsync(string subjectId)
