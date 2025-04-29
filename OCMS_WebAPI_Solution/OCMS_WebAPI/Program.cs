@@ -111,6 +111,7 @@ builder.Services.AddScoped<IDecisionTemplateService, DecisionTemplateService>();
 builder.Services.AddScoped<IDecisionService, DecisionService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IProgressTrackingService, ProgressTrackingService>();
+builder.Services.AddScoped<ICertificateMonitoringService, CertificateMonitoringService>();
 
 // Register Lazy<T> factories
 builder.Services.AddScoped(provider => new Lazy<ITrainingScheduleService>(() => provider.GetRequiredService<ITrainingScheduleService>()));
