@@ -149,10 +149,7 @@ namespace OCMS_Services.Service
                             await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(course.CourseId, gradedByUserId);
                             // 2. Create Decision
                             var decisionRequest = new CreateDecisionDTO { CourseId = course.CourseId };
-                            await _decisionService.CreateDecisionForCourseAsync(decisionRequest, gradedByUserId);
-
-                           
-                           
+                            await _decisionService.CreateDecisionForCourseAsync(decisionRequest, gradedByUserId);                                                      
                         }
                     }
                     else if (course.CourseLevel == CourseLevel.Recurrent)
@@ -492,8 +489,11 @@ namespace OCMS_Services.Service
                                     var traineeAssign = await _unitOfWork.TraineeAssignRepository.GetByIdAsync(grade.TraineeAssignID);
                                     if (traineeAssign != null && !traineeWithCerts.Contains(traineeAssign.TraineeId))
                                     {
-                                        await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(courseId, importedByUserId);
-                                        // Create decision
+                                        await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(courseId, importedByUserId);                                                                               
+                                    }
+                                    var newCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.CourseId == courseId && c.Status == CertificateStatus.Pending);
+                                    if (newCertificates.Any() && !traineeWithCerts.Contains(newCertificates.First().UserId))
+                                    {
                                         var decisionRequest = new CreateDecisionDTO { CourseId = courseId };
                                         await _decisionService.CreateDecisionForCourseAsync(decisionRequest, importedByUserId);
                                     }
