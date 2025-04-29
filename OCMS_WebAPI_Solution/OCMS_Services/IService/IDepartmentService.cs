@@ -19,6 +19,7 @@ namespace OCMS_Services.IService
         Task<bool> RemoveUserFromDepartmentAsync(string userId);
         Task<bool> ActivateDepartmentAsync(string departmentId);
         Task<bool> AssignUserToDepartmentAsync(string userId, string departmentId);
+        Task<IEnumerable<UserModel>> GetTraineesInManagerDepartmentAsync(string managerUserId);
     }
 
 }
