@@ -468,6 +468,12 @@ namespace OCMS_Services.Service
                         {
                             assignment.RequestStatus = RequestStatus.Approved;
                             await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
+                            await _notificationService.SendNotificationAsync(
+                                assignment.InstructorId,
+                                "Subject schedule assignment",
+                                $"You has been assigned to this subject {assignment.SubjectId}.",
+                                $"Schedule notification."
+                            );
                         }
                         
                         if (!string.IsNullOrEmpty(request.RequestUserId))

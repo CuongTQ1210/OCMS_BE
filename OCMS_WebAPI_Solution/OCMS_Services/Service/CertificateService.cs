@@ -496,8 +496,14 @@ namespace OCMS_Services.Service
             certificate.Status = CertificateStatus.Revoked;
 
             await _unitOfWork.CertificateRepository.UpdateAsync(certificate);
+            await _notificationService.SendNotificationAsync(
+                                certificate.UserId,
+                                "Revoke trainee certificate",
+                                $"Your certificate for this course {certificate.CourseId} has been revoked due to this reason {dto.RevokeReason}",
+                                $"Revoke certificate."
+                            );
             await _unitOfWork.SaveChangesAsync();
-
+            
             return (true, "Certificate revoked successfully");
         }
         #endregion
