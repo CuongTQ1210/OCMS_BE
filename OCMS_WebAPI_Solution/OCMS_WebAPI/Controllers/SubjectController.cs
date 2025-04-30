@@ -87,13 +87,14 @@ namespace OCMS_WebAPI.Controllers
         #endregion
 
         #region Update Subject
-        [HttpPut("{id}")]
+        [HttpPut]
         [CustomAuthorize("Admin", "Training staff")]
-        public async Task<IActionResult> UpdateSubject(string id, [FromBody] SubjectDTO dto)
+        public async Task<IActionResult> UpdateSubject([FromBody] SubjectDTO dto)
         {
             
             try
             {
+                var id = dto.SubjectId;
                 var subject = await _subjectService.UpdateSubjectAsync(id, dto);
                 return Ok(new { message = "Subject updated successfully.",  subject });
             }

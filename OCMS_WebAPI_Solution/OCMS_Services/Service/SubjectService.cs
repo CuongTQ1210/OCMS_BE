@@ -145,9 +145,7 @@ namespace OCMS_Services.Service
             {
                 throw new Exception("Course already approved so you can't update subject. Please send request to update");
             }
-            var subjectExisted = await _unitOfWork.SubjectRepository.ExistsAsync(c => c.SubjectName == dto.SubjectName);
-            if (subjectExisted)
-                throw new ArgumentException("This Subject name already existed.");
+            
             
             _mapper.Map(dto, subject);
             subject.UpdatedAt = DateTime.Now;

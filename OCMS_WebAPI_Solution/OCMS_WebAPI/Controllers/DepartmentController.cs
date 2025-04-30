@@ -3,6 +3,7 @@ using OCMS_BOs.RequestModel;
 using OCMS_Services.IService;
 using OCMS_Services.Service;
 using OCMS_WebAPI.AuthorizeSettings;
+using System.Security.Claims;
 
 namespace OCMS_WebAPI.Controllers
 {
@@ -17,7 +18,7 @@ namespace OCMS_WebAPI.Controllers
             _departmentService = departmentService;
         }
 
-        #region Get All Departments
+        #region Get all Departments
         [HttpGet]
         [CustomAuthorize]
         public async Task<IActionResult> GetAllDepartments()
@@ -34,7 +35,7 @@ namespace OCMS_WebAPI.Controllers
         }
         #endregion
 
-        #region Get Active Departments
+        #region Get Department by ID
         // GET: api/department/{id}
         [HttpGet("{id}")]
         [CustomAuthorize]
@@ -168,7 +169,7 @@ namespace OCMS_WebAPI.Controllers
         }
         #endregion
 
-        #region Activate Department
+        #region Active Department
         // PUT: api/department/activate/{id}
         [HttpPut("activate/{id}")]
         [CustomAuthorize("Admin")]
@@ -182,6 +183,29 @@ namespace OCMS_WebAPI.Controllers
                     return BadRequest(new { message = "Department is already active." });
 
                 return Ok(new { message = "Department activated successfully." });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        #endregion
+
+        #region Get Trainees in Manager's Department
+        // GET: api/department/trainees/{managerUserId}
+        [HttpGet("trainees")]
+        [CustomAuthorize("Admin", "HR", "AOC Manager")]
+        public async Task<IActionResult> GetTraineesInManagerDepartment()
+        {
+            try
+            {
+                var managerUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var trainees = await _departmentService.GetTraineesInManagerDepartmentAsync(managerUserId);
+                return Ok(trainees);
             }
             catch (KeyNotFoundException ex)
             {

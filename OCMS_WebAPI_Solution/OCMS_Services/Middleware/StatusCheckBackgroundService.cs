@@ -52,8 +52,13 @@ namespace OCMS_Services.Middleware
                     // Tạo scope để sử dụng các service có lifetime là scoped
                     using (var scope = _serviceProvider.CreateScope())
                     {
+                        // Check progress tracking statuses (existing functionality)
                         var progressService = scope.ServiceProvider.GetRequiredService<IProgressTrackingService>();
                         await progressService.CheckAndUpdateAllStatuses();
+                        
+                        // NEW: Check certificate expirations and send notifications
+                        var certificateMonitoringService = scope.ServiceProvider.GetRequiredService<ICertificateMonitoringService>();
+                        await certificateMonitoringService.CheckAndNotifyExpiringCertificatesAsync();
                     }
 
                     _logger.LogInformation("Scheduled status check completed");
