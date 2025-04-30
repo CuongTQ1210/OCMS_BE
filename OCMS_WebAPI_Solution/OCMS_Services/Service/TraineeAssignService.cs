@@ -194,7 +194,10 @@ namespace OCMS_Services.Service
             {
                 throw new Exception($"Course with ID {dto.CourseId} not found.");
             }
-
+            if (course.Status != CourseStatus.Approved)
+            {
+                throw new Exception("Course hasn't been approved yet!");
+            }
             var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(course.TrainingPlanId);
             if (trainingPlan == null)
             {
@@ -316,7 +319,11 @@ namespace OCMS_Services.Service
                         result.Errors.Add($"Invalid or missing CourseId '{courseId}' in cell B1.");
                         return result;
                     }
-
+                    var validCourse= await _unitOfWork.CourseRepository.GetByIdAsync(courseId);
+                    if (validCourse.Status != CourseStatus.Approved)
+                    {
+                        throw new Exception("Course hasn't been approved yet!");
+                    }
                     var course = courseDict[courseId];
                     var trainingPlan = trainingPlanDict[course.TrainingPlanId];
                     string trainingPlanSpecialtyId = trainingPlan.SpecialtyId;
