@@ -177,7 +177,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get Certificate Renewal History
         [HttpGet("renewal-history/{certificateId}")]
-        [Authorize(Roles = "Admin,HeadMaster,Training staff")]
+        [CustomAuthorize("Admin", "Training staff", "HeadMaster", "Trainee", "AOC Manager")]
         public async Task<IActionResult> GetCertificateRenewalHistory(string certificateId)
         {
             try
@@ -199,7 +199,7 @@ namespace OCMS_WebAPI.Controllers
         /// <param name="userId">ID của người dùng</param>
         /// <returns>Danh sách lịch sử gia hạn chứng chỉ của người dùng</returns>
         [HttpGet("user-renewal-history/{userId}")]
-        [Authorize(Roles = "Admin,HeadMaster,Training staff")]
+        [CustomAuthorize("Admin", "Training staff", "HeadMaster", "AOC Manager")]
         public async Task<IActionResult> GetUserCertificateRenewalHistory(string userId)
         {
             try
@@ -220,7 +220,7 @@ namespace OCMS_WebAPI.Controllers
         /// </summary>
         /// <returns>Danh sách lịch sử gia hạn chứng chỉ của người dùng hiện tại</returns>
         [HttpGet("my-renewal-history")]
-        [Authorize]
+        [CustomAuthorize("Trainee")]
         public async Task<IActionResult> GetCurrentUserCertificateRenewalHistory()
         {
             try
