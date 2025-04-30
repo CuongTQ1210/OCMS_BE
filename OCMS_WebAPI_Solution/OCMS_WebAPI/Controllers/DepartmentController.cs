@@ -198,7 +198,7 @@ namespace OCMS_WebAPI.Controllers
         #region Get Trainees in Manager's Department
         // GET: api/department/trainees/{managerUserId}
         [HttpGet("trainees")]
-        [CustomAuthorize("Admin", "HR", "AOC Manager")]
+        [CustomAuthorize("Admin", "AOC Manager")]
         public async Task<IActionResult> GetTraineesInManagerDepartment()
         {
             try
