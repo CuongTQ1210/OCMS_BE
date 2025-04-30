@@ -284,7 +284,7 @@ namespace OCMS_Services.Service
                 {
                     throw new InvalidOperationException($"Trainee already has an active certificate for this course");
                 }
-                
+
 
                 // Get course data
                 var course = await _courseRepository.GetCourseWithDetailsAsync(courseId);
@@ -522,6 +522,276 @@ namespace OCMS_Services.Service
             await Task.WhenAll(updateTasks);
 
             return revokedCertificates;
+        }
+        #endregion
+
+        #region Get Certificate Renewal History
+        /// <summary>
+        /// Lấy lịch sử gia hạn của một chứng chỉ dựa trên ID chứng chỉ
+        /// </summary>
+        /// <param name="certificateId">ID của chứng chỉ cần xem lịch sử</param>
+        /// <returns>Thông tin lịch sử gia hạn của chứng chỉ</returns>
+        public async Task<CertificateRenewalHistoryModel> GetCertificateRenewalHistoryAsync(string certificateId)
+        {
+            if (string.IsNullOrEmpty(certificateId))
+                throw new ArgumentException("Certificate ID is required");
+
+            try
+            {
+                // 1. Lấy chứng chỉ hiện tại
+                var currentCertificate = await _unitOfWork.CertificateRepository.GetByIdAsync(certificateId);
+                if (currentCertificate == null)
+                {
+                    throw new KeyNotFoundException($"Certificate with ID {certificateId} not found");
+                }
+
+                // Kiểm tra trạng thái chứng chỉ
+                if (currentCertificate.Status != CertificateStatus.Active &&
+                    currentCertificate.Status != CertificateStatus.Pending)
+                {
+                    _logger.LogWarning($"Certificate with ID {certificateId} is not active or pending (Status: {currentCertificate.Status})");
+                }
+
+                // 2. Lấy thông tin khóa học
+                var course = await _unitOfWork.CourseRepository.GetByIdAsync(currentCertificate.CourseId);
+                if (course == null)
+                {
+                    throw new KeyNotFoundException($"Course with ID {currentCertificate.CourseId} not found");
+                }
+
+                // 3. Xác định khóa học gốc và các khóa học tái cấp chứng chỉ liên quan
+                var isRecurrentCourse = course.CourseLevel == CourseLevel.Recurrent;
+
+                // Khóa học ban đầu là khóa học hiện tại nếu là khóa Initial,
+                // hoặc là khóa học được liên kết nếu là khóa Recurrent
+                var originalCourseId = isRecurrentCourse ? course.RelatedCourseId : course.CourseId;
+
+                if (isRecurrentCourse && string.IsNullOrEmpty(originalCourseId))
+                {
+                    _logger.LogWarning($"Recurrent course {course.CourseId} has no related initial course specified");
+                }
+
+                // Lấy danh sách tất cả các chứng chỉ liên quan 
+                // (chứng chỉ ban đầu và các chứng chỉ tái cấp)
+                var relatedCertificates = new List<Certificate>();
+
+                // Thêm chứng chỉ từ khóa học hiện tại - loại bỏ chứng chỉ đã thu hồi
+                var currentCourseCerts = await _unitOfWork.CertificateRepository.GetAllAsync(c =>
+                    c.UserId == currentCertificate.UserId &&
+                    c.CourseId == currentCertificate.CourseId &&
+                    c.Status != CertificateStatus.Revoked);
+                relatedCertificates.AddRange(currentCourseCerts);
+
+                // Nếu là khóa tái cấp, thêm chứng chỉ từ khóa ban đầu
+                if (isRecurrentCourse && !string.IsNullOrEmpty(originalCourseId))
+                {
+                    var initialCourseCerts = await _unitOfWork.CertificateRepository.GetAllAsync(c =>
+                        c.UserId == currentCertificate.UserId &&
+                        c.CourseId == originalCourseId &&
+                        c.Status != CertificateStatus.Revoked);
+                    relatedCertificates.AddRange(initialCourseCerts);
+                }
+                // Nếu là khóa ban đầu, tìm các chứng chỉ từ khóa tái cấp
+                else if (!isRecurrentCourse)
+                {
+                    // Lấy các khóa học tái cấp liên quan đến khóa học hiện tại
+                    var recurrentCourses = await _unitOfWork.CourseRepository.GetAllAsync(c =>
+                        c.RelatedCourseId == course.CourseId && c.CourseLevel == CourseLevel.Recurrent);
+
+                    foreach (var recurrentCourse in recurrentCourses)
+                    {
+                        var recurrentCerts = await _unitOfWork.CertificateRepository.GetAllAsync(c =>
+                            c.UserId == currentCertificate.UserId &&
+                            c.CourseId == recurrentCourse.CourseId &&
+                            c.Status != CertificateStatus.Revoked);
+                        relatedCertificates.AddRange(recurrentCerts);
+                    }
+                }
+
+                // Loại bỏ các phiên bản trùng lặp
+                relatedCertificates = relatedCertificates.Distinct().ToList();
+
+                // 4. Sắp xếp theo thời gian để tìm chứng chỉ gốc và các lần gia hạn
+                var orderedCertificates = relatedCertificates
+                    .OrderBy(c => c.IssueDate)
+                    .ToList();
+
+                if (!orderedCertificates.Any())
+                {
+                    _logger.LogWarning($"No certificates found for user {currentCertificate.UserId} related to course {course.CourseId}");
+
+                    // Fallback: Sử dụng chứng chỉ hiện tại làm đối tượng duy nhất
+                    if (currentCertificate.Status != CertificateStatus.Revoked)
+                    {
+                        orderedCertificates.Add(currentCertificate);
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"Current certificate with ID {certificateId} is revoked");
+                        // Nếu chứng chỉ hiện tại đã bị thu hồi, trả về lịch sử trống
+                        return new CertificateRenewalHistoryModel
+                        {
+                            CertificateId = currentCertificate.CertificateId,
+                            CertificateCode = currentCertificate.CertificateCode,
+                            CourseId = course.CourseId,
+                            CourseName = course.CourseName,
+                            RenewalHistory = new List<RenewalEventModel>()
+                        };
+                    }
+                }
+
+                // Chứng chỉ gốc là chứng chỉ đầu tiên theo thời gian
+                var originalCertificate = orderedCertificates.First();
+
+                // 5. Lấy thông tin người cấp chứng chỉ
+                var allUserIds = orderedCertificates
+                    .Select(c => c.IssueByUserId)
+                    .Where(id => !string.IsNullOrEmpty(id))
+                    .Distinct()
+                    .ToList();
+
+                var users = await _userRepository.GetUsersByIdsAsync(allUserIds);
+                var userDict = users.ToDictionary(u => u.UserId);
+
+                // 6. Tạo đối tượng lịch sử gia hạn
+                var renewalHistory = new CertificateRenewalHistoryModel
+                {
+                    CertificateId = currentCertificate.CertificateId,
+                    CertificateCode = currentCertificate.CertificateCode,
+                    OriginalIssueDate = originalCertificate.IssueDate,
+                    CurrentIssueDate = currentCertificate.IssueDate,
+                    CurrentExpirationDate = currentCertificate.ExpirationDate,
+                    CourseId = course.CourseId,
+                    CourseName = course.CourseName,
+                    IssuedByUserId = originalCertificate.IssueByUserId,
+                    IssuedByUserName = userDict.TryGetValue(originalCertificate.IssueByUserId, out var originalUser)
+                        ? originalUser.FullName
+                        : "Unknown User"
+                };
+
+                // 7. Xây dựng lịch sử gia hạn
+                // Chỉ xem xét certificate sau certificate gốc (từ index 1 trở đi)
+                // và đảm bảo rằng đây thực sự là renewal (dựa vào thời gian hết hạn)
+                for (int i = 1; i < orderedCertificates.Count; i++)
+                {
+                    var currentCert = orderedCertificates[i];
+                    var previousCert = orderedCertificates[i - 1];
+
+                    // Xác định một chứng chỉ là gia hạn khi:
+                    // 1. Nếu là chứng chỉ mới cho khóa học tái cấp liên quan đến khóa học gốc
+                    // 2. Thời gian cấp mới phải muộn hơn thời gian cấp trước đó đáng kể
+                    //    (ít nhất 3 tháng, tránh trường hợp sớm hơn khi chỉ là cấp lại)
+                    bool isRenewal = false;
+
+                    // Trường hợp khóa học tái cấp liên quan đến khóa học ban đầu
+                    if (currentCert.CourseId != previousCert.CourseId)
+                    {
+                        // Kiểm tra xem currentCert có phải là chứng chỉ từ khóa tái cấp không
+                        var currentCertCourse = await _unitOfWork.CourseRepository.GetByIdAsync(currentCert.CourseId);
+                        if (currentCertCourse != null && currentCertCourse.CourseLevel == CourseLevel.Recurrent)
+                        {
+                            isRenewal = true;
+                        }
+                    }
+                    // Trường hợp cấp lại chứng chỉ trong cùng một khóa học (thường là gia hạn)
+                    else
+                    {
+                        // Kiểm tra nếu thời gian cấp mới gần với thời gian hết hạn của chứng chỉ cũ
+                        // hoặc sau thời gian hết hạn cũ, thì đây là gia hạn
+                        var previousExpiryDate = previousCert.ExpirationDate ?? previousCert.IssueDate.AddYears(2);
+                        var timeDiff = currentCert.IssueDate - previousCert.IssueDate;
+
+                        // Nếu đã qua ít nhất 1 năm kể từ lúc cấp ban đầu, hoặc gần đến thời gian hết hạn (trong vòng 6 tháng)
+                        isRenewal = timeDiff.TotalDays > 365 ||
+                                   (previousExpiryDate - currentCert.IssueDate).TotalDays <= 180;
+                    }
+
+                    // Nếu là gia hạn, thêm vào lịch sử
+                    if (isRenewal)
+                    {
+                        var previousExpiryDate = previousCert.ExpirationDate ?? previousCert.IssueDate.AddYears(2);
+                        var newExpiryDate = currentCert.ExpirationDate ?? currentCert.IssueDate.AddYears(2);
+
+                        var renewalEvent = new RenewalEventModel
+                        {
+                            RenewalDate = currentCert.IssueDate,
+                            PreviousExpirationDate = previousExpiryDate,
+                            NewExpirationDate = newExpiryDate,
+                            RenewedByUserId = currentCert.IssueByUserId,
+                            RenewedByUserName = userDict.TryGetValue(currentCert.IssueByUserId, out var user)
+                                ? user.FullName
+                                : "Unknown User"
+                        };
+
+                        renewalHistory.RenewalHistory.Add(renewalEvent);
+                    }
+                }
+
+                // Sắp xếp lịch sử gia hạn theo thời gian, mới nhất lên đầu
+                renewalHistory.RenewalHistory = renewalHistory.RenewalHistory
+                    .OrderByDescending(r => r.RenewalDate)
+                    .ToList();
+
+                return renewalHistory;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting renewal history for certificate {certificateId}");
+                throw new Exception("Failed to retrieve certificate renewal history", ex);
+            }
+        }
+        #endregion
+
+        #region Get User Certificate Renewal History
+        /// <summary>
+        /// Lấy lịch sử gia hạn của tất cả chứng chỉ của một người dùng
+        /// </summary>
+        /// <param name="userId">ID của người dùng</param>
+        /// <returns>Danh sách lịch sử gia hạn chứng chỉ của người dùng</returns>
+        public async Task<List<CertificateRenewalHistoryModel>> GetUserCertificateRenewalHistoryAsync(string userId)
+        {
+            if (string.IsNullOrEmpty(userId))
+                throw new ArgumentException("User ID is required");
+
+            try
+            {
+                // Lấy tất cả các chứng chỉ của người dùng - loại bỏ chứng chỉ đã thu hồi
+                var certificates = await _unitOfWork.CertificateRepository.GetAllAsync(
+                    c => c.UserId == userId && c.Status != CertificateStatus.Revoked);
+
+                if (!certificates.Any())
+                {
+                    return new List<CertificateRenewalHistoryModel>();
+                }
+
+                var result = new List<CertificateRenewalHistoryModel>();
+                var uniqueCertificateCodes = certificates
+                    .Select(c => c.CertificateCode)
+                    .Distinct()
+                    .ToList();
+
+                // Chỉ lấy các chứng chỉ mới nhất (theo từng mã chứng chỉ)
+                foreach (var code in uniqueCertificateCodes)
+                {
+                    var latestCertificate = certificates
+                        .Where(c => c.CertificateCode == code)
+                        .OrderByDescending(c => c.IssueDate)
+                        .FirstOrDefault();
+
+                    if (latestCertificate != null)
+                    {
+                        var renewalHistory = await GetCertificateRenewalHistoryAsync(latestCertificate.CertificateId);
+                        result.Add(renewalHistory);
+                    }
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting renewal history for user {userId}");
+                throw new Exception("Failed to retrieve user certificate renewal history", ex);
+            }
         }
         #endregion
 

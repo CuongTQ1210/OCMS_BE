@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using OCMS_BOs.Entities;
 using OCMS_BOs.RequestModel;
 using OCMS_Services.IService;
 using OCMS_WebAPI.AuthorizeSettings;
@@ -166,6 +167,67 @@ namespace OCMS_WebAPI.Controllers
             {
                 var certificates = await _certificateService.GetRevokedCertificatesWithSasUrlAsync();
                 return Ok(certificates);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        #endregion
+
+        #region Get Certificate Renewal History
+        [HttpGet("renewal-history/{certificateId}")]
+        [Authorize(Roles = "Admin,HeadMaster,Training staff")]
+        public async Task<IActionResult> GetCertificateRenewalHistory(string certificateId)
+        {
+            try
+            {
+                var result = await _certificateService.GetCertificateRenewalHistoryAsync(certificateId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        #endregion
+
+        #region Get User Certificate Renewal History
+        /// <summary>
+        /// Lấy lịch sử gia hạn tất cả chứng chỉ của một người dùng
+        /// </summary>
+        /// <param name="userId">ID của người dùng</param>
+        /// <returns>Danh sách lịch sử gia hạn chứng chỉ của người dùng</returns>
+        [HttpGet("user-renewal-history/{userId}")]
+        [Authorize(Roles = "Admin,HeadMaster,Training staff")]
+        public async Task<IActionResult> GetUserCertificateRenewalHistory(string userId)
+        {
+            try
+            {
+                var result = await _certificateService.GetUserCertificateRenewalHistoryAsync(userId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        #endregion
+
+        #region Get Current User's Certificate Renewal History
+        /// <summary>
+        /// Lấy lịch sử gia hạn chứng chỉ của người dùng hiện tại
+        /// </summary>
+        /// <returns>Danh sách lịch sử gia hạn chứng chỉ của người dùng hiện tại</returns>
+        [HttpGet("my-renewal-history")]
+        [Authorize]
+        public async Task<IActionResult> GetCurrentUserCertificateRenewalHistory()
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var result = await _certificateService.GetUserCertificateRenewalHistoryAsync(userId);
+                return Ok(result);
             }
             catch (Exception ex)
             {
