@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using OCMS_BOs.Entities;
 using OCMS_Repositories;
 using OCMS_Services.IService;
@@ -17,6 +18,7 @@ namespace OCMS_Services.Service
         private readonly ILogger<CertificateMonitoringService> _logger;
         private readonly int _monthsPriorToExpiration = 6; // Default notification period
         private readonly int _maxConcurrentTasks = 10; // Giới hạn số lượng tác vụ đồng thời
+        private readonly int _notificationFrequencyDays = 30; // Default frequency for notifications
 
         public CertificateMonitoringService(
             UnitOfWork unitOfWork,
@@ -38,7 +40,6 @@ namespace OCMS_Services.Service
             {
                 _logger.LogInformation($"Starting certificate expiration check");
 
-                // Calculate the expiration threshold date (today + notification period)
                 var today = DateTime.Now;
                 var expirationThreshold = today.AddMonths(_monthsPriorToExpiration);
 
@@ -57,12 +58,22 @@ namespace OCMS_Services.Service
 
                 _logger.LogInformation($"Found {expiringCertificates.Count()} certificates expiring within the next {_monthsPriorToExpiration} months");
 
+                // Lọc danh sách chứng chỉ cần gửi thông báo (chưa gửi hoặc đã quá thời gian cho phép)
+                var certificatesToNotify = await FilterCertificatesForNotificationAsync(expiringCertificates);
+
+                if (!certificatesToNotify.Any())
+                {
+                    _logger.LogInformation("All expiring certificates have been recently notified. No new notifications needed.");
+                    return;
+                }
+
+                _logger.LogInformation($"Sending notifications for {certificatesToNotify.Count()} certificates after filtering already notified ones");
+
                 // Group certificates by user to handle multiple expiring certificates
-                var certificatesByUser = expiringCertificates
+                var certificatesByUser = certificatesToNotify
                     .GroupBy(c => c.UserId)
                     .ToDictionary(g => g.Key, g => g.ToList());
 
-                // Xử lý song song các thông báo với giới hạn số lượng tác vụ đồng thời
                 await ProcessNotificationsInParallelAsync(certificatesByUser);
 
                 _logger.LogInformation($"Certificate expiration check completed. Notifications sent to {certificatesByUser.Count} users and their managers");
@@ -72,6 +83,65 @@ namespace OCMS_Services.Service
                 _logger.LogError(ex, "Error checking for expiring certificates");
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Lọc danh sách chứng chỉ để chỉ gửi thông báo cho những chứng chỉ chưa được thông báo gần đây
+        /// </summary>
+        private async Task<IEnumerable<Certificate>> FilterCertificatesForNotificationAsync(IEnumerable<Certificate> certificates)
+        {
+            var result = new List<Certificate>();
+            var cutoffDate = DateTime.Now.AddDays(-_notificationFrequencyDays);
+
+            foreach (var certificate in certificates)
+            {
+                // Tìm thông báo gần nhất cho chứng chỉ này
+                var recentNotification = await _unitOfWork.NotificationRepository.GetQueryable()
+                    .Where(n => n.UserId == certificate.UserId &&
+                    n.NotificationType == "CertificateExpiration" &&
+                    n.Title.Contains(certificate.CertificateCode) &&
+                    n.CreatedAt > cutoffDate)
+                    .OrderByDescending(n => n.CreatedAt)
+                    .FirstOrDefaultAsync();
+
+                // Nếu không tìm thấy thông báo gần đây hoặc thông báo đã cũ, thêm vào danh sách cần gửi
+                if (recentNotification == null)
+                {
+                    result.Add(certificate);
+                }
+                else
+                {
+                    // Tính số ngày còn lại đến ngày hết hạn
+                    int daysRemaining = (certificate.ExpirationDate.Value - DateTime.Now).Days;
+
+                    // Điều chỉnh tần suất thông báo dựa trên thời gian còn lại
+                    int requiredDaysSinceLastNotification = GetRequiredDaysSinceLastNotification(daysRemaining);
+
+                    // Nếu đã đủ thời gian để gửi thông báo tiếp theo
+                    if ((DateTime.Now - recentNotification.CreatedAt).TotalDays >= requiredDaysSinceLastNotification)
+                    {
+                        result.Add(certificate);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Xác định số ngày cần đợi trước khi gửi thông báo tiếp theo dựa trên số ngày còn lại
+        /// </summary>
+        private int GetRequiredDaysSinceLastNotification(int daysRemaining)
+        {
+            // Điều chỉnh tần suất gửi thông báo dựa trên thời gian còn lại đến ngày hết hạn
+            if (daysRemaining <= 14) // Nếu còn dưới 2 tuần
+                return 3; // Gửi thông báo mỗi 3 ngày
+            else if (daysRemaining <= 30) // Nếu còn dưới 1 tháng
+                return 7; // Gửi thông báo mỗi 1 tuần
+            else if (daysRemaining <= 90) // Nếu còn dưới 3 tháng
+                return 14; // Gửi thông báo mỗi 2 tuần
+            else
+                return 30; // Mặc định gửi thông báo mỗi 1 tháng
         }
 
         /// <summary>
@@ -349,13 +419,31 @@ namespace OCMS_Services.Service
 
                 if (certificate.ExpirationDate.Value <= expirationThreshold && certificate.ExpirationDate.Value > today)
                 {
-                    // Xử lý song song với Task.WhenAll
-                    await Task.WhenAll(
-                        NotifyUserOfExpiringCertificatesAsync(certificate.UserId, new List<Certificate> { certificate }),
-                        NotifyManagerOfExpiringCertificatesAsync(certificate.UserId, new List<Certificate> { certificate })
-                    );
+                    // Kiểm tra xem có nên gửi thông báo hay không
+                    var cutoffDate = DateTime.Now.AddDays(-GetRequiredDaysSinceLastNotification((certificate.ExpirationDate.Value - today).Days));
 
-                    _logger.LogInformation($"Notification sent for certificate {certificateId} to user and manager");
+                    var recentNotification = await _unitOfWork.NotificationRepository.GetQueryable()
+                        .Where(n => n.UserId == certificate.UserId &&
+                        n.NotificationType == "CertificateExpiration" &&
+                        n.Title.Contains(certificate.CertificateCode) &&
+                        n.CreatedAt > cutoffDate)
+                        .OrderByDescending(n => n.CreatedAt)
+                        .FirstOrDefaultAsync();
+
+                    if (recentNotification == null)
+                    {
+                        // Xử lý song song với Task.WhenAll
+                        await Task.WhenAll(
+                            NotifyUserOfExpiringCertificatesAsync(certificate.UserId, new List<Certificate> { certificate }),
+                            NotifyManagerOfExpiringCertificatesAsync(certificate.UserId, new List<Certificate> { certificate })
+                        );
+
+                        _logger.LogInformation($"Notification sent for certificate {certificateId} to user and manager");
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"Certificate {certificateId} was recently notified on {recentNotification.CreatedAt}. Skipping notification.");
+                    }
                 }
                 else
                 {
