@@ -141,7 +141,7 @@ namespace OCMS_Repositories
             _transaction = await _context.Database.BeginTransactionAsync();
             return _transaction;
         }
-
+        public DbContext Context => _context;
         public async Task CommitTransactionAsync()
         {
             try
