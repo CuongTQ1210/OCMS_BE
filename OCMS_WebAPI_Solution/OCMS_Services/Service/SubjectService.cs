@@ -53,6 +53,10 @@ namespace OCMS_Services.Service
             {
                 throw new ArgumentException($"Subject with ID '{subjectId}' is not part of Course '{subject.CourseId}'.");
             }
+
+            // Fetch TraineeAssign records for the course
+            var traineeAssigns = await _unitOfWork.TraineeAssignRepository
+                .GetAllAsync(ta => ta.CourseId == subject.CourseId);
             var traineeIds = course.Trainees.Select(t => t.TraineeId).ToList();
             var users = await _unitOfWork.UserRepository.GetAllAsync(u => traineeIds.Contains(u.UserId));
             // Return all trainees as TraineViewModel
@@ -60,9 +64,10 @@ namespace OCMS_Services.Service
                     .Select(t => new TraineViewModel
                                 {
                                     TraineeId = t.TraineeId,
-                                    Name = users.FirstOrDefault(u => u.UserId == t.TraineeId)?.FullName, // Adjust property name if needed
-                                    Email = users.FirstOrDefault(u => u.UserId == t.TraineeId)?.Email   // Adjust property name if needed
-                                })
+                                    Name = users.FirstOrDefault(u => u.UserId == t.TraineeId)?.FullName, 
+                                    Email = users.FirstOrDefault(u => u.UserId == t.TraineeId)?.Email,   
+                                    TraineeAssignId = traineeAssigns.FirstOrDefault(ta => ta.TraineeId == t.TraineeId && ta.CourseId == subject.CourseId)?.TraineeAssignId
+                    })
                     .ToList() ?? new List<TraineViewModel>();
         }
         #region Get all Subjects

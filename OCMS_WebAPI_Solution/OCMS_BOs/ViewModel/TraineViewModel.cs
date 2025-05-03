@@ -11,5 +11,6 @@ namespace OCMS_BOs.ViewModel
         public string TraineeId { get; set; }
         public string Name { get; set; }
         public string Email { get; set; }
+        public string TraineeAssignId { get; set; }
     }
 }
