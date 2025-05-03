@@ -53,7 +53,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get All Grades
         [HttpGet]
-        [CustomAuthorize("Admin", "Training staff", "Reviewer", "Instructor")]
+        [CustomAuthorize("Admin", "Training staff", "Reviewer")]
         public async Task<IActionResult> GetAllGrades()
         {
             try
@@ -87,12 +87,31 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get Grades By SubjectId
         [HttpGet("subject/{subjectId}")]
-        [CustomAuthorize("Admin", "Training staff", "Reviewer")]
+        [CustomAuthorize("Admin", "Training staff", "Reviewer", "Instructor")]
         public async Task<IActionResult> GetGradesBySubjectId(string subjectId)
         {
             try
             {
-                var grades = await _gradeService.GetGradesBySubjectIdAsync(subjectId);
+                var UserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var grades = await _gradeService.GetGradesBySubjectIdAsync(subjectId, UserId);
+                return Ok(grades);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        #endregion
+
+        #region Get Grades By Instructor
+        [HttpGet("instructor")]
+        [CustomAuthorize("Admin", "Training staff", "Reviewer", "Instructor")]
+        public async Task<IActionResult> GetGradeByInstructor()
+        {
+            try
+            {
+                var UserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var grades = await _gradeService.GetGradesByInstructorIdAsync(UserId);
                 return Ok(grades);
             }
             catch (Exception ex)
@@ -104,7 +123,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get Grades By UserId
         [HttpGet("user/{userId}")]
-        [CustomAuthorize("Admin", "Training staff", "Reviewer", "Trainee")]
+        [CustomAuthorize("Admin", "Reviewer", "Trainee")]
         public async Task<IActionResult> GetGradesByUserId(string userId)
         {
             try
