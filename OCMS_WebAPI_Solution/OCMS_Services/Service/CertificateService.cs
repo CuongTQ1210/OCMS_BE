@@ -109,7 +109,6 @@ namespace OCMS_Services.Service
                 var existingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.CourseId == courseId);
                 var allGrades = await _gradeRepository.GetGradesByCourseIdAsync(courseId);
 
-
                 // 4. Process data
                 var traineeWithCerts = new HashSet<string>(existingCertificates.Select(c => c.UserId));
                 var traineeIds = traineeAssignments.Select(ta => ta.TraineeId).Distinct().ToList();
@@ -185,6 +184,7 @@ namespace OCMS_Services.Service
                                     }
 
                                     await _unitOfWork.CertificateRepository.UpdateAsync(initialCert);
+
                                     return initialCert; // not new, but added to report
                                 }
                                 else
@@ -217,41 +217,52 @@ namespace OCMS_Services.Service
                     .Where(c => c != null)
                     .ToList();
 
-                certToCreate.AddRange(certificates);
-
-                // 9. Save to database with transaction
-                if (certToCreate.Any())
+                // Thêm các certificate mới vào danh sách cần tạo
+                foreach (var cert in certificates)
                 {
-                    _logger.LogInformation($"Saving {certToCreate.Count} new certificates to database");
-
-                    await _unitOfWork.ExecuteWithStrategyAsync(async () =>
+                    if (!certToUpdate.Contains(cert))
                     {
-                        await _unitOfWork.BeginTransactionAsync();
-                        try
-                        {
-                            await _unitOfWork.CertificateRepository.AddRangeAsync(certToCreate);
-                            await _unitOfWork.SaveChangesAsync();
-                            await _unitOfWork.CommitTransactionAsync();
-
-                            createdCertificates = _mapper.Map<List<CertificateModel>>(certToCreate);
-
-                            // 10. Notify HeadMasters efficiently
-                            await NotifyTrainingStaffsAsync(createdCertificates.Count, course.CourseName);
-
-                            _logger.LogInformation($"Successfully created {createdCertificates.Count} certificates for course {courseId}");
-                        }
-                        catch (Exception ex)
-                        {
-                            await _unitOfWork.RollbackTransactionAsync();
-                            _logger.LogError(ex, "Transaction failed during certificate creation");
-                            throw;
-                        }
-                    });
+                        certToCreate.Add(cert);
+                    }
                 }
 
+                // 9. Save to database with transaction - xử lý cả certToCreate và certToUpdate
+                await _unitOfWork.ExecuteWithStrategyAsync(async () =>
+                {
+                    await _unitOfWork.BeginTransactionAsync();
+                    try
+                    {
+                        if (certToCreate.Any())
+                        {
+                            _logger.LogInformation($"Saving {certToCreate.Count} new certificates to database");
+                            await _unitOfWork.CertificateRepository.AddRangeAsync(certToCreate);
+                        }
+
+                        // Lưu tất cả thay đổi (bao gồm cả certificate đã cập nhật thông qua UpdateAsync)
+                        await _unitOfWork.SaveChangesAsync();
+                        await _unitOfWork.CommitTransactionAsync();
+
+                        // Gộp cả certificate mới và certificate cập nhật để trả về kết quả
+                        var allProcessedCertificates = new List<Certificate>();
+                        allProcessedCertificates.AddRange(certToCreate);
+                        allProcessedCertificates.AddRange(certToUpdate);
+
+                        createdCertificates = _mapper.Map<List<CertificateModel>>(allProcessedCertificates);
+
+                        // 10. Notify HeadMasters efficiently
+                        await NotifyTrainingStaffsAsync(createdCertificates.Count, course.CourseName);
+
+                        _logger.LogInformation($"Successfully processed {createdCertificates.Count} certificates for course {courseId} ({certToCreate.Count} new, {certToUpdate.Count} renewed)");
+                    }
+                    catch (Exception ex)
+                    {
+                        await _unitOfWork.RollbackTransactionAsync();
+                        _logger.LogError(ex, "Transaction failed during certificate creation/renewal");
+                        throw;
+                    }
+                });
+
                 return createdCertificates;
-
-
             }
             catch (Exception ex)
             {
@@ -358,7 +369,7 @@ namespace OCMS_Services.Service
                             initialCert.IssueByUserId = issuedByUserId;
                             initialCert.IssueDate = issueDate;
                             initialCert.Status = CertificateStatus.Pending;
-
+                            initialCert.CourseId = course.CourseId;
                             await _unitOfWork.CertificateRepository.UpdateAsync(initialCert);
                             await _unitOfWork.SaveChangesAsync();
 

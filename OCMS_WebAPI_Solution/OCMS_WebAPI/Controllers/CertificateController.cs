@@ -61,7 +61,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get Active Certificates
         [HttpGet("active")]
-        [CustomAuthorize("Admin", "Training staff", "HeadMaster")]
+        [CustomAuthorize("Admin", "Training staff", "HeadMaster", "AOC Manager")]
         public async Task<IActionResult> GetActiveCertificates()
         {
             try
