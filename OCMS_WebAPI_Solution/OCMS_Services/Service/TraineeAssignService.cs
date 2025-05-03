@@ -194,7 +194,10 @@ namespace OCMS_Services.Service
             {
                 throw new Exception($"Course with ID {dto.CourseId} not found.");
             }
-
+            if (course.Status != CourseStatus.Approved)
+            {
+                throw new Exception("Course hasn't been approved yet!");
+            }
             var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(course.TrainingPlanId);
             if (trainingPlan == null)
             {
@@ -316,7 +319,11 @@ namespace OCMS_Services.Service
                         result.Errors.Add($"Invalid or missing CourseId '{courseId}' in cell B1.");
                         return result;
                     }
-
+                    var validCourse= await _unitOfWork.CourseRepository.GetByIdAsync(courseId);
+                    if (validCourse.Status != CourseStatus.Approved)
+                    {
+                        throw new Exception("Course hasn't been approved yet!");
+                    }
                     var course = courseDict[courseId];
                     var trainingPlan = trainingPlanDict[course.TrainingPlanId];
                     string trainingPlanSpecialtyId = trainingPlan.SpecialtyId;
@@ -382,8 +389,7 @@ namespace OCMS_Services.Service
 
                         // Read Notes from column B (2) - B3, B4, B5, ...
                         string notes = worksheet.Cells[row, 2].Text ?? "";
-                        // Log the Notes being read
-                        result.Errors.Add($"Debug: Row {row} - Notes (B{row}): '{notes}'");
+                        
 
                         lastIdNumber++;
                         string traineeAssignId = $"TA{lastIdNumber:D5}";

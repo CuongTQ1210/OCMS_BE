@@ -170,8 +170,8 @@ namespace OCMS_Services.Service
 
             // Step 2: Get the certificate info
             var certificate = await _unitOfWork.CertificateRepository.GetByIdAsync(certificateId);
-            if (certificate == null || string.IsNullOrWhiteSpace(certificate.CertificateURL))
-                throw new InvalidOperationException("Certificate not found or missing URL.");
+            if (certificate == null)
+                throw new InvalidOperationException("Certificate not found.");
             if (certificate.Status != OCMS_BOs.Entities.CertificateStatus.Pending)
                 throw new InvalidOperationException($"Certificate is not in Pending status. Current status: {certificate.Status}");
 
@@ -179,6 +179,48 @@ namespace OCMS_Services.Service
             var user = await _unitOfWork.UserRepository.GetByIdAsync(certificate.UserId);
             if (user == null || string.IsNullOrWhiteSpace(user.Email))
                 throw new InvalidOperationException("User not found or missing email.");
+
+            // Step 3.1: Check if the certificate is associated with a Recurrent course
+            bool isRecurrentCourse = false;
+            if (certificate.CourseId != null)
+            {
+                var course = await _unitOfWork.CourseRepository.GetByIdAsync(certificate.CourseId);
+                isRecurrentCourse = course != null && course.CourseLevel == CourseLevel.Recurrent;
+            }
+
+            // Special handling for Recurrent courses
+            if (isRecurrentCourse)
+            {
+                // For Recurrent courses, just update the status and other fields without generating/signing a PDF
+                await _unitOfWork.ExecuteWithStrategyAsync(async () =>
+                {
+                    await _unitOfWork.BeginTransactionAsync();
+                    try
+                    {
+                        certificate.Status = CertificateStatus.Active;
+                        certificate.SignDate = DateTime.Now;
+                        certificate.ApprovebyUserId = approvedByUserId;
+                        await _unitOfWork.CertificateRepository.UpdateAsync(certificate);
+                        await _unitOfWork.SaveChangesAsync();
+                        await _unitOfWork.CommitTransactionAsync();
+
+                        // Send notification email for the approved recurrent certificate
+                        await SendRecurrentCertificateApprovalEmailAsync(user.Email, certificate);
+                    }
+                    catch (Exception ex)
+                    {
+                        await _unitOfWork.RollbackTransactionAsync();
+                        throw new InvalidOperationException("Failed to update recurrent certificate status.", ex);
+                    }
+                });
+
+                // Return empty byte array since we didn't generate a PDF
+                return Array.Empty<byte>();
+            }
+
+            // Continue with the regular certificate signing process for non-Recurrent courses
+            if (string.IsNullOrWhiteSpace(certificate.CertificateURL))
+                throw new InvalidOperationException("Certificate missing URL.");
 
             // Step 4: Generate SAS URL for HTML file
             string sasUrl = await _blobService.GetBlobUrlWithSasTokenAsync(certificate.CertificateURL, TimeSpan.FromHours(1));
@@ -281,7 +323,7 @@ namespace OCMS_Services.Service
             // Step 12: Send user with new certificate URL
             await SendCertificateByEmailAsync(certificateId);
 
-            //// Step 13: Return signed PDF bytes
+            // Step 13: Return signed PDF bytes
             return signedPdfBytes;
         }
         #endregion
@@ -319,6 +361,40 @@ namespace OCMS_Services.Service
             {
                 throw new InvalidOperationException(
                     $"Failed to send certificate {certificateId} to {user.Email}: {ex.Message}", ex);
+            }
+        }
+
+        private async Task SendRecurrentCertificateApprovalEmailAsync(string userEmail, Certificate certificate)
+        {
+            if (_emailService == null)
+                throw new InvalidOperationException("Email service is not initialized.");
+
+            try
+            {
+                // Prepare email for recurrent certificate approval
+                string subject = "Your Certificate Approval - Recurrent Course";
+                string body = $@"Dear User,
+
+Your certificate for the recurrent course has been approved. 
+Certificate ID: {certificate.CertificateId}
+Approval Date: {certificate.SignDate:yyyy-MM-dd}
+Status: Active
+
+Best regards,
+OCMS Team";
+
+                await _emailService.SendEmailAsync(userEmail, subject, body);
+                Console.WriteLine($"Recurrent certificate approval email sent successfully to {userEmail} for certificate {certificate.CertificateId}");
+            }
+            catch (SmtpException ex)
+            {
+                throw new InvalidOperationException(
+                    $"SMTP error sending recurrent certificate approval email to {userEmail}: StatusCode={ex.StatusCode}, Message={ex.Message}", ex);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    $"Failed to send recurrent certificate approval email to {userEmail}: {ex.Message}", ex);
             }
         }
         #endregion
