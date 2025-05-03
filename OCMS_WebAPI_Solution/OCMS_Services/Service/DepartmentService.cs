@@ -34,12 +34,19 @@ namespace OCMS_Services.Service
             return _mapper.Map<IEnumerable<DepartmentModel>>(departments);
         }
         #endregion
+
+        #region Assign User to Department
         public async Task<bool> AssignUserToDepartmentAsync(string userId, string departmentId)
         {
             var user = await _unitOfWork.UserRepository.GetByIdAsync(userId);
             if (user == null)
                 throw new KeyNotFoundException($"User with ID '{userId}' not found.");
-
+            if (user.Status == AccountStatus.Deactivated)
+            {
+                throw new InvalidDataException($"User must be active to assign.");
+            }
+            if (user.DepartmentId!=null)
+                throw new InvalidOperationException($"User already assigned to a department (ID: '{user.DepartmentId}').");
             var department = await _unitOfWork.DepartmentRepository.GetByIdAsync(departmentId);
             if (department == null)
                 throw new KeyNotFoundException($"Department with ID '{departmentId}' not found.");
@@ -49,12 +56,15 @@ namespace OCMS_Services.Service
             if(user.SpecialtyId !=department.SpecialtyId)
                 throw new InvalidOperationException($"Cannot assign user (SpecialtyId : {user.SpecialtyId} to this department (ID: '{departmentId}') with SpecialtyId {department.SpecialtyId}");
             user.DepartmentId = departmentId;
-            user.UpdatedAt = DateTime.UtcNow;
+            user.UpdatedAt = DateTime.Now;
 
             await _unitOfWork.UserRepository.UpdateAsync(user);
             await _unitOfWork.SaveChangesAsync();
             return true;
         }
+        #endregion
+
+        #region Remove User From Department
         public async Task<bool> RemoveUserFromDepartmentAsync(string userId)
         {
             var user = await _unitOfWork.UserRepository.GetByIdAsync(userId);
@@ -78,6 +88,9 @@ namespace OCMS_Services.Service
             await _unitOfWork.SaveChangesAsync();
             return true;
         }
+        #endregion
+
+        #region Create Department
         public async Task<DepartmentModel> CreateDepartmentAsync(DepartmentCreateDTO dto)
         {
             // 1. Validate Specialty
@@ -92,12 +105,21 @@ namespace OCMS_Services.Service
                 manager = await _unitOfWork.UserRepository.GetByIdAsync(dto.ManagerId);
                 if (manager == null)
                     throw new KeyNotFoundException($"Manager with ID '{dto.ManagerId}' not found.");
+
+                if (manager.Status == AccountStatus.Deactivated)
+                {
+                    throw new InvalidDataException($"User must be active to assign.");
+                }
                 if (!string.IsNullOrEmpty(manager.DepartmentId))
                 {
                     throw new InvalidOperationException($"Manager '{manager.UserId}' is already assigned to Department '{manager.DepartmentId}'.");
                 }
                 if (manager.SpecialtyId != dto.SpecialtyId)
                     throw new InvalidDataException("Manager must have the same specialty as the department.");
+                if (manager.RoleId != 8)
+                {
+                    throw new InvalidDataException($"Manager must have role AOC Manager to manage department.");
+                }
             }
 
             // 3. Generate new DepartmentId
@@ -132,6 +154,7 @@ namespace OCMS_Services.Service
 
             return _mapper.Map<DepartmentModel>(department);
         }
+        #endregion
 
         #region GetDepartmentByIdAsync
         public async Task<DepartmentModel> GetDepartmentByIdAsync(string departmentId)
@@ -164,12 +187,19 @@ namespace OCMS_Services.Service
                 {
                     throw new KeyNotFoundException($"Manager with ID '{dto.ManagerId}' not found.");
                 }
-
+                if (manager.Status == AccountStatus.Deactivated)
+                {
+                    throw new InvalidDataException($"User must be active to assign.");
+                }
                 if (manager.SpecialtyId != department.SpecialtyId)
                 {
                     throw new InvalidDataException($"Manager must have the same specialty as the department.");
                 }
-
+                
+                if (manager.RoleId != 8)
+                {
+                    throw new InvalidDataException($"Manager must have role AOC Manager to manage department.");
+                }
                 if (!string.IsNullOrEmpty(manager.DepartmentId))
                 {
                     throw new InvalidOperationException($"Manager '{manager.UserId}' is already assigned to Department '{manager.DepartmentId}'.");
@@ -211,7 +241,7 @@ namespace OCMS_Services.Service
             department.DepartmentDescription = dto.DepartmentDescription;
             department.UpdatedAt = DateTime.Now;
 
-            _unitOfWork.DepartmentRepository.UpdateAsync(department);
+            await _unitOfWork.DepartmentRepository.UpdateAsync(department);
             await _unitOfWork.SaveChangesAsync();
 
             return _mapper.Map<DepartmentModel>(department);
@@ -237,7 +267,8 @@ namespace OCMS_Services.Service
             return true;
         }
         #endregion
-        #region active department
+
+        #region Active department
         public async Task<bool> ActivateDepartmentAsync(string departmentId)
         {
             var department = await _unitOfWork.DepartmentRepository.GetByIdAsync(departmentId);
@@ -256,6 +287,42 @@ namespace OCMS_Services.Service
             await _unitOfWork.SaveChangesAsync();
 
             return true;
+        }
+        #endregion
+
+        #region Get Trainees In Manager Department
+        public async Task<IEnumerable<UserModel>> GetTraineesInManagerDepartmentAsync(string managerUserId)
+        {
+            // 1. Get the AOC Manager
+            var manager = await _unitOfWork.UserRepository.GetByIdAsync(managerUserId);
+            if (manager == null)
+                throw new KeyNotFoundException($"AOC Manager with ID '{managerUserId}' not found.");
+
+            // 2. Verify the user is actually an AOC Manager
+            if (manager.RoleId != 8) // Assuming "AOC Manager" is the role name
+                throw new InvalidOperationException($"User with ID '{managerUserId}' is not an AOC Manager.");
+
+            // 3. Check if manager has a department\
+            if (string.IsNullOrEmpty(manager.DepartmentId))
+                throw new InvalidOperationException($"AOC Manager with ID '{managerUserId}' is not assigned to any department.");
+
+            var department = await _unitOfWork.DepartmentRepository.GetByIdAsync(manager.DepartmentId);
+            if (department == null)
+                throw new InvalidOperationException($"Department with ID '{manager.DepartmentId}' not found.");
+
+            // 4. Get the trainees in the department
+            var trainees = await _unitOfWork.UserRepository
+                .FindIncludeAsync(
+                    u => u.DepartmentId == manager.DepartmentId &&
+                         u.RoleId == 7 && // Assuming "Trainee" is the role name
+                         u.Status == AccountStatus.Active,
+                    u => u.Role,
+                    u => u.Department,
+                    u => u.Specialty
+                );
+
+            // 5. Map to view model and return
+            return _mapper.Map<IEnumerable<UserModel>>(trainees);
         }
         #endregion
     }
