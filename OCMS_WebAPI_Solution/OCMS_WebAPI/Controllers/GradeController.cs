@@ -184,7 +184,10 @@ namespace OCMS_WebAPI.Controllers
         {
             try
             {
-                var result = await _gradeService.UpdateAsync(id, dto);
+                var gradedByUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(gradedByUserId))
+                    return Unauthorized(new { message = "User identity not found." });
+                var result = await _gradeService.UpdateAsync(id, dto, gradedByUserId);
                 if (!result)
                     return NotFound(new { message = "Grade not found or update failed." });
 

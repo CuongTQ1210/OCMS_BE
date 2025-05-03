@@ -190,6 +190,19 @@ namespace OCMS_Services.Service
                     );
                 }
             }
+            if (newRequest.RequestType == RequestType.Revoke)
+            {
+                var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
+                foreach (var director in directors)
+                {
+                    await _notificationService.SendNotificationAsync(
+                        director.UserId,
+                        "Revoke Certificate Approval Request",
+                        "A new Revoke approval request has been submitted for review.",
+                        "RevokeCertificate"
+                    );
+                }
+            }
             return newRequest;
         }
         #endregion
@@ -248,7 +261,8 @@ namespace OCMS_Services.Service
         RequestType.CreateRecurrent,
         RequestType.CreateRelearn,
         RequestType.Complaint,
-        RequestType.CandidateImport
+        RequestType.CandidateImport,
+        RequestType.Revoke
     };
 
             var requests = await _unitOfWork.RequestRepository.GetAllAsync(
@@ -373,7 +387,16 @@ namespace OCMS_Services.Service
                     if (string.IsNullOrWhiteSpace(entityId))
                         return false;
                     return await _unitOfWork.CertificateRepository.ExistsAsync(dt => dt.CertificateId == entityId);
-                        default:
+                case RequestType.Revoke:
+                    if (string.IsNullOrWhiteSpace(entityId))
+                        return false;
+                    var existedCertificate = await _unitOfWork.CertificateRepository.ExistsAsync(dt => dt.CertificateId == entityId); 
+                    if( existedCertificate)
+                    {
+                        return true;
+                    }
+                    return false;
+                default:
                     return true;
             }
         }
@@ -722,6 +745,22 @@ namespace OCMS_Services.Service
                     }
 
                     break;
+
+                case RequestType.Revoke:
+                    if (approver == null || approver.RoleId != 3)
+                    {
+                        throw new UnauthorizedAccessException("Only TrainingStaff can approve this request.");
+                    }
+                    var certificate = await _unitOfWork.CertificateRepository.GetByIdAsync(request.RequestEntityId);
+                    if (certificate != null)
+                    {
+                        certificate.Status = CertificateStatus.Revoked;
+                        certificate.RevocationDate = DateTime.Now;
+                        certificate.RevocationReason = request.Notes;
+                        await _unitOfWork.CertificateRepository.UpdateAsync(certificate);
+                    }
+
+                    break;
             }
             await _unitOfWork.RequestRepository.UpdateAsync(request);
             await _unitOfWork.SaveChangesAsync();
@@ -919,6 +958,21 @@ namespace OCMS_Services.Service
                     }
 
                     notificationMessage = $"Your request to approve the template has been rejected. Reason: {rejectionReason}";
+
+                    break;
+                case RequestType.Revoke:
+                    if (rejecter == null || rejecter.RoleId != 3)
+                    {
+                        throw new UnauthorizedAccessException("Only TrainingStaff can reject this request.");
+                    }
+                    var certificate = await _unitOfWork.CertificateRepository.GetByIdAsync(request.RequestEntityId);
+                    if (certificate != null)
+                    {
+                        certificate.Status = CertificateStatus.Pending;
+                        await _unitOfWork.CertificateRepository.UpdateAsync(certificate);
+                    }
+
+                    notificationMessage = $"Your request to approve the revoke certificate {certificate.CertificateCode} has been rejected. Reason: {rejectionReason}";
 
                     break;
                 default:

@@ -46,6 +46,23 @@ namespace OCMS_WebAPI.Controllers
         }
         #endregion
 
+        #region Get trainee By SubjectId
+        [HttpGet("trainee/{id}")]
+        [Authorize]
+        public async Task<IActionResult> GetTraineeBySubjectId(string id)
+        {
+            try
+            {
+                var trainees = await _subjectService.GetTraineesBySubjectIdAsync(id);
+                return Ok(new { message = "Trainee retrieved successfully.", trainees });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        #endregion
+
         #region Get Subjects By Course Id
         [HttpGet("course/{courseId}")]
         [Authorize]

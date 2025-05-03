@@ -24,7 +24,8 @@ namespace OCMS_Services.Service
         private readonly ITrainingScheduleRepository _trainingScheduleRepository;
         private readonly IDecisionService _decisionService;
         private readonly IProgressTrackingService _progressTrackingService;
-        public GradeService(UnitOfWork unitOfWork, IMapper mapper, ICertificateService certificateService,ITrainingScheduleRepository trainingScheduleRepository, IDecisionService decisionService, IProgressTrackingService progressTrackingService)
+        private readonly IRequestService _requestService;
+        public GradeService(UnitOfWork unitOfWork, IMapper mapper, ICertificateService certificateService,ITrainingScheduleRepository trainingScheduleRepository, IDecisionService decisionService, IProgressTrackingService progressTrackingService, IRequestService requestService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
@@ -32,6 +33,7 @@ namespace OCMS_Services.Service
             _trainingScheduleRepository = trainingScheduleRepository;
             _decisionService = decisionService;
             _progressTrackingService = progressTrackingService;
+            _requestService = requestService;
         }
 
         #region Get All Grade
@@ -177,7 +179,7 @@ namespace OCMS_Services.Service
         #endregion
 
         #region Update Grade By Id
-        public async Task<bool> UpdateAsync(string id, GradeDTO dto)
+        public async Task<bool> UpdateAsync(string id, GradeDTO dto, string gradedByUserId)
         {
             var existing = await _unitOfWork.GradeRepository.GetAsync(g => g.GradeId == id);
             if (existing == null)
@@ -203,10 +205,10 @@ namespace OCMS_Services.Service
             }
 
             // Check for existing certificates
-            var existingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.CourseId == course.CourseId);
+            var existingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.CourseId == course.CourseId && c.Status==CertificateStatus.Active);
             var traineeWithCerts = new HashSet<string>(existingCertificates.Select(c => c.UserId));
             if (traineeWithCerts.Contains(assignTrainee.TraineeId))
-                throw new InvalidOperationException($"Cannot update grade for TraineeAssignID '{existing.TraineeAssignID}' because a certificate has already been issued.");
+                throw new InvalidOperationException($"Cannot update grade for TraineeAssignID '{existing.TraineeAssignID}' because a certificate has already been issued and active.");
 
             await ValidateGradeDto(dto);
 
@@ -223,7 +225,7 @@ namespace OCMS_Services.Service
                 existing.gradeStatus = existing.TotalScore >= passScore ? GradeStatus.Pass : GradeStatus.Fail;
             }
             existing.UpdateDate = DateTime.Now;
-
+            existing.GradedByInstructorId = gradedByUserId;
             await _unitOfWork.GradeRepository.UpdateAsync(existing);
 
             if (existing.gradeStatus == GradeStatus.Pass)
@@ -252,6 +254,22 @@ namespace OCMS_Services.Service
                         var decisionRequest = new CreateDecisionDTO { CourseId = course.CourseId };
                         await _decisionService.CreateDecisionForCourseAsync(decisionRequest, existing.GradedByInstructorId);
                     }
+                }
+            }
+            if (existing.gradeStatus == GradeStatus.Fail)
+            {
+                var certificate = await _unitOfWork.CertificateRepository.GetFirstOrDefaultAsync(c => c.UserId == assignTrainee.TraineeId && c.CourseId == course.CourseId);
+                if (certificate != null)
+                {
+                    var requestDto = new RequestDTO
+                    {
+                        RequestType = RequestType.Revoke,
+                        RequestEntityId = certificate.CertificateId,
+                        Description = $"Request to revoke certificate for TraineeAssignID '{existing.TraineeAssignID}' in Course '{course.CourseId}' due to failed grade status.",
+                        Notes = "Automated revoke request due to grade failure."
+                    };
+
+                    await _requestService.CreateRequestAsync(requestDto, gradedByUserId);
                 }
             }
 
