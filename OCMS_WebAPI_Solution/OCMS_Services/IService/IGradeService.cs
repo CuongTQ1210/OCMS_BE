@@ -15,7 +15,7 @@ namespace OCMS_Services.IService
         Task<IEnumerable<GradeModel>> GetAllAsync();
         Task<GradeModel> GetByIdAsync(string id);
         Task<string> CreateAsync(GradeDTO dto, string gradedByUserId);
-        Task<bool> UpdateAsync(string id, GradeDTO dto);
+        Task<bool> UpdateAsync(string id, GradeDTO dto, string gradedByUserId);
         Task<bool> DeleteAsync(string id);
         Task<List<GradeModel>> GetGradesByStatusAsync(GradeStatus status);
         Task<List<GradeModel>> GetGradesByUserIdAsync(string userId);

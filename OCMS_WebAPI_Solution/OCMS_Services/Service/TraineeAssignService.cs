@@ -493,9 +493,9 @@ namespace OCMS_Services.Service
             if (string.IsNullOrWhiteSpace(requestId))
                 throw new ArgumentException("Subject ID cannot be null or empty.");
 
-            var subject = await _unitOfWork.RequestRepository.GetByIdAsync(requestId);
+            var request = await _unitOfWork.RequestRepository.GetByIdAsync(requestId);
 
-            if (subject == null)
+            if (request == null)
                 throw new KeyNotFoundException($"Request with ID '{requestId}' was not found.");
 
             return await _traineeAssignRepository.GetTraineeAssignmentsByRequestIdAsync(requestId);

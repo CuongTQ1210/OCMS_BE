@@ -3,6 +3,7 @@ using OCMS_BOs.Entities;
 using OCMS_BOs.RequestModel;
 using OCMS_BOs.ViewModel;
 using OCMS_Repositories;
+using OCMS_Repositories.IRepository;
 using OCMS_Services.IService;
 using PuppeteerSharp.Input;
 using System;
@@ -18,14 +19,52 @@ namespace OCMS_Services.Service
         private readonly UnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly ITrainingScheduleService _trainingScheduleService;
+        private readonly ICourseRepository _courseRepository;
 
-        public SubjectService(UnitOfWork unitOfWork, IMapper mapper, ITrainingScheduleService trainingScheduleService)
+        public SubjectService(UnitOfWork unitOfWork, IMapper mapper, ITrainingScheduleService trainingScheduleService, ICourseRepository courseRepository)
         {
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _trainingScheduleService = trainingScheduleService;
+            _courseRepository = courseRepository;
         }
 
+        public async Task<List<TraineViewModel>> GetTraineesBySubjectIdAsync(string subjectId)
+        {
+            
+
+            // Fetch the subject to get its CourseId
+            var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(subjectId);
+            if (subject == null)
+            {
+                throw new ArgumentException($"Subject with ID '{subjectId}' not found.");
+            }
+
+            // Fetch the course with its Subjects and Trainees
+            var course = await _courseRepository.GetCourseWithDetailsAsync(subject.CourseId);
+            if (course == null)
+            {
+                throw new ArgumentException($"Course with ID '{subject.CourseId}' not found.");
+            }
+
+            // Check if the subject exists in the course
+            var subjectExists = course.Subjects.Any(s => s.SubjectId == subjectId);
+            if (!subjectExists)
+            {
+                throw new ArgumentException($"Subject with ID '{subjectId}' is not part of Course '{subject.CourseId}'.");
+            }
+            var traineeIds = course.Trainees.Select(t => t.TraineeId).ToList();
+            var users = await _unitOfWork.UserRepository.GetAllAsync(u => traineeIds.Contains(u.UserId));
+            // Return all trainees as TraineViewModel
+            return course.Trainees?
+                    .Select(t => new TraineViewModel
+                                {
+                                    TraineeId = t.TraineeId,
+                                    Name = users.FirstOrDefault(u => u.UserId == t.TraineeId)?.FullName, // Adjust property name if needed
+                                    Email = users.FirstOrDefault(u => u.UserId == t.TraineeId)?.Email   // Adjust property name if needed
+                                })
+                    .ToList() ?? new List<TraineViewModel>();
+        }
         #region Get all Subjects
         public async Task<IEnumerable<SubjectModel>> GetAllSubjectsAsync()
         {
