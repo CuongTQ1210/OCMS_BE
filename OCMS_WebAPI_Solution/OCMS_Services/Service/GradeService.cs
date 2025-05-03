@@ -95,7 +95,12 @@ namespace OCMS_Services.Service
             {
                 throw new Exception("Course not found.");
             }
-
+            var instructorAssign = await _unitOfWork.InstructorAssignmentRepository
+        .GetAsync(ia => ia.SubjectId == dto.SubjectId && ia.InstructorId == gradedByUserId);
+            if (instructorAssign == null)
+            {
+                throw new InvalidOperationException("User is not authorized to grade this subject.");
+            }
             // Check if subject has any schedule
             var schedule = await _trainingScheduleRepository.GetSchedulesBySubjectIdAsync(dto.SubjectId);
             if (schedule == null)
@@ -196,13 +201,19 @@ namespace OCMS_Services.Service
             var course = await _unitOfWork.CourseRepository.GetByIdAsync(assignTrainee.CourseId);
             if (course == null)
                 throw new Exception("Course not found.");
-
+            var instructorAssign = await _unitOfWork.InstructorAssignmentRepository
+        .GetAsync(ia => ia.SubjectId == dto.SubjectId && ia.InstructorId == gradedByUserId);
+            if (instructorAssign == null)
+            {
+                throw new InvalidOperationException("User is not authorized to grade this subject.");
+            }
             // Check if course is suitable for grading
             if (course.Status == CourseStatus.Pending || course.Status == CourseStatus.Rejected ||
                 course.Progress == Progress.NotYet || course.Progress == Progress.Completed)
             {
                 throw new InvalidOperationException("Course isn't suitable to update grade.");
             }
+            
 
             // Check for existing certificates
             var existingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.CourseId == course.CourseId && c.Status==CertificateStatus.Active);
@@ -363,7 +374,12 @@ namespace OCMS_Services.Service
                     result.Errors.Add($"Subject '{subjectName}' not found.");
                     return result;
                 }
-
+                var instructorAssign = await _unitOfWork.InstructorAssignmentRepository
+        .GetAsync(ia => ia.SubjectId == subject.SubjectId && ia.InstructorId == importedByUserId);
+                if (instructorAssign == null)
+                {
+                    throw new InvalidOperationException("User is not authorized to grade this subject.");
+                }
                 string subjectId = subject.SubjectId;
                 string courseId = subject.CourseId;
                 // Get CourseId from subject
