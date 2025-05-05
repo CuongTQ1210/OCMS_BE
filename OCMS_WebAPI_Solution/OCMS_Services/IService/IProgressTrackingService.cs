@@ -8,7 +8,7 @@ namespace OCMS_Services.IService
 {
     public interface IProgressTrackingService
     {
-        Task CheckAndUpdateSubjectStatus(string subjectId);
+        Task CheckAndUpdateCourseSubjectStatus(string courseSubjectId);
         Task CheckAndUpdateCourseStatus(string courseId);
         Task CheckAndUpdateTrainingPlanStatus(string planId);
         Task CheckAndUpdateAllStatuses();

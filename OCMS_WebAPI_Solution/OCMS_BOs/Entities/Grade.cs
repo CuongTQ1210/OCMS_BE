@@ -16,10 +16,6 @@ namespace OCMS_BOs.Entities
         [ForeignKey("TraineeAssign")]
         public string TraineeAssignID { get; set; }
         public TraineeAssign TraineeAssign { get; set; }
-
-        [ForeignKey("Subject")]
-        public string SubjectId { get; set; }
-        public Subject Subject { get; set; }
         public double ParticipantScore { get; set; }
         public double AssignmentScore    { get; set; }
         public double FinalExamScore { get; set; }
@@ -28,7 +24,6 @@ namespace OCMS_BOs.Entities
         public GradeStatus gradeStatus { get; set; }
         public string Remarks { get; set; }
 
-        
         [ForeignKey("GradeUser")]
         public string GradedByInstructorId { get; set; }
         public User GradedByInstructor { get; set; }

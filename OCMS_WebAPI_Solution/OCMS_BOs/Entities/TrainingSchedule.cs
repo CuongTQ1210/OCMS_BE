@@ -13,9 +13,9 @@ namespace OCMS_BOs.Entities
         [Key]
         public string ScheduleID { get; set; }
 
-        [ForeignKey("Subject")]
-        public string SubjectID { get; set; }
-        public Subject Subject { get; set; }
+        [ForeignKey("CourseSubjectSpecialty")]
+        public string CourseSubjectSpecialtyId { get; set; }
+        public CourseSubjectSpecialty CourseSubjectSpecialty { get; set; }
 
         public List<DayOfWeek> DaysOfWeek { get; set; }
         public TimeSpan SubjectPeriod { get; set; }
@@ -40,5 +40,7 @@ namespace OCMS_BOs.Entities
 
         public ScheduleStatus Status { get; set; } 
         public string Notes { get; set; }
+
+        public List<CourseSubjectSpecialty> CourseSubjectSpecialties { get; set; }
     }
 }
