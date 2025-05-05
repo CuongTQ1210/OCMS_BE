@@ -24,25 +24,25 @@ namespace OCMS_Repositories.Repository
         public async Task<IEnumerable<TrainingSchedule>> GetSchedulesByTrainingPlanIdAsync(string trainingPlanId)
         {
             return await _context.TrainingSchedules
-                .Where(s => s.Subject.Course.TrainingPlanId == trainingPlanId)
-                .Include(s => s.Subject) 
-                .ThenInclude(sub => sub.Course) 
+                .Where(s => s.CourseSubjectSpecialty.Course.TrainingPlanId == trainingPlanId)
+                .Include(s => s.CourseSubjectSpecialty)
+                    .ThenInclude(css => css.Course)
                 .ToListAsync();
         }
+
         public async Task<List<TraineeAssign>> GetTraineeAssignmentsWithSchedulesAsync(string traineeId)
         {
             return await _context.TraineeAssignments
                 .Where(ta => ta.TraineeId == traineeId)
-                .Include(ta => ta.Course)
-                    .ThenInclude(c => c.Subjects)
-                        .ThenInclude(s => s.Schedules)
-                            .ThenInclude(s => s.Instructor) 
+                .Include(ta => ta.CourseSubjectSpecialty)
+                    .ThenInclude(css => css.Schedules)
+                        .ThenInclude(s => s.Instructor)
                 .ToListAsync();
         }
-        public async Task<List<TrainingSchedule>> GetSchedulesBySubjectIdAsync(string subjectId)
+        public async Task<List<TrainingSchedule>> GetSchedulesByCourseSubjectIdAsync(string courseSubjectId)
         {
             return await _context.TrainingSchedules
-                .Where(s => s.SubjectID == subjectId)
+                .Where(s => s.CourseSubjectSpecialtyId == courseSubjectId)
                 .ToListAsync();
         }
     }

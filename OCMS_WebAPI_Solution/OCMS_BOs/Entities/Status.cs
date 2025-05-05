@@ -31,7 +31,8 @@ namespace OCMS_BOs.Entities
     {
         Initial = 0,
         Relearn = 2,
-        Recurrent = 1
+        Recurrent = 1,
+        Professional=3
     }
 
     public enum RequestStatus
@@ -108,7 +109,7 @@ namespace OCMS_BOs.Entities
     }
     public enum RequestType
     {
-        NewPlan = 0, RecurrentPlan = 1, RelearnPlan = 2, Complaint = 3, PlanChange = 4, PlanDelete = 5, CreateNew = 6, CreateRecurrent = 7, CreateRelearn = 8, CandidateImport = 9, Update = 10, Delete = 11, AssignTrainee = 12, AddTraineeAssign = 13, CertificateTemplate = 14, DecisionTemplate = 15, SignRequest = 16, Revoke =17
+        NewPlan = 0, Complaint = 3, PlanChange = 4, PlanDelete = 5, CreateNew = 6, CreateRecurrent = 7, CreateRelearn = 8, CandidateImport = 9, Update = 10, Delete = 11, AssignTrainee = 12, AddTraineeAssign = 13, CertificateTemplate = 14, DecisionTemplate = 15, SignRequest = 16, Revoke =17
     }
     public enum DecisionStatus
     {

@@ -24,9 +24,16 @@ namespace OCMS_Repositories.Repository
         public async Task<IEnumerable<InstructorAssignment>> GetAssignmentsByTrainingPlanIdAsync(string trainingPlanId)
         {
             return await _context.InstructorAssignments
-                .Where(ia => ia.Subject.Course.TrainingPlanId == trainingPlanId)
-                .Include(ia => ia.Subject)
-                .ThenInclude(sub => sub.Course) 
+                .Where(ia => ia.CourseSubjectSpecialty.Course.TrainingPlanId == trainingPlanId)
+                .Include(ia => ia.CourseSubjectSpecialty.Subject)
+                .ThenInclude(sub => sub.Courses) 
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<InstructorAssignment>> GetAssignmentsByInstructorIdAsync(string instructorId)
+        {
+            return await _context.InstructorAssignments
+                .Where(ia => ia.InstructorId == instructorId)
                 .ToListAsync();
         }
     }
