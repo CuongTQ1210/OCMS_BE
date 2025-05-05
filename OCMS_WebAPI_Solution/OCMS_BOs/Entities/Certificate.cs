@@ -54,7 +54,6 @@ namespace OCMS_BOs.Entities
         public bool IncludesRelearn { get; set; } = false;
         public string? RelearnSubjects { get; set; }
 
-        public List<CourseSubjectSpecialty> CertifiedSubjectSpecialties { get; set; }
     }
 }
 

@@ -26,7 +26,6 @@ namespace OCMS_Repositories.Repository
             return await _context.InstructorAssignments
                 .Where(ia => ia.CourseSubjectSpecialty.Course.TrainingPlanId == trainingPlanId)
                 .Include(ia => ia.CourseSubjectSpecialty.Subject)
-                .ThenInclude(sub => sub.Courses) 
                 .ToListAsync();
         }
 
