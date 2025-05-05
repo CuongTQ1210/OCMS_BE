@@ -13,21 +13,22 @@ namespace OCMS_BOs.Entities
         [Key]
         public string SubjectId { get; set; }
 
-        [ForeignKey("Course")]
-        public string CourseId { get; set; }
-        public Course Course { get; set; }
-
         public string SubjectName { get; set; }
         public string Description { get; set; }
         public int Credits { get; set; }
         public double PassingScore { get; set; }
+
         [ForeignKey("CreateByUserId")]
         public string CreateByUserId { get; set; }
         public User? CreateByUser { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
-        public List<InstructorAssignment> Instructors { get; set; }
-        public List<TrainingSchedule> Schedules { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
+        // Add the many-to-many relationship through the join table
+        public List<CourseSubjectSpecialty> CourseSubjectSpecialties { get; set; }
+
+        public List<Course> Courses { get; set; }
+        
     }
 }

@@ -10,7 +10,7 @@ namespace OCMS_Repositories.IRepository
     public interface ITrainingPlanRepository
     {
         Task<bool> ExistsAsync(string id);
-        Task<TrainingPlan?> GetLastTrainingPlanAsync(string specialtyId, string seasonCode, string year, PlanLevel planLevel);
+        Task<TrainingPlan?> GetLastTrainingPlanAsync(string seasonCode, string year);
 
         Task<TrainingPlan> GetTrainingPlanWithDetailsAsync(string planId);
     }
