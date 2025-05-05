@@ -12,8 +12,8 @@ namespace OCMS_BOs.ViewModel
         public string CourseId { get; set; }
         public string TrainingPlanId { get; set; }
         public string CourseName { get; set; }
-        public string Description { get; set; }
-        public string CourseRelatedId { get; set; }
+        public string? Description { get; set; }
+        public string? CourseRelatedId { get; set; }
         public string CourseLevel { get; set; }
         public string Status { get; set; }
         public string Progress { get; set; }
@@ -25,5 +25,6 @@ namespace OCMS_BOs.ViewModel
 
         public List<TraineeAssignModel> Trainees { get; set; } = new List<TraineeAssignModel>();
         public List<SubjectModel> Subjects { get; set; } = new List<SubjectModel>();
+        public List<CourseSubjectSpecialtyModel> CourseSubjectSpecialties { get; set; } = new List<CourseSubjectSpecialtyModel>();
     }
 }

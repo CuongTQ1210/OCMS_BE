@@ -66,6 +66,25 @@ namespace OCMS_Repositories
             return await _dbSet.Where(predicate).ToListAsync();
         }
 
+        public async Task<List<T>> FindAsync(Expression<Func<T, bool>> predicate, params Expression<Func<T, object>>[] includes)
+        {
+            IQueryable<T> query = _dbSet;
+
+            // Apply includes if any
+            if (includes != null && includes.Length > 0)
+            {
+                query = includes.Aggregate(query, (current, include) => current.Include(include));
+            }
+
+            // Apply the predicate and execute the query
+            return await query.Where(predicate).ToListAsync();
+        }
+
+        public async Task<bool> AnyAsync(Expression<Func<T, bool>> predicate)
+        {
+            return await _dbSet.AnyAsync(predicate);
+        }
+
         public async Task<bool> ExistsAsync(Expression<Func<T, bool>> predicate)
         {
             return await _dbSet.AnyAsync(predicate);

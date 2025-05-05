@@ -42,8 +42,8 @@ namespace OCMS_BOs.Entities
 
         // Optional: If you want to see courses that reference this one
         public ICollection<Course> RelatedCourses { get; set; }
-
+        // Modified: Subject relationship now goes through the join table
+        public List<CourseSubjectSpecialty> CourseSubjectSpecialties { get; set; }
         public List<Subject> Subjects { get; set; }
-        public List<TraineeAssign> Trainees { get; set; }
     }
 }

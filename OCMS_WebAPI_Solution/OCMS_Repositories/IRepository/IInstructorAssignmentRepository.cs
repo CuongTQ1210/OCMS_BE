@@ -10,6 +10,8 @@ namespace OCMS_Repositories.IRepository
     public interface IInstructorAssignmentRepository
     {
         Task<bool> ExistsAsync(string id);
+
+        Task<IEnumerable<InstructorAssignment>> GetAssignmentsByInstructorIdAsync(string instructorId);
         Task<IEnumerable<InstructorAssignment>> GetAssignmentsByTrainingPlanIdAsync(string trainingPlanId);
     }
 }
