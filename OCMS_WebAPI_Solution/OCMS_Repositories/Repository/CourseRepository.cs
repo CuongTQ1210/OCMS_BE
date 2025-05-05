@@ -41,11 +41,12 @@ namespace OCMS_Repositories.Repository
         public async Task<Course?> GetCourseWithDetailsAsync(string courseId)
         {
             return await _context.Courses
-                .Include(c => c.Subjects)
+                .Include(c => c.CourseSubjectSpecialties)
                     .ThenInclude(s => s.Instructors)
-                .Include(c => c.Subjects)
+                .Include(c => c.CourseSubjectSpecialties)
                     .ThenInclude(s => s.Schedules)
-                .Include(c => c.Trainees)
+                .Include(c => c.CourseSubjectSpecialties)
+                    .ThenInclude(s=>s.Trainees)
                 .FirstOrDefaultAsync(c => c.CourseId == courseId);
         }
     }

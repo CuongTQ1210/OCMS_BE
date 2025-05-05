@@ -9,8 +9,9 @@ namespace OCMS_BOs.ViewModel
     public class GradeModel
     {
         public string GradeId { get; set; }
-        public string TraineeAssignID { get; set; }
-        public string SubjectId { get; set; }
+        public string TraineeId { get; set; }
+        public string Fullname { get; set; }
+        public string CourseSubjectSpecialtyId { get; set; }
 
         public double ParticipantScore { get; set; }
         public double AssignmentScore { get; set; }
@@ -26,6 +27,6 @@ namespace OCMS_BOs.ViewModel
         public DateTime EvaluationDate { get; set; }
         public DateTime UpdateDate { get; set; }
 
-        public string Fullname { get; set; }
+        
     }
 }

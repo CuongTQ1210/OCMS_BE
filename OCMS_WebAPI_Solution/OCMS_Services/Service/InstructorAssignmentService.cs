@@ -23,21 +23,15 @@ namespace OCMS_Services.Service
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
-        /// <summary>
-        /// Retrieves all instructor assignments with related Subject and Instructor data.
-        /// </summary>
         public async Task<IEnumerable<InstructorAssignmentModel>> GetAllInstructorAssignmentsAsync()
         {
             var assignments = await _unitOfWork.InstructorAssignmentRepository.GetAllAsync(
-                a => a.Subject,
+                a => a.CourseSubjectSpecialty,
                 a => a.Instructor
             );
             return _mapper.Map<IEnumerable<InstructorAssignmentModel>>(assignments);
         }
 
-        /// <summary>
-        /// Retrieves an instructor assignment by its ID, including related data.
-        /// </summary>
         public async Task<InstructorAssignmentModel> GetInstructorAssignmentByIdAsync(string assignmentId)
         {
             if (string.IsNullOrEmpty(assignmentId))
@@ -45,7 +39,7 @@ namespace OCMS_Services.Service
 
             var assignment = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
                 a => a.AssignmentId == assignmentId,
-                a => a.Subject,
+                a => a.CourseSubjectSpecialty,
                 a => a.Instructor
             );
             if (assignment == null)
@@ -54,9 +48,6 @@ namespace OCMS_Services.Service
             return _mapper.Map<InstructorAssignmentModel>(assignment);
         }
 
-        /// <summary>
-        /// Creates a new instructor assignment with the provided DTO and user ID.
-        /// </summary>
         public async Task<InstructorAssignmentModel> CreateInstructorAssignmentAsync(InstructorAssignmentDTO dto, string assignByUserId)
         {
             if (dto == null)
@@ -64,56 +55,48 @@ namespace OCMS_Services.Service
             if (string.IsNullOrEmpty(assignByUserId))
                 throw new ArgumentException("AssignBy user ID cannot be null or empty.", nameof(assignByUserId));
 
-            // Validate SubjectID
-            var subjectExists = await _unitOfWork.SubjectRepository.ExistsAsync(s => s.SubjectId == dto.SubjectId);
-            if (!subjectExists)
-                throw new ArgumentException($"Subject with ID {dto.SubjectId} does not exist.");
+            var cssExists = await _unitOfWork.CourseSubjectSpecialtyRepository.ExistsAsync(css => css.Id == dto.CourseSubjectSpecialtyId);
+            if (!cssExists)
+                throw new ArgumentException($"CourseSubjectSpecialty with ID {dto.CourseSubjectSpecialtyId} does not exist.");
 
-            // Validate InstructorID
             var instructorExists = await _unitOfWork.UserRepository.ExistsAsync(i => i.UserId == dto.InstructorId);
             if (!instructorExists)
                 throw new ArgumentException($"Instructor with ID {dto.InstructorId} does not exist.");
 
-            // Validate AssignByUserId
             var userExists = await _unitOfWork.UserRepository.ExistsAsync(u => u.UserId == assignByUserId);
             if (!userExists)
                 throw new ArgumentException($"User with ID {assignByUserId} does not exist.");
 
-            // Generate AssignmentId in the format ASG-XXXXXX
             string assignmentId;
             do
             {
                 assignmentId = GenerateAssignmentId();
             } while (await _unitOfWork.InstructorAssignmentRepository.ExistsAsync(a => a.AssignmentId == assignmentId));
 
-            // Map DTO to entity
             var assignment = _mapper.Map<InstructorAssignment>(dto);
             assignment.AssignmentId = assignmentId;
             assignment.AssignByUserId = assignByUserId;
-            assignment.AssignDate = DateTime.Now;
-            assignment.RequestStatus = RequestStatus.Pending; // Assuming RequestStatus is an enum
+            assignment.AssignDate = DateTime.UtcNow;
+            assignment.RequestStatus = RequestStatus.Pending;
+
             var user = await _unitOfWork.UserRepository.FirstOrDefaultAsync(u => u.UserId == dto.InstructorId);
             if (user != null)
             {
                 user.IsAssign = true;
                 await _unitOfWork.UserRepository.UpdateAsync(user);
-                await _unitOfWork.SaveChangesAsync();
             }
+
             await _unitOfWork.InstructorAssignmentRepository.AddAsync(assignment);
             await _unitOfWork.SaveChangesAsync();
 
-            // Fetch with related data
             var createdAssignment = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
                 a => a.AssignmentId == assignmentId,
-                a => a.Subject,
+                a => a.CourseSubjectSpecialty,
                 a => a.Instructor
             );
             return _mapper.Map<InstructorAssignmentModel>(createdAssignment);
         }
 
-        /// <summary>
-        /// Updates an existing instructor assignment with the provided DTO.
-        /// </summary>
         public async Task<InstructorAssignmentModel> UpdateInstructorAssignmentAsync(string assignmentId, InstructorAssignmentDTO dto)
         {
             if (string.IsNullOrEmpty(assignmentId))
@@ -125,43 +108,39 @@ namespace OCMS_Services.Service
             if (assignment == null)
                 throw new KeyNotFoundException($"Instructor assignment with ID {assignmentId} not found.");
 
-            // Validate SubjectID
-            var subjectExists = await _unitOfWork.SubjectRepository.ExistsAsync(s => s.SubjectId == dto.SubjectId);
-            if (!subjectExists)
-                throw new ArgumentException($"Subject with ID {dto.SubjectId} does not exist.");
+            var cssExists = await _unitOfWork.CourseSubjectSpecialtyRepository.ExistsAsync(css => css.Id == dto.CourseSubjectSpecialtyId);
+            if (!cssExists)
+                throw new ArgumentException($"CourseSubjectSpecialty with ID {dto.CourseSubjectSpecialtyId} does not exist.");
 
-            // Validate InstructorID
-            var instructorExists = await _unitOfWork.InstructorAssignmentRepository.ExistsAsync(i => i.InstructorId == dto.InstructorId);
+            var instructorExists = await _unitOfWork.UserRepository.ExistsAsync(i => i.UserId == dto.InstructorId);
             if (!instructorExists)
                 throw new ArgumentException($"Instructor with ID {dto.InstructorId} does not exist.");
+
             if (assignment.RequestStatus == RequestStatus.Approved)
             {
-                throw new Exception("Assign has been approve. Create a request to update if needed");
+                throw new InvalidOperationException("Assignment has been approved. Create a request to update if needed.");
             }
-            // Map DTO to existing entity
+
             _mapper.Map(dto, assignment);
+
             var user = await _unitOfWork.UserRepository.FirstOrDefaultAsync(u => u.UserId == dto.InstructorId);
             if (user != null)
             {
                 user.IsAssign = true;
                 await _unitOfWork.UserRepository.UpdateAsync(user);
-                await _unitOfWork.SaveChangesAsync();
             }
+
             await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
             await _unitOfWork.SaveChangesAsync();
 
-            // Fetch with related data
             var updatedAssignment = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
                 a => a.AssignmentId == assignmentId,
-                a => a.Subject,
+                a => a.CourseSubjectSpecialty,
                 a => a.Instructor
             );
             return _mapper.Map<InstructorAssignmentModel>(updatedAssignment);
         }
 
-        /// <summary>
-        /// Deletes an instructor assignment by its ID.
-        /// </summary>
         public async Task<bool> DeleteInstructorAssignmentAsync(string assignmentId)
         {
             if (string.IsNullOrEmpty(assignmentId))
@@ -170,27 +149,27 @@ namespace OCMS_Services.Service
             var assignment = await _unitOfWork.InstructorAssignmentRepository.GetByIdAsync(assignmentId);
             if (assignment == null)
                 throw new KeyNotFoundException($"Instructor assignment with ID {assignmentId} not found.");
-            if (assignment.RequestStatus == RequestStatus.Approved) {
-                throw new Exception("Assign has been approve. Create a request to delete if needed");
+
+            if (assignment.RequestStatus == RequestStatus.Approved)
+            {
+                throw new InvalidOperationException("Assignment has been approved. Create a request to delete if needed.");
             }
+
             var user = await _unitOfWork.UserRepository.FirstOrDefaultAsync(u => u.UserId == assignment.InstructorId);
             if (user != null)
             {
                 user.IsAssign = false;
                 await _unitOfWork.UserRepository.UpdateAsync(user);
-                await _unitOfWork.SaveChangesAsync();
             }
+
             await _unitOfWork.InstructorAssignmentRepository.DeleteAsync(assignmentId);
             await _unitOfWork.SaveChangesAsync();
             return true;
         }
 
-        /// <summary>
-        /// Generates an AssignmentId in the format ASG-XXXXXX where XXXXXX is a random 6-digit number.
-        /// </summary>
         private string GenerateAssignmentId()
         {
-            string guidPart = Guid.NewGuid().ToString("N").Substring(0, 6).ToUpper(); // Get first 6 characters
+            string guidPart = Guid.NewGuid().ToString("N").Substring(0, 6).ToUpper();
             return $"ASG-{guidPart}";
         }
     }

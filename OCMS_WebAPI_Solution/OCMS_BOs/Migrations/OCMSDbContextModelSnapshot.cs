@@ -49,7 +49,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AuditLogs");
+                    b.ToTable("AuditLogs", (string)null);
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Candidate", b =>
@@ -114,7 +114,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("SpecialtyId");
 
-                    b.ToTable("Candidates");
+                    b.ToTable("Candidates", (string)null);
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Certificate", b =>
@@ -182,7 +182,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Certificates");
+                    b.ToTable("Certificates", (string)null);
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.CertificateTemplate", b =>
@@ -224,7 +224,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("CreatedByUserId");
 
-                    b.ToTable("CertificateTemplates");
+                    b.ToTable("CertificateTemplates", (string)null);
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Course", b =>
@@ -281,7 +281,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("TrainingPlanId");
 
-                    b.ToTable("Courses");
+                    b.ToTable("Courses", (string)null);
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Decision", b =>
@@ -331,7 +331,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("IssuedByUserId");
 
-                    b.ToTable("Decisions");
+                    b.ToTable("Decisions", (string)null);
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.DecisionTemplate", b =>
@@ -373,7 +373,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("CreatedByUserId");
 
-                    b.ToTable("DecisionTemplate");
+                    b.ToTable("DecisionTemplate", (string)null);
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Department", b =>
@@ -411,7 +411,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("SpecialtyId");
 
-                    b.ToTable("Departments");
+                    b.ToTable("Departments", (string)null);
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.ExternalCertificate", b =>
@@ -463,7 +463,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("ExternalCertificates");
+                    b.ToTable("ExternalCertificates", (string)null);
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Grade", b =>
@@ -519,7 +519,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("TraineeAssignID");
 
-                    b.ToTable("Grades");
+                    b.ToTable("Grades", (string)null);
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.InstructorAssignment", b =>
@@ -557,7 +557,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("SubjectId");
 
-                    b.ToTable("InstructorAssignments");
+                    b.ToTable("InstructorAssignments", (string)null);
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Notification", b =>
@@ -594,7 +594,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Notifications");
+                    b.ToTable("Notifications", (string)null);
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Report", b =>
@@ -638,7 +638,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("GenerateByUserId");
 
-                    b.ToTable("Reports");
+                    b.ToTable("Reports", (string)null);
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Request", b =>
@@ -688,7 +688,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("RequestUserId");
 
-                    b.ToTable("Requests");
+                    b.ToTable("Requests", (string)null);
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Role", b =>
@@ -706,7 +706,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasKey("RoleId");
 
-                    b.ToTable("Roles");
+                    b.ToTable("Roles", (string)null);
 
                     b.HasData(
                         new
@@ -791,7 +791,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("UpdatedByUserId");
 
-                    b.ToTable("Specialties");
+                    b.ToTable("Specialties", (string)null);
 
                     b.HasData(
                         new
@@ -845,7 +845,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("CreateByUserId");
 
-                    b.ToTable("Subjects");
+                    b.ToTable("Subjects", (string)null);
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.TraineeAssign", b =>
@@ -896,7 +896,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("TraineeId");
 
-                    b.ToTable("TraineeAssignments");
+                    b.ToTable("TraineeAssignments", (string)null);
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.TrainingPlan", b =>
@@ -952,7 +952,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("SpecialtyId");
 
-                    b.ToTable("TrainingPlans");
+                    b.ToTable("TrainingPlans", (string)null);
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.TrainingSchedule", b =>
@@ -1017,7 +1017,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("SubjectID");
 
-                    b.ToTable("TrainingSchedules");
+                    b.ToTable("TrainingSchedules", (string)null);
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.User", b =>
@@ -1103,7 +1103,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("SpecialtyId");
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
 
                     b.HasData(
                         new

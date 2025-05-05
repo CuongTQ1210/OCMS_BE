@@ -73,7 +73,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get All Trainee Assignments
         [HttpGet]
-        [CustomAuthorize("Admin", "Training staff", "Reviewer")]
+        [CustomAuthorize("Admin", "Training staff", "Reviewer", "Instructor")]
         public async Task<IActionResult> GetAllTraineeAssignments()
         {
             try
@@ -90,7 +90,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Get Trainee Assignment By Id
         [HttpGet("{id}")]
-        [CustomAuthorize("Admin", "Training staff", "Reviewer")]
+        [CustomAuthorize("Admin", "Training staff", "Reviewer", "Instructor")]
         public async Task<IActionResult> GetTraineeAssignmentById(string id)
         {
             try

@@ -20,143 +20,121 @@ namespace OCMS_Services.Service
         private readonly IMapper _mapper;
         private readonly ITrainingScheduleService _trainingScheduleService;
         private readonly ICourseRepository _courseRepository;
+        private readonly IRequestService _requestService;
 
-        public SubjectService(UnitOfWork unitOfWork, IMapper mapper, ITrainingScheduleService trainingScheduleService, ICourseRepository courseRepository)
+        public SubjectService(UnitOfWork unitOfWork, IMapper mapper, ITrainingScheduleService trainingScheduleService,
+            ICourseRepository courseRepository, IRequestService requestService)
         {
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
-            _trainingScheduleService = trainingScheduleService;
-            _courseRepository = courseRepository;
+            _trainingScheduleService = trainingScheduleService ?? throw new ArgumentNullException(nameof(trainingScheduleService));
+            _courseRepository = courseRepository ?? throw new ArgumentNullException(nameof(courseRepository));
+            _requestService = requestService ?? throw new ArgumentNullException(nameof(requestService));
         }
 
         public async Task<List<TraineViewModel>> GetTraineesBySubjectIdAsync(string subjectId)
         {
-            
+            // Fetch CourseSubjectSpecialties for the subject
+            var cssList = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAllAsync(
+                css => css.SubjectId == subjectId,
+                css => css.Trainees,
+                css => css.Course
+            );
+            if (!cssList.Any())
+                throw new ArgumentException($"No course-subject relationships found for Subject ID '{subjectId}'.");
 
-            // Fetch the subject to get its CourseId
-            var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(subjectId);
-            if (subject == null)
-            {
-                throw new ArgumentException($"Subject with ID '{subjectId}' not found.");
-            }
-
-            // Fetch the course with its Subjects and Trainees
-            var course = await _courseRepository.GetCourseWithDetailsAsync(subject.CourseId);
-            if (course == null)
-            {
-                throw new ArgumentException($"Course with ID '{subject.CourseId}' not found.");
-            }
-
-            // Check if the subject exists in the course
-            var subjectExists = course.Subjects.Any(s => s.SubjectId == subjectId);
-            if (!subjectExists)
-            {
-                throw new ArgumentException($"Subject with ID '{subjectId}' is not part of Course '{subject.CourseId}'.");
-            }
-            var traineeIds = course.Trainees.Select(t => t.TraineeId).ToList();
+            // Collect trainee IDs from all CourseSubjectSpecialties
+            var traineeIds = cssList.SelectMany(css => css.Trainees.Select(t => t.TraineeId)).Distinct().ToList();
             var users = await _unitOfWork.UserRepository.GetAllAsync(u => traineeIds.Contains(u.UserId));
-            // Return all trainees as TraineViewModel
-            return course.Trainees?
-                    .Select(t => new TraineViewModel
-                                {
-                                    TraineeId = t.TraineeId,
-                                    Name = users.FirstOrDefault(u => u.UserId == t.TraineeId)?.FullName, // Adjust property name if needed
-                                    Email = users.FirstOrDefault(u => u.UserId == t.TraineeId)?.Email   // Adjust property name if needed
-                                })
-                    .ToList() ?? new List<TraineViewModel>();
+
+            // Map to TraineViewModel
+            var traineeViewModels = new List<TraineViewModel>();
+            foreach (var css in cssList)
+            {
+                var trainees = css.Trainees.Select(t => new TraineViewModel
+                {
+                    TraineeId = t.TraineeId,
+                    Name = users.FirstOrDefault(u => u.UserId == t.TraineeId)?.FullName,
+                    Email = users.FirstOrDefault(u => u.UserId == t.TraineeId)?.Email,
+                    TraineeAssignId = t.TraineeAssignId
+                }).ToList();
+                traineeViewModels.AddRange(trainees);
+            }
+
+            return traineeViewModels.Any() ? traineeViewModels : new List<TraineViewModel>();
         }
-        #region Get all Subjects
+
+        #region Get All Subjects
         public async Task<IEnumerable<SubjectModel>> GetAllSubjectsAsync()
         {
             var subjects = await _unitOfWork.SubjectRepository.GetAllAsync(
-                p => p.Instructors,
-                p => p.Schedules
-                );
-
-            var courseIds = subjects.Select(s => s.CourseId).Distinct().ToList();
-            var courses = await _unitOfWork.CourseRepository.GetAllAsync(
-                c => courseIds.Contains(c.CourseId),
-                c => c.TrainingPlan
+                s => s.CourseSubjectSpecialties,
+                s => s.CourseSubjectSpecialties.Select(css => css.Course),
+                s => s.CourseSubjectSpecialties.Select(css => css.Specialty)
             );
 
             var subjectModels = _mapper.Map<IEnumerable<SubjectModel>>(subjects);
-            foreach (var subjectModel in subjectModels)
-            {
-                var course = courses.FirstOrDefault(c => c.CourseId == subjectModel.CourseId);
-                subjectModel.SpecialtyId = course?.TrainingPlan?.SpecialtyId;
-            }
-
             return subjectModels;
         }
         #endregion
 
-        #region Get subject by Id
+        #region Get Subject by Id
         public async Task<SubjectModel> GetSubjectByIdAsync(string subjectId)
         {
             var subject = await _unitOfWork.SubjectRepository.GetAsync(
-                p => p.SubjectId == subjectId,
-                p => p.Instructors,
-                p => p.Schedules
+                s => s.SubjectId == subjectId,
+                s => s.CourseSubjectSpecialties,
+                s => s.CourseSubjectSpecialties.Select(css => css.Course),
+                s => s.CourseSubjectSpecialties.Select(css => css.Specialty)
             );
             if (subject == null)
                 throw new KeyNotFoundException("Subject not found.");
 
-            // Fetch Course and TrainingPlan
-            var course = await _unitOfWork.CourseRepository.GetAsync(
-                c => c.CourseId == subject.CourseId,
-                c => c.TrainingPlan
-            );
-
-            var subjectModel = _mapper.Map<SubjectModel>(subject);
-            subjectModel.SpecialtyId = course?.TrainingPlan?.SpecialtyId;
-
-            return subjectModel;
+            return _mapper.Map<SubjectModel>(subject);
         }
         #endregion
 
-        #region Get subject by CourseId
+        #region Get Subjects by CourseId
         public async Task<List<SubjectModel>> GetSubjectsByCourseIdAsync(string courseId)
         {
-            var subjects = await _unitOfWork.SubjectRepository.FindAsync(
-                s => s.CourseId == courseId
+            var cssList = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAllAsync(
+                css => css.CourseId == courseId,
+                css => css.Subject,
+                css => css.Specialty
             );
 
-            if (subjects == null || !subjects.Any())
+            if (!cssList.Any())
                 throw new KeyNotFoundException("No subjects found for the given course ID.");
 
+            var subjects = cssList.Select(css => css.Subject).ToList();
             return _mapper.Map<List<SubjectModel>>(subjects);
         }
         #endregion
 
-        #region Create subject
+        #region Create Subject
         public async Task<SubjectModel> CreateSubjectAsync(SubjectDTO dto, string createdByUserId)
         {
             // Validate PassingScore (0-10)
             if (dto.PassingScore < 0 || dto.PassingScore > 10)
                 throw new ArgumentException("Passing score must be between 0 and 10.");
 
-            // Ensure CourseId exists
-            var courseExists = await _unitOfWork.CourseRepository.ExistsAsync(c => c.CourseId == dto.CourseId);
-            if (!courseExists)
-                throw new ArgumentException("Course does not exist.");
-            var subjectExisted = await _unitOfWork.SubjectRepository.ExistsAsync(c=> c.SubjectId == dto.SubjectId);
-            if (subjectExisted)
-                throw new ArgumentException("Subject already existed.");
-            var subjectExisted2 = await _unitOfWork.SubjectRepository.ExistsAsync(c => c.SubjectName == dto.SubjectName);
-            if (subjectExisted2)
-                throw new ArgumentException("This Subject name already existed.");
-            var userExists = await _unitOfWork.UserRepository.ExistsAsync(u => u.UserId == createdByUserId);
-            if (!userExists)
-            {
-                throw new Exception("The specified User ID does not exist.");
-            }
+            // Validate SubjectId and SubjectName uniqueness
+            if (await _unitOfWork.SubjectRepository.ExistsAsync(s => s.SubjectId == dto.SubjectId))
+                throw new ArgumentException($"Subject with ID '{dto.SubjectId}' already exists.");
+            if (await _unitOfWork.SubjectRepository.ExistsAsync(s => s.SubjectName == dto.SubjectName))
+                throw new ArgumentException($"Subject with name '{dto.SubjectName}' already exists.");
+
+            // Validate createdByUserId
+            if (!await _unitOfWork.UserRepository.ExistsAsync(u => u.UserId == createdByUserId))
+                throw new ArgumentException("The specified User ID does not exist.");
+
+            // Map DTO to Subject entity
             var subject = _mapper.Map<Subject>(dto);
-            subject.SubjectId = dto.SubjectId;
             subject.CreateByUserId = createdByUserId;
-            
             subject.CreatedAt = DateTime.Now;
             subject.UpdatedAt = DateTime.Now;
 
+            // Add subject to repository
             await _unitOfWork.SubjectRepository.AddAsync(subject);
             await _unitOfWork.SaveChangesAsync();
 
@@ -164,7 +142,7 @@ namespace OCMS_Services.Service
         }
         #endregion
 
-        #region Update subject
+        #region Update Subject
         public async Task<SubjectModel> UpdateSubjectAsync(string subjectId, SubjectDTO dto)
         {
             var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(subjectId);
@@ -175,19 +153,16 @@ namespace OCMS_Services.Service
             if (dto.PassingScore < 0 || dto.PassingScore > 10)
                 throw new ArgumentException("Passing score must be between 0 and 10.");
 
-            // Ensure CourseId exists
-            var courseExists = await _unitOfWork.CourseRepository.ExistsAsync(c => c.CourseId == dto.CourseId);
-            if (!courseExists)
-                throw new ArgumentException("Course does not exist.");
-            var course = await _unitOfWork.CourseRepository.GetByIdAsync(dto.CourseId);
-            if (course.Status==CourseStatus.Approved)
-            {
-                throw new Exception("Course already approved so you can't update subject. Please send request to update");
-            }
-            
-            
+            // Check if subject name is changed and unique
+            if (dto.SubjectName != subject.SubjectName &&
+                await _unitOfWork.SubjectRepository.ExistsAsync(s => s.SubjectName == dto.SubjectName))
+                throw new ArgumentException($"Subject with name '{dto.SubjectName}' already exists.");
+
+            // Map DTO to subject entity
             _mapper.Map(dto, subject);
             subject.UpdatedAt = DateTime.Now;
+
+            // Update subject in repository
             await _unitOfWork.SubjectRepository.UpdateAsync(subject);
             await _unitOfWork.SaveChangesAsync();
 
@@ -195,25 +170,44 @@ namespace OCMS_Services.Service
         }
         #endregion
 
-        #region Delete subject
+        #region Delete Subject
         public async Task<bool> DeleteSubjectAsync(string subjectId)
         {
             var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(subjectId);
             if (subject == null)
                 throw new KeyNotFoundException("Subject not found.");
-            var course = await _unitOfWork.CourseRepository.GetByIdAsync(subject.CourseId);
-            if (course.Status == CourseStatus.Approved)
-            {
-                throw new Exception("Course already approved so you can't delete subject. Please send request to delete");
-            }
-            // Get all training schedules linked to this subject
-            var schedules = await _unitOfWork.TrainingScheduleRepository.GetAllAsync(s => s.SubjectID == subjectId);
 
-            foreach (var schedule in schedules)
+            // Check if subject is linked to any approved courses
+            var cssList = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAllAsync(
+                css => css.SubjectId == subjectId,
+                css => css.Course
+            );
+            var approvedCourses = cssList.Where(css => css.Course.Status == CourseStatus.Approved).ToList();
+            if (approvedCourses.Any())
             {
-                await _trainingScheduleService.DeleteTrainingScheduleAsync(schedule.ScheduleID); // Ensure schedules and assignments are deleted
+                var requestDto = new RequestDTO
+                {
+                    RequestType = RequestType.Delete,
+                    RequestEntityId = subjectId,
+                    Description = $"Request to delete subject {subjectId}",
+                    Notes = "Awaiting HeadMaster approval due to approved courses"
+                };
+                await _requestService.CreateRequestAsync(requestDto, approvedCourses.First().Course.CreatedByUserId);
+                throw new InvalidOperationException($"Cannot delete subject {subjectId} because it is linked to approved courses. A request has been sent to the HeadMaster.");
             }
 
+            // Delete related CourseSubjectSpecialties and their schedules
+            foreach (var css in cssList)
+            {
+                var schedules = await _unitOfWork.TrainingScheduleRepository.GetAllAsync(s => s.CourseSubjectSpecialtyId == css.Id);
+                foreach (var schedule in schedules)
+                {
+                    await _trainingScheduleService.DeleteTrainingScheduleAsync(schedule.ScheduleID);
+                }
+                await _unitOfWork.CourseSubjectSpecialtyRepository.DeleteAsync(css.Id);
+            }
+
+            // Delete subject
             await _unitOfWork.SubjectRepository.DeleteAsync(subjectId);
             await _unitOfWork.SaveChangesAsync();
 

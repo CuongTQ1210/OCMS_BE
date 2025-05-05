@@ -98,8 +98,6 @@ namespace OCMS_Services.Service
 
             // Send notification to the director if NewPlan, RecurrentPlan, RelearnPlan
             if (newRequest.RequestType == RequestType.NewPlan ||
-                newRequest.RequestType == RequestType.RecurrentPlan ||
-                newRequest.RequestType == RequestType.RelearnPlan||
                 newRequest.RequestType == RequestType.Update||
                 newRequest.RequestType == RequestType.Delete||
                 newRequest.RequestType== RequestType.AssignTrainee||
@@ -232,8 +230,6 @@ namespace OCMS_Services.Service
             var validRequestTypes = new[]
             {
         RequestType.NewPlan,
-        RequestType.RelearnPlan,
-        RequestType.RecurrentPlan,
         RequestType.AddTraineeAssign,
         RequestType.AssignTrainee,
         RequestType.DecisionTemplate,
@@ -282,36 +278,26 @@ namespace OCMS_Services.Service
             switch (requestType)
             {
                 case RequestType.NewPlan:
-                case RequestType.RecurrentPlan:
-                case RequestType.RelearnPlan:
                     if (string.IsNullOrWhiteSpace(entityId))
                         return false;
+
                     var plan = await _unitOfWork.TrainingPlanRepository
                         .GetQueryable()
                         .Where(p => p.PlanId == entityId)
                         .Include(p => p.Courses)
-                        .ThenInclude(c => c.Subjects)
-                        .ThenInclude(s => s.Schedules)
+                            .ThenInclude(c => c.CourseSubjectSpecialties)
+                                .ThenInclude(css => css.Subject)
                         .Include(p => p.Courses)
-                        .ThenInclude(c => c.Trainees)
-                         .FirstOrDefaultAsync();
+                            .ThenInclude(c => c.CourseSubjectSpecialties)
+                                .ThenInclude(css => css.Schedules)
+                        .Include(p => p.Courses)
+                            .ThenInclude(c => c.CourseSubjectSpecialties)
+                                .ThenInclude(css => css.Trainees)
+                        .FirstOrDefaultAsync();
+
                     if (plan == null)
                     {
                         throw new KeyNotFoundException("Training plan not found.");
-                    }
-
-                    // Step 0: Check if PlanLevel matches RequestType
-                    bool isPlanLevelValid = (requestType, plan.PlanLevel) switch
-                    {
-                        (RequestType.NewPlan, PlanLevel.Initial) => true,
-                        (RequestType.RecurrentPlan, PlanLevel.Recurrent) => true,
-                        (RequestType.RelearnPlan, PlanLevel.Relearn) => true,
-                        _ => false
-                    };
-
-                    if (!isPlanLevelValid)
-                    {
-                        throw new InvalidOperationException($"RequestType '{requestType}' does not match PlanLevel '{plan.PlanLevel}' for training plan '{plan.PlanId}'.");
                     }
 
                     // Step 1: Has at least one course
@@ -322,24 +308,29 @@ namespace OCMS_Services.Service
 
                     foreach (var course in plan.Courses)
                     {
-                        // Step 2a: Each course has at least one subject
-                        if (course.Subjects == null || !course.Subjects.Any())
+                        // Step 2: Each course has at least one CourseSubjectSpecialty
+                        if (course.CourseSubjectSpecialties == null || !course.CourseSubjectSpecialties.Any())
                         {
-                            throw new InvalidOperationException($"Course '{course.CourseName}' must have at least one subject.");
+                            throw new InvalidOperationException($"Course '{course.CourseName}' must have at least one CourseSubjectSpecialty.");
                         }
 
-                        foreach (var subject in course.Subjects)
+                        foreach (var css in course.CourseSubjectSpecialties)
                         {
-                            // Step 3: Each subject has at least one schedule
-                            if (subject.Schedules == null || !subject.Schedules.Any())
+                            // Step 2a: Ensure CourseSubjectSpecialty has a Subject
+                            if (css.Subject == null)
                             {
-                                throw new InvalidOperationException($"Subject '{subject.SubjectName}' in course '{course.CourseName}' must have at least one schedule.");
+                                throw new InvalidOperationException($"CourseSubjectSpecialty with ID '{css.Id}' in course '{course.CourseName}' must be associated with a subject.");
+                            }
+
+                            // Step 3: Each CourseSubjectSpecialty has at least one schedule
+                            if (css.Schedules == null || !css.Schedules.Any())
+                            {
+                                throw new InvalidOperationException($"Subject '{css.Subject.SubjectName}' in course '{course.CourseName}' must have at least one schedule.");
                             }
                         }
                     }
 
-                    return await _unitOfWork.TrainingPlanRepository.ExistsAsync(tp => tp.PlanId == entityId);
-
+                    return true;
                 case RequestType.Update:
                 case RequestType.Delete:
                     if (string.IsNullOrWhiteSpace(entityId))
@@ -448,16 +439,15 @@ namespace OCMS_Services.Service
             );
             var approver = await _userRepository.GetByIdAsync(approvedByUserId);
             // Handle request type-specific actions
-            switch (request.RequestType)
+            
+                switch (request.RequestType)
             {
                 case RequestType.NewPlan:
-                case RequestType.RecurrentPlan:
-                case RequestType.RelearnPlan:
-                    
                     if (approver == null || approver.RoleId != 2)
                     {
                         throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
                     }
+
                     var plan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
                     if (plan != null)
                     {
@@ -465,27 +455,43 @@ namespace OCMS_Services.Service
                         plan.ApproveByUserId = approvedByUserId;
                         plan.ApproveDate = DateTime.Now;
                         await _unitOfWork.TrainingPlanRepository.UpdateAsync(plan);
-                        // ✅ Approve all courses in the plan
+
                         var courses = await _courseRepository.GetCoursesByTrainingPlanIdAsync(plan.PlanId);
                         foreach (var course in courses)
                         {
                             course.Status = CourseStatus.Approved;
                             course.Progress = Progress.Ongoing;
-                            course.ApproveByUserId= approvedByUserId;
+                            course.ApproveByUserId = approvedByUserId;
                             course.ApprovalDate = DateTime.Now;
                             await _unitOfWork.CourseRepository.UpdateAsync(course);
+
+                            var courseSubjectSpecialties = await _unitOfWork.CourseSubjectSpecialtyRepository
+                                .GetAllAsync(css => css.CourseId == course.CourseId,
+                                    css => css.Schedules,
+                                    css => css.Trainees);
+                            foreach (var css in courseSubjectSpecialties)
+                            {
+                                foreach (var schedule in css.Schedules)
+                                {
+                                    schedule.Status = ScheduleStatus.Approved;
+                                    schedule.ModifiedDate = DateTime.Now;
+                                    await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
+                                }
+
+                                foreach (var trainee in css.Trainees)
+                                {
+                                    trainee.RequestStatus = RequestStatus.Approved;
+                                    await _unitOfWork.TraineeAssignRepository.UpdateAsync(trainee);
+                                    await _notificationService.SendNotificationAsync(
+                                        trainee.TraineeId,
+                                        "Course Assignment Approved",
+                                        $"You have been assigned to CourseSubjectSpecialty {css.Id}.",
+                                        "Training assignment notification."
+                                    );
+                                }
+                            }
                         }
 
-                        // ✅ Approve all schedules
-                        var schedules = await _trainingScheduleRepository.GetSchedulesByTrainingPlanIdAsync(plan.PlanId);
-                        foreach (var schedule in schedules)
-                        {
-                            schedule.Status = ScheduleStatus.Approved;
-                            schedule.ModifiedDate = DateTime.Now;
-                            await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
-                        }
-
-                        // ✅ Approve all instructor assignments
                         var instructorAssignments = await _instructorAssignmentRepository.GetAssignmentsByTrainingPlanIdAsync(plan.PlanId);
                         foreach (var assignment in instructorAssignments)
                         {
@@ -494,11 +500,11 @@ namespace OCMS_Services.Service
                             await _notificationService.SendNotificationAsync(
                                 assignment.InstructorId,
                                 "Subject schedule assignment",
-                                $"You has been assigned to this subject {assignment.SubjectId}.",
-                                $"Schedule notification."
+                                $"You have been assigned to this subject {assignment.CourseSubjectSpecialty.Subject.SubjectName}.",
+                                "Schedule notification."
                             );
                         }
-                        
+
                         if (!string.IsNullOrEmpty(request.RequestUserId))
                         {
                             await _notificationService.SendNotificationAsync(
@@ -512,19 +518,19 @@ namespace OCMS_Services.Service
                     break;
                 case RequestType.Update:
                 case RequestType.Delete:
-
                     if (approver == null || approver.RoleId != 2)
                     {
                         throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
                     }
+
                     var trainingplan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
                     if (trainingplan != null)
                     {
                         trainingplan.TrainingPlanStatus = TrainingPlanStatus.Pending;
                         trainingplan.ApproveByUserId = approvedByUserId;
-                        trainingplan.ApproveDate = DateTime.Now;
+                        trainingplan.ApproveDate = DateTime.UtcNow;
                         await _unitOfWork.TrainingPlanRepository.UpdateAsync(trainingplan);
-                        // ✅ Pending all courses in the plan to update or delete
+
                         var courses = await _courseRepository.GetCoursesByTrainingPlanIdAsync(trainingplan.PlanId);
                         foreach (var course in courses)
                         {
@@ -533,27 +539,29 @@ namespace OCMS_Services.Service
                             course.ApproveByUserId = approvedByUserId;
                             course.ApprovalDate = DateTime.Now;
                             await _unitOfWork.CourseRepository.UpdateAsync(course);
-                        }
-                        foreach (var course in courses)
-                        {
-                            var courseTraineeAssigns = await _traineeAssignRepository.GetTraineeAssignmentsByCourseIdAsync(course.CourseId);
-                            foreach (var assign in courseTraineeAssigns)
+
+                            var courseSubjectSpecialties = await _unitOfWork.CourseSubjectSpecialtyRepository
+                                .GetAllAsync(css => css.CourseId == course.CourseId,
+                                    css => css.Schedules,
+                                    css => css.Trainees);
+                            foreach (var css in courseSubjectSpecialties)
                             {
-                                assign.RequestStatus = RequestStatus.Pending;
-                                assign.ApprovalDate = DateTime.Now;
-                                await _unitOfWork.TraineeAssignRepository.UpdateAsync(assign);
+                                foreach (var schedule in css.Schedules)
+                                {
+                                    schedule.Status = ScheduleStatus.Pending;
+                                    schedule.ModifiedDate = DateTime.Now;
+                                    await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
+                                }
+
+                                foreach (var trainee in css.Trainees)
+                                {
+                                    trainee.RequestStatus = RequestStatus.Pending;
+                                    trainee.ApprovalDate = DateTime.Now;
+                                    await _unitOfWork.TraineeAssignRepository.UpdateAsync(trainee);
+                                }
                             }
                         }
-                        // ✅ Pending all schedules
-                        var schedules = await _trainingScheduleRepository.GetSchedulesByTrainingPlanIdAsync(trainingplan.PlanId);
-                        foreach (var schedule in schedules)
-                        {
-                            schedule.Status = ScheduleStatus.Pending;
-                            schedule.ModifiedDate = DateTime.Now;
-                            await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
-                        }
 
-                        // ✅ Pending all instructor assignments
                         var instructorAssignments = await _instructorAssignmentRepository.GetAssignmentsByTrainingPlanIdAsync(trainingplan.PlanId);
                         foreach (var assignment in instructorAssignments)
                         {
@@ -565,13 +573,14 @@ namespace OCMS_Services.Service
                         {
                             await _notificationService.SendNotificationAsync(
                                 request.RequestUserId,
-                                "Trainee Plan Approved",
-                                $"Your request for {request.RequestEntityId} has been approved.",
+                                "Training Plan Status Updated",
+                                $"Your request for {request.RequestEntityId} has been set to pending for {request.RequestType.ToString().ToLower()}.",
                                 $"{request.RequestType.ToString()}"
                             );
                         }
                     }
                     break;
+
                 case RequestType.CandidateImport:
                     if (approver == null || approver.RoleId != 3)
                     {
@@ -600,12 +609,15 @@ namespace OCMS_Services.Service
 
                     break;
                 case RequestType.AssignTrainee:
-
                     if (approver == null || approver.RoleId != 2)
                     {
                         throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
                     }
-                    var traineeAssigns = await _unitOfWork.TraineeAssignRepository.GetAllAsync(t => t.RequestId == requestId);
+
+                    var traineeAssigns = await _unitOfWork.TraineeAssignRepository.GetAllAsync(
+                        t => t.RequestId == requestId,
+                        t => t.CourseSubjectSpecialty,
+                        t => t.CourseSubjectSpecialty.Course);
                     if (traineeAssigns == null || !traineeAssigns.Any())
                         return false;
 
@@ -615,36 +627,36 @@ namespace OCMS_Services.Service
                         assign.ApprovalDate = DateTime.Now;
                         assign.ApproveByUserId = approvedByUserId;
                         await _unitOfWork.TraineeAssignRepository.UpdateAsync(assign);
-                        
-                        // ✅ Notify the trainee
+
                         await _notificationService.SendNotificationAsync(
                             assign.TraineeId,
                             "Trainee Assignment Approved",
-                            $"You have been assigned to Course {assign.CourseId}.",
+                            $"You have been assigned to Subject {assign.CourseSubjectSpecialty.SubjectId}.",
                             "TraineeAssign"
                         );
 
-                        // ✅ Notify the assigner (AssignByUserId)
                         if (!string.IsNullOrEmpty(assign.AssignByUserId))
                         {
                             await _notificationService.SendNotificationAsync(
                                 assign.AssignByUserId,
                                 "Trainee Assignment Approved",
-                                $"Your request to assign {assign.TraineeId} to Course {assign.CourseId} has been approved.",
+                                $"Your request to assign {assign.TraineeId} to Subject {assign.CourseSubjectSpecialty.SubjectId} has been approved.",
                                 "TraineeAssign"
                             );
                         }
                     }
-                    
                     break;
 
                 case RequestType.AddTraineeAssign:
-
                     if (approver == null || approver.RoleId != 2)
                     {
                         throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
                     }
-                    var traineeAssign = await _unitOfWork.TraineeAssignRepository.GetAsync(t => t.RequestId == requestId);
+
+                    var traineeAssign = await _unitOfWork.TraineeAssignRepository.GetAsync(
+                        t => t.RequestId == requestId,
+                        t => t.CourseSubjectSpecialty,
+                        t => t.CourseSubjectSpecialty.Course);
                     if (traineeAssign == null)
                         return false;
 
@@ -652,27 +664,25 @@ namespace OCMS_Services.Service
                     traineeAssign.ApprovalDate = DateTime.Now;
                     traineeAssign.ApproveByUserId = approvedByUserId;
                     await _unitOfWork.TraineeAssignRepository.UpdateAsync(traineeAssign);
-                    
-                    // ✅ Notify the trainee
+
                     await _notificationService.SendNotificationAsync(
                         traineeAssign.TraineeId,
                         "Trainee Assignment Approved",
-                        $"You have been assigned to Course {traineeAssign.CourseId}.",
+                        $"You have been assigned to Subject {traineeAssign.CourseSubjectSpecialty.SubjectId}.",
                         "TraineeAssign"
                     );
 
-                    // ✅ Notify the assigner (AssignByUserId)
                     if (!string.IsNullOrEmpty(traineeAssign.AssignByUserId))
                     {
                         await _notificationService.SendNotificationAsync(
                             traineeAssign.AssignByUserId,
                             "Trainee Assignment Approved",
-                            $"Your request to assign {traineeAssign.TraineeId} to Course {traineeAssign.CourseId} has been approved.",
+                            $"Your request to assign {traineeAssign.TraineeId} to Subject {traineeAssign.CourseSubjectSpecialty.SubjectId} has been approved.",
                             "TraineeAssign"
                         );
                     }
-                    
                     break;
+
                 case RequestType.PlanChange:
 
                     if (approver == null || approver.RoleId != 2)
@@ -694,7 +704,7 @@ namespace OCMS_Services.Service
 
                                 // Apply the changes
                                 trainingPlan.PlanName = dto.PlanName;
-                                trainingPlan.Desciption = dto.Desciption;
+                                trainingPlan.Desciption = dto.Description;
                                 trainingPlan.ModifyDate = DateTime.Now;
                                 trainingPlan.CreateByUserId = request.RequestUserId; // Or approvedByUserId
                                 trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Approved;
@@ -793,12 +803,11 @@ namespace OCMS_Services.Service
             string notificationTitle = "Request Rejected";
             string notificationMessage;
             var rejecter = await _userRepository.GetByIdAsync(rejectByUserId);
+            
+
             switch (request.RequestType)
             {
                 case RequestType.NewPlan:
-                case RequestType.RecurrentPlan:
-                case RequestType.RelearnPlan:
-
                     if (rejecter == null || rejecter.RoleId != 2)
                     {
                         throw new UnauthorizedAccessException("Only HeadMaster can reject this request.");
@@ -807,9 +816,8 @@ namespace OCMS_Services.Service
                     if (plan != null)
                     {
                         plan.TrainingPlanStatus = TrainingPlanStatus.Rejected;
-                        plan.ApproveByUserId = null; // Clear approval details
+                        plan.ApproveByUserId = null;
                         plan.ApproveDate = null;
-
                         await _unitOfWork.TrainingPlanRepository.UpdateAsync(plan);
 
                         // ❌ Reject all associated courses
@@ -818,14 +826,31 @@ namespace OCMS_Services.Service
                         {
                             course.Status = CourseStatus.Rejected;
                             await _unitOfWork.CourseRepository.UpdateAsync(course);
-                        }
 
-                        // ❌ Reject all associated schedules
-                        var schedules = await _trainingScheduleRepository.GetSchedulesByTrainingPlanIdAsync(plan.PlanId);
-                        foreach (var schedule in schedules)
-                        {
-                            schedule.Status = ScheduleStatus.Canceled; // Use Canceled instead of Rejected (if applicable)
-                            await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
+                            // Load CourseSubjectSpecialties for the course
+                            var courseSubjectSpecialties = await _unitOfWork.CourseSubjectSpecialtyRepository
+                                .GetAllAsync(css => css.CourseId == course.CourseId,
+                                    css => css.Schedules,
+                                    css => css.Trainees);
+                            foreach (var css in courseSubjectSpecialties)
+                            {
+                                // Reject all schedules
+                                foreach (var schedule in css.Schedules)
+                                {
+                                    schedule.Status = ScheduleStatus.Canceled;
+                                    schedule.ModifiedDate = DateTime.UtcNow;
+                                    await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
+                                }
+
+                                // Reject all trainee assignments
+                                foreach (var trainee in css.Trainees)
+                                {
+                                    trainee.RequestStatus = RequestStatus.Rejected;
+                                    trainee.ApprovalDate = null;
+                                    trainee.ApproveByUserId = null;
+                                    await _unitOfWork.TraineeAssignRepository.UpdateAsync(trainee);
+                                }
+                            }
                         }
 
                         // ❌ Reject all instructor assignments
@@ -835,100 +860,170 @@ namespace OCMS_Services.Service
                             assignment.RequestStatus = RequestStatus.Rejected;
                             await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
                         }
-                        
                     }
 
                     notificationMessage = $"Your training plan request (ID: {request.RequestEntityId}) has been rejected. Reason: {rejectionReason}";
-                   
                     break;
 
                 case RequestType.Update:
-
+                case RequestType.PlanChange:
                     if (rejecter == null || rejecter.RoleId != 2)
                     {
                         throw new UnauthorizedAccessException("Only HeadMaster can reject this request.");
                     }
                     var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
-                    if (trainingPlan != null && trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Approved)
+                    if (trainingPlan != null)
                     {
-                        trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Approved;
-                    }
-                    
-                    notificationMessage = $"Your request to update (ID: {request.RequestEntityId}) has been rejected. Reason: {rejectionReason}";
-                   
-                    break;
-                case RequestType.Delete:
+                        // If the plan is Approved, keep it Approved but reject associated requests
+                        if (trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Approved)
+                        {
+                            trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Approved;
 
+                            // Reject associated entities
+                            var courses = await _courseRepository.GetCoursesByTrainingPlanIdAsync(trainingPlan.PlanId);
+                            foreach (var course in courses)
+                            {
+                                // If course was pending update, revert to previous state
+                                course.Status = CourseStatus.Approved;
+                                await _unitOfWork.CourseRepository.UpdateAsync(course);
+
+                                var courseSubjectSpecialties = await _unitOfWork.CourseSubjectSpecialtyRepository
+                                    .GetAllAsync(css => css.CourseId == course.CourseId,
+                                        css => css.Schedules,
+                                        css => css.Trainees);
+                                foreach (var css in courseSubjectSpecialties)
+                                {
+                                    foreach (var schedule in css.Schedules)
+                                    {
+                                        schedule.Status = ScheduleStatus.Approved;
+                                        schedule.ModifiedDate = DateTime.UtcNow;
+                                        await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
+                                    }
+
+                                    foreach (var trainee in css.Trainees)
+                                    {
+                                        trainee.RequestStatus = RequestStatus.Approved;
+                                        await _unitOfWork.TraineeAssignRepository.UpdateAsync(trainee);
+                                    }
+                                }
+                            }
+
+                            var instructorAssignments = await _instructorAssignmentRepository.GetAssignmentsByTrainingPlanIdAsync(trainingPlan.PlanId);
+                            foreach (var assignment in instructorAssignments)
+                            {
+                                assignment.RequestStatus = RequestStatus.Approved;
+                                await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
+                            }
+                        }
+                        await _unitOfWork.TrainingPlanRepository.UpdateAsync(trainingPlan);
+                    }
+
+                    notificationMessage = $"Your request to update training plan (ID: {request.RequestEntityId}) has been rejected. Reason: {rejectionReason}";
+                    break;
+
+                case RequestType.Delete:
+                case RequestType.PlanDelete:
                     if (rejecter == null || rejecter.RoleId != 2)
                     {
                         throw new UnauthorizedAccessException("Only HeadMaster can reject this request.");
                     }
                     var _trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
-                    if (_trainingPlan != null && _trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Approved)
+                    if (_trainingPlan != null)
                     {
-                        _trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Approved;
+                        // If the plan is Approved, keep it Approved but reject associated requests
+                        if (_trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Approved)
+                        {
+                            _trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Approved;
+
+                            var courses = await _courseRepository.GetCoursesByTrainingPlanIdAsync(_trainingPlan.PlanId);
+                            foreach (var course in courses)
+                            {
+                                course.Status = CourseStatus.Approved;
+                                await _unitOfWork.CourseRepository.UpdateAsync(course);
+
+                                var courseSubjectSpecialties = await _unitOfWork.CourseSubjectSpecialtyRepository
+                                    .GetAllAsync(css => css.CourseId == course.CourseId,
+                                        css => css.Schedules,
+                                        css => css.Trainees);
+                                foreach (var css in courseSubjectSpecialties)
+                                {
+                                    foreach (var schedule in css.Schedules)
+                                    {
+                                        schedule.Status = ScheduleStatus.Approved;
+                                        schedule.ModifiedDate = DateTime.UtcNow;
+                                        await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
+                                    }
+
+                                    foreach (var trainee in css.Trainees)
+                                    {
+                                        trainee.RequestStatus = RequestStatus.Approved;
+                                        await _unitOfWork.TraineeAssignRepository.UpdateAsync(trainee);
+                                    }
+                                }
+                            }
+
+                            var instructorAssignments = await _instructorAssignmentRepository.GetAssignmentsByTrainingPlanIdAsync(_trainingPlan.PlanId);
+                            foreach (var assignment in instructorAssignments)
+                            {
+                                assignment.RequestStatus = RequestStatus.Approved;
+                                await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
+                            }
+                        }
+                        await _unitOfWork.TrainingPlanRepository.UpdateAsync(_trainingPlan);
                     }
-                    
-                    notificationMessage = $"Your request to delete (ID: {request.RequestEntityId}) has been rejected. Reason: {rejectionReason}";
-                    
+
+                    notificationMessage = $"Your request to delete training plan (ID: {request.RequestEntityId}) has been rejected. Reason: {rejectionReason}";
                     break;
-                case RequestType.PlanChange:
 
-                    if (rejecter == null || rejecter.RoleId != 2)
-                    {
-                        throw new UnauthorizedAccessException("Only HeadMaster can reject this request.");
-                    }
-                    var trainingplan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
-                    if (trainingplan != null && trainingplan.TrainingPlanStatus == TrainingPlanStatus.Approved)
-                    {
-                        trainingplan.TrainingPlanStatus = TrainingPlanStatus.Approved;
-                    }
-
-                    notificationMessage = $"Your request to update (ID: {request.RequestEntityId}) has been rejected. Reason: {rejectionReason}";
-
-                    break;
-                case RequestType.PlanDelete:
-
-                    if (rejecter == null || rejecter.RoleId != 2)
-                    {
-                        throw new UnauthorizedAccessException("Only HeadMaster can reject this request.");
-                    }
-                    var _trainingplan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
-                    if (_trainingplan != null && _trainingplan.TrainingPlanStatus == TrainingPlanStatus.Approved)
-                    {
-                        _trainingplan.TrainingPlanStatus = TrainingPlanStatus.Approved;
-                    }
-
-                    notificationMessage = $"Your request to delete (ID: {request.RequestEntityId}) has been rejected. Reason: {rejectionReason}";
-
-                    break;
                 case RequestType.CandidateImport:
-
                     if (rejecter == null || rejecter.RoleId != 3)
                     {
                         throw new UnauthorizedAccessException("Only TrainingStaff can reject this request.");
                     }
 
                     notificationMessage = $"Your candidate import request has been rejected. Reason: {rejectionReason}";
-                    
                     break;
-                case RequestType.AssignTrainee:
 
+                case RequestType.AssignTrainee:
                     if (rejecter == null || rejecter.RoleId != 2)
                     {
                         throw new UnauthorizedAccessException("Only HeadMaster can reject this request.");
                     }
 
-                    notificationMessage = $"Your request to assign trainee import has been rejected. Reason:{rejectionReason}";
-                    
+                    var traineeAssigns = await _unitOfWork.TraineeAssignRepository.GetAllAsync(
+                        t => t.RequestId == request.RequestId,
+                        t => t.CourseSubjectSpecialty,
+                        t => t.CourseSubjectSpecialty.Course);
+                    foreach (var assign in traineeAssigns)
+                    {
+                        assign.RequestStatus = RequestStatus.Rejected;
+                        assign.ApprovalDate = null;
+                        assign.ApproveByUserId = null;
+                        await _unitOfWork.TraineeAssignRepository.UpdateAsync(assign);
+                    }
+
+                    notificationMessage = $"Your request to assign trainees has been rejected. Reason: {rejectionReason}";
                     break;
+
                 case RequestType.AddTraineeAssign:
                     if (rejecter == null || rejecter.RoleId != 2)
                     {
                         throw new UnauthorizedAccessException("Only HeadMaster can reject this request.");
                     }
+
+                    var traineeAssign = await _unitOfWork.TraineeAssignRepository.GetAsync(
+                        t => t.RequestId == request.RequestId,
+                        t => t.CourseSubjectSpecialty,
+                        t => t.CourseSubjectSpecialty.Course);
+                    if (traineeAssign != null)
+                    {
+                        traineeAssign.RequestStatus = RequestStatus.Rejected;
+                        traineeAssign.ApprovalDate = null;
+                        traineeAssign.ApproveByUserId = null;
+                        await _unitOfWork.TraineeAssignRepository.UpdateAsync(traineeAssign);
+                    }
+
                     notificationMessage = $"Your request to assign a trainee has been rejected. Reason: {rejectionReason}";
-                    
                     break;
                 case RequestType.DecisionTemplate:
                     if (rejecter == null || rejecter.RoleId != 2)

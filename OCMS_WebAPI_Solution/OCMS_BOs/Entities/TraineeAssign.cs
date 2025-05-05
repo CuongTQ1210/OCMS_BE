@@ -15,9 +15,9 @@ namespace OCMS_BOs.Entities
         [ForeignKey("TraineeUser")]
         public string TraineeId { get; set; } //assign trainee to course 
         public User Trainee { get; set; }
-        [ForeignKey("Course")]
-        public string CourseId { get; set; }
-        public Course Course { get; set; }
+        [ForeignKey("CourseSubjectSpecialty")]
+        public string CourseSubjectSpecialtyId { get; set; }
+        public CourseSubjectSpecialty CourseSubjectSpecialty { get; set; }
         public RequestStatus RequestStatus { get; set; }
         [ForeignKey("AssignUser")]
         public string? AssignByUserId { get; set; }
