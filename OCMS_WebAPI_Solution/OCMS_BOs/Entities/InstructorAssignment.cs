@@ -12,10 +12,10 @@ namespace OCMS_BOs.Entities
     {
         [Key]
         public string AssignmentId { get; set; }
-        
-        [ForeignKey("Subject")]
-        public string SubjectId { get; set; }
-        public Subject Subject { get; set; }
+
+        [ForeignKey("CourseSubjectSpecialty")]
+        public string CourseSubjectSpecialtyId { get; set; }
+        public CourseSubjectSpecialty CourseSubjectSpecialty { get; set; }
         [ForeignKey("InstructorUser")]
         public string InstructorId { get; set; }
         public User Instructor { get; set; }
@@ -25,5 +25,6 @@ namespace OCMS_BOs.Entities
         public DateTime AssignDate { get; set; }
         public RequestStatus RequestStatus { get; set; }
         public string Notes { get; set; }
+
     }
 }

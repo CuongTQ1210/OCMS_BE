@@ -10,10 +10,8 @@ namespace OCMS_BOs.RequestModel
     public class TrainingPlanDTO
     {
         public string PlanName { get; set; }
-        public string Desciption { get; set; }
-        public PlanLevel PlanLevel { get; set; }
+        public string Description { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
-        public string SpecialtyId { get; set; }
     }
 }
