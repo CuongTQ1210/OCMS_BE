@@ -190,7 +190,6 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.ApproveByUser, opt => opt.Ignore())
                 .ForMember(dest => dest.TrainingPlan, opt => opt.Ignore())
                 .ForMember(dest => dest.CourseSubjectSpecialties, opt => opt.Ignore())
-                .ForMember(dest => dest.Subjects, opt => opt.Ignore())
                 .ForMember(dest => dest.RelatedCourses, opt => opt.Ignore());
 
             // CourseSubjectSpecialty Mappings
@@ -220,13 +219,11 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.CourseSubjectSpecialties, opt => opt.MapFrom(src => src.CourseSubjectSpecialties))
                 .ReverseMap()
                 .ForMember(dest => dest.CourseSubjectSpecialties, opt => opt.Ignore())
-                .ForMember(dest => dest.Courses, opt => opt.Ignore())
                 .ForMember(dest => dest.CreateByUser, opt => opt.Ignore());
 
             CreateMap<SubjectDTO, Subject>()
                 .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.SubjectId))
-                .ForMember(dest => dest.CourseSubjectSpecialties, opt => opt.Ignore()) // CourseId handled separately
-                .ForMember(dest => dest.Courses, opt => opt.Ignore())
+                .ForMember(dest => dest.CourseSubjectSpecialties, opt => opt.Ignore())
                 .ForMember(dest => dest.CreateByUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
                 .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
@@ -315,7 +312,6 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.CreatedDate, opt => opt.MapFrom(_ => DateTime.Now))
                 .ForMember(dest => dest.ModifiedDate, opt => opt.MapFrom(_ => DateTime.Now))
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(_ => ScheduleStatus.Pending))
-                .ForMember(dest => dest.CourseSubjectSpecialties, opt => opt.Ignore())
                 .ForMember(dest => dest.CourseSubjectSpecialty, opt => opt.Ignore())
                 .ForMember(dest => dest.Instructor, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedBy, opt => opt.Ignore());

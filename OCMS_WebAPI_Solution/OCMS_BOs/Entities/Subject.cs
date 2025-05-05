@@ -28,7 +28,5 @@ namespace OCMS_BOs.Entities
         // Add the many-to-many relationship through the join table
         public List<CourseSubjectSpecialty> CourseSubjectSpecialties { get; set; }
 
-        public List<Course> Courses { get; set; }
-        
     }
 }

@@ -41,6 +41,5 @@ namespace OCMS_BOs.Entities
         public ScheduleStatus Status { get; set; } 
         public string Notes { get; set; }
 
-        public List<CourseSubjectSpecialty> CourseSubjectSpecialties { get; set; }
     }
 }

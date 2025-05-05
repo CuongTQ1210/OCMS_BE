@@ -80,12 +80,12 @@ namespace OCMS_Services.Service
             {
                 // 1. Get course data efficiently
                 var course = await _courseRepository.GetCourseWithDetailsAsync(courseId);
-                if (course == null || !course.Subjects.Any() || course.Status != CourseStatus.Approved)
+                if (course == null || !course.CourseSubjectSpecialties.Any() || course.Status != CourseStatus.Approved)
                 {
                     throw new Exception($"Course with ID {courseId} not found or not active or has no subjects!");
                 }
 
-                int subjectCount = course.Subjects.Count;
+                int subjectCount = course.CourseSubjectSpecialties.Count;
 
                 // 2. Get template data with caching
                 var templateId = await GetTemplateIdByCourseLevelAsync(course.CourseLevel);
@@ -299,7 +299,7 @@ namespace OCMS_Services.Service
 
                 // Get course data
                 var course = await _courseRepository.GetCourseWithDetailsAsync(courseId);
-                if (course == null || !course.Subjects.Any() || course.Status != CourseStatus.Approved)
+                if (course == null || !course.CourseSubjectSpecialties.Any() || course.Status != CourseStatus.Approved)
                 {
                     throw new Exception($"Course with ID {courseId} not found or not active or has no subjects!");
                 }
@@ -313,7 +313,7 @@ namespace OCMS_Services.Service
 
                 // Get all grades for this trainee in this course
                 var grades = await _gradeRepository.GetGradesByTraineeAssignIdAsync(traineeAssignment.TraineeAssignId);
-                if (!grades.Any() || grades.Count() < course.Subjects.Count)
+                if (!grades.Any() || grades.Count() < course.CourseSubjectSpecialties.Count)
                 {
                     throw new InvalidOperationException($"Trainee has not completed all subjects in this course");
                 }
