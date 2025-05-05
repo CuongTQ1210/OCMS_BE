@@ -50,7 +50,6 @@ namespace OCMS_Services.Service
         public async Task<IEnumerable<TrainingScheduleModel>> GetAllTrainingSchedulesAsync()
         {
             var schedules = await _unitOfWork.TrainingScheduleRepository.GetAllAsync(
-                s => s.CourseSubjectSpecialties,
                 s => s.Instructor,
                 s => s.CreatedBy
             );
@@ -69,7 +68,6 @@ namespace OCMS_Services.Service
 
             var schedule = await _unitOfWork.TrainingScheduleRepository.GetAsync(
                 s => s.ScheduleID == scheduleId,
-                s => s.CourseSubjectSpecialties,
                 s => s.Instructor,
                 s => s.CreatedBy
             );
@@ -163,7 +161,6 @@ namespace OCMS_Services.Service
 
             var updatedSchedule = await _unitOfWork.TrainingScheduleRepository.GetAsync(
                 s => s.ScheduleID == scheduleId,
-                s => s.CourseSubjectSpecialties,
                 s => s.Instructor,
                 s => s.CreatedBy
             );

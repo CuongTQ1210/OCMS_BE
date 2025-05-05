@@ -44,6 +44,6 @@ namespace OCMS_BOs.Entities
         public ICollection<Course> RelatedCourses { get; set; }
         // Modified: Subject relationship now goes through the join table
         public List<CourseSubjectSpecialty> CourseSubjectSpecialties { get; set; }
-        public List<Subject> Subjects { get; set; }
+        
     }
 }
