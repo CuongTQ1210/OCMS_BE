@@ -57,66 +57,30 @@ namespace OCMS_BOs
                       .HasMaxLength(100);
             });
 
-            modelBuilder.Entity<CourseSubjectSpecialty>(entity =>
-            {
-                entity.HasKey(e => e.Id);
+            // Configure CourseSubjectSpecialty relationships
+            modelBuilder.Entity<CourseSubjectSpecialty>()
+                .HasOne(css => css.Course)
+                .WithMany(c => c.CourseSubjectSpecialties)
+                .HasForeignKey(css => css.CourseId)
+                .OnDelete(DeleteBehavior.Restrict);
 
-                entity.Property(e => e.Id)
-                      .IsRequired();
+            modelBuilder.Entity<CourseSubjectSpecialty>()
+                .HasOne(css => css.Subject)
+                .WithMany(s => s.CourseSubjectSpecialties)
+                .HasForeignKey(css => css.SubjectId)
+                .OnDelete(DeleteBehavior.Restrict);
 
-                entity.Property(e => e.Notes)
-                      .HasMaxLength(1000); // Optional: limit length of Notes field
+            modelBuilder.Entity<CourseSubjectSpecialty>()
+                .HasOne(css => css.Specialty)
+                .WithMany() // Make sure there's a navigation property on Specialties if needed
+                .HasForeignKey(css => css.SpecialtyId)
+                .OnDelete(DeleteBehavior.Restrict);
 
-                entity.Property(u => u.CreatedAt)
-                     .IsRequired()
-                     .HasDefaultValueSql("CURRENT_TIMESTAMP"); // Set default creation time
-
-                entity.Property(u => u.UpdatedAt)
-                      .IsRequired()
-                      .HasDefaultValueSql("CURRENT_TIMESTAMP"); // Set default update time
-
-                // Course relationship
-                entity.HasOne(e => e.Course)
-                      .WithMany()
-                      .HasForeignKey(e => e.CourseId)
-                      .OnDelete(DeleteBehavior.Restrict);
-
-                // Subject relationship
-                entity.HasOne(e => e.Subject)
-                      .WithMany()
-                      .HasForeignKey(e => e.SubjectId)
-                      .OnDelete(DeleteBehavior.Restrict);
-
-                // Specialty relationship
-                entity.HasOne(e => e.Specialty)
-                      .WithMany()
-                      .HasForeignKey(e => e.SpecialtyId)
-                      .OnDelete(DeleteBehavior.Restrict);
-
-                // CreatedByUser relationship
-                entity.HasOne(e => e.CreatedByUser)
-                      .WithMany()
-                      .HasForeignKey(e => e.CreatedByUserId)
-                      .OnDelete(DeleteBehavior.Restrict);
-
-                // Trainees
-                entity.HasMany(e => e.Trainees)
-                      .WithOne(t => t.CourseSubjectSpecialty)
-                      .HasForeignKey(t => t.CourseSubjectSpecialtyId)
-                      .OnDelete(DeleteBehavior.Cascade);
-
-                // Instructors
-                entity.HasMany(e => e.Instructors)
-                      .WithOne(i => i.CourseSubjectSpecialty)
-                      .HasForeignKey(i => i.CourseSubjectSpecialtyId)
-                      .OnDelete(DeleteBehavior.Cascade);
-
-                // Schedules
-                entity.HasMany(e => e.Schedules)
-                      .WithOne(s => s.CourseSubjectSpecialty)
-                      .HasForeignKey(s => s.CourseSubjectSpecialtyId)
-                      .OnDelete(DeleteBehavior.Cascade);
-            });
+            modelBuilder.Entity<CourseSubjectSpecialty>()
+                .HasOne(css => css.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(css => css.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             // Fluent API for User
             modelBuilder.Entity<User>(entity =>
@@ -170,9 +134,40 @@ namespace OCMS_BOs
             modelBuilder.Entity<Specialties>(entity =>
             {
                 entity.HasKey(s => s.SpecialtyId);
+
                 entity.Property(s => s.SpecialtyName)
                       .IsRequired()
                       .HasMaxLength(100);
+
+                entity.Property(s => s.Description)
+                      .HasMaxLength(1000); // Optional
+
+                entity.Property(s => s.CreatedAt)
+                      .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                entity.Property(s => s.UpdatedAt)
+                      .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                entity.HasOne(s => s.ParentSpecialty)
+                      .WithMany(s => s.SubSpecialties)
+                      .HasForeignKey(s => s.ParentSpecialtyId)
+                      .OnDelete(DeleteBehavior.Restrict); // Avoid cascading deletes
+
+                entity.HasOne(s => s.CreatedByUser)
+                      .WithMany()
+                      .HasForeignKey(s => s.CreatedByUserId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(s => s.UpdatedByUser)
+                      .WithMany()
+                      .HasForeignKey(s => s.UpdatedByUserId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasMany(s => s.CourseSubjectSpecialties)
+                      .WithOne(c => c.Specialty)
+                      .HasForeignKey(c => c.SpecialtyId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
             });
             modelBuilder.Entity<Department>(entity =>
             {
