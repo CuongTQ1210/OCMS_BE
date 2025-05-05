@@ -14,8 +14,8 @@ namespace OCMS_BOs.Entities
         public string CourseId { get; set; }
 
         [ForeignKey("TrainingPlan")]
-        public string TrainingPlanId { get; set; }
-        public TrainingPlan TrainingPlan { get; set; }
+        public string? TrainingPlanId { get; set; }
+        public TrainingPlan? TrainingPlan { get; set; }
 
         public string CourseName { get; set; }
         public string? Description { get; set; }
