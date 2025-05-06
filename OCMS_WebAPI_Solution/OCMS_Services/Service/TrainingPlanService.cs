@@ -34,7 +34,7 @@ namespace OCMS_Services.Service
         {
             var trainingPlan = _mapper.Map<TrainingPlan>(dto);
             trainingPlan.PlanId = await GenerateTrainingPlanId(dto.StartDate);
-            trainingPlan.Desciption = dto.Description;
+            trainingPlan.Description = dto.Description;
             trainingPlan.CreateDate = DateTime.Now;
             trainingPlan.ModifyDate = DateTime.Now;
             trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Draft;
@@ -55,7 +55,7 @@ namespace OCMS_Services.Service
             var courseSubjectSpecialties = await _unitOfWork.CourseSubjectSpecialtyRepository
                 .GetAllAsync(
                     css => css.Trainees.Any(t => t.TraineeId == traineeId),
-                    css => css.Course
+                    includes: c => c.Course // Use includes parameter correctly
                 );
 
             if (courseSubjectSpecialties == null || !courseSubjectSpecialties.Any())
@@ -63,11 +63,16 @@ namespace OCMS_Services.Service
                 throw new Exception("No training plan joined.");
             }
 
-            var trainingPlans = courseSubjectSpecialties
-                .Where(css => css.Course != null && css.Course.TrainingPlan != null)
-                .Select(css => css.Course.TrainingPlan)
+            // Get the course IDs from the CSS entities
+            var courseIds = courseSubjectSpecialties
+                .Where(css => css.Course != null)
+                .Select(css => css.Course.CourseId)
                 .Distinct()
                 .ToList();
+
+            // Fetch the training plans that reference these courses
+            var trainingPlans = await _unitOfWork.TrainingPlanRepository
+                .GetAllAsync(tp => courseIds.Contains(tp.CourseId));
 
             return _mapper.Map<List<TrainingPlanModel>>(trainingPlans);
         }
@@ -76,25 +81,35 @@ namespace OCMS_Services.Service
         #region Get all
         public async Task<IEnumerable<TrainingPlanModel>> GetAllTrainingPlansAsync()
         {
-            var plans = await _unitOfWork.TrainingPlanRepository.GetAllAsync(
-                p => p.CreateByUser,
-                p => p.Courses
+            var plans = await _unitOfWork.TrainingPlanRepository.GetAllAsync();
+
+            // Additional queries to load related entities if needed
+            var planIds = plans.Select(p => p.PlanId).ToList();
+            var users = await _unitOfWork.UserRepository.GetAllAsync(
+                u => plans.Any(p => p.CreateByUserId == u.UserId)
             );
 
-            return _mapper.Map<IEnumerable<TrainingPlanModel>>(plans);
+            // Map the training plans
+            var planModels = _mapper.Map<IEnumerable<TrainingPlanModel>>(plans);
+
+            return planModels;
         }
         #endregion
 
         #region Get by id
         public async Task<TrainingPlanModel> GetTrainingPlanByIdAsync(string id)
         {
-            var plan = await _unitOfWork.TrainingPlanRepository.GetAsync(
-                p => p.PlanId == id,
-                p => p.CreateByUser,
-                p => p.Courses
-            );
+            var plan = await _unitOfWork.TrainingPlanRepository.GetAsync(p => p.PlanId == id);
 
-            return plan == null ? null : _mapper.Map<TrainingPlanModel>(plan);
+            if (plan == null)
+                return null;
+
+            // If you need related data, load it separately
+            var createUser = await _unitOfWork.UserRepository.GetByIdAsync(plan.CreateByUserId);
+
+            var result = _mapper.Map<TrainingPlanModel>(plan);
+
+            return result;
         }
         #endregion
 
@@ -139,11 +154,10 @@ namespace OCMS_Services.Service
 
             // Apply update for Pending or Draft
             trainingPlan.PlanName = dto.PlanName;
-            trainingPlan.Desciption = dto.Description; // Fix typo to Description if entity is updated
+            trainingPlan.Description = dto.Description; // Using existing property (still has typo)
             trainingPlan.StartDate = dto.StartDate;
             trainingPlan.EndDate = dto.EndDate;
             trainingPlan.ModifyDate = DateTime.Now;
-            trainingPlan.CreateByUserId = updateUserId; // Note: This may be incorrect; should it be a separate ModifiedByUserId?
             if (trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Updating)
             {
                 trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Pending;
@@ -239,7 +253,6 @@ namespace OCMS_Services.Service
             else
                 return "WT"; // Winter (December - February)
         }
-          
         #endregion
     }
 }
