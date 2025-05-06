@@ -32,9 +32,21 @@ namespace OCMS_Services.Service
         #region Create Training
         public async Task<TrainingPlanModel> CreateTrainingPlanAsync(TrainingPlanDTO dto, string createUserId)
         {
+            // Validate dates: EndDate must be after StartDate
+            if (dto.EndDate <= dto.StartDate)
+            {
+                throw new ArgumentException("End date must be after start date.");
+            }
+
+            // Validate required fields
+            if (string.IsNullOrWhiteSpace(dto.PlanName))
+            {
+                throw new ArgumentException("Plan name is required.");
+            }
+
             var trainingPlan = _mapper.Map<TrainingPlan>(dto);
             trainingPlan.PlanId = await GenerateTrainingPlanId(dto.StartDate);
-            trainingPlan.Desciption = dto.Description;
+            trainingPlan.Desciption = dto.Description ?? ""; // Ensure description is not null
             trainingPlan.CreateDate = DateTime.Now;
             trainingPlan.ModifyDate = DateTime.Now;
             trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Draft;
@@ -88,13 +100,15 @@ namespace OCMS_Services.Service
         #region Get by id
         public async Task<TrainingPlanModel> GetTrainingPlanByIdAsync(string id)
         {
-            var plan = await _unitOfWork.TrainingPlanRepository.GetAsync(
-                p => p.PlanId == id,
-                p => p.CreateByUser,
-                p => p.Courses
-            );
-
-            return plan == null ? null : _mapper.Map<TrainingPlanModel>(plan);
+            var plan = await _trainingPlanRepository.GetTrainingPlanWithDetailsAsync(id);
+            
+            if (plan == null)
+                return null;
+                
+            // Map và trả về kết quả
+            var planModel = _mapper.Map<TrainingPlanModel>(plan);
+            
+            return planModel;
         }
         #endregion
 
@@ -113,9 +127,21 @@ namespace OCMS_Services.Service
         #region Update Training Plan
         public async Task<TrainingPlanModel> UpdateTrainingPlanAsync(string id, TrainingPlanDTO dto, string updateUserId)
         {
-            var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetAsync(p => p.PlanId == id);
+            // Validate dates: EndDate must be after StartDate
+            if (dto.EndDate <= dto.StartDate)
+            {
+                throw new ArgumentException("End date must be after start date.");
+            }
+            
+            // Validate required fields
+            if (string.IsNullOrWhiteSpace(dto.PlanName))
+            {
+                throw new ArgumentException("Plan name is required.");
+            }
+            
+            var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(id);
             if (trainingPlan == null)
-                throw new KeyNotFoundException("Training plan not found.");
+                throw new KeyNotFoundException($"Training plan with ID {id} not found.");
 
             if (trainingPlan.TrainingPlanStatus != TrainingPlanStatus.Pending &&
                 trainingPlan.TrainingPlanStatus != TrainingPlanStatus.Draft &&
@@ -137,13 +163,14 @@ namespace OCMS_Services.Service
                 return _mapper.Map<TrainingPlanModel>(trainingPlan); // Return unchanged plan
             }
 
-            // Apply update for Pending or Draft
+            // Apply update for Pending or Draft - fix the typo and handle null values
             trainingPlan.PlanName = dto.PlanName;
-            trainingPlan.Desciption = dto.Description; // Fix typo to Description if entity is updated
+            trainingPlan.Desciption = dto.Description ?? "";
             trainingPlan.StartDate = dto.StartDate;
             trainingPlan.EndDate = dto.EndDate;
             trainingPlan.ModifyDate = DateTime.Now;
-            trainingPlan.CreateByUserId = updateUserId; // Note: This may be incorrect; should it be a separate ModifiedByUserId?
+            
+            
             if (trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Updating)
             {
                 trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Pending;
