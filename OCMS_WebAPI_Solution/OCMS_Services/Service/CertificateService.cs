@@ -80,12 +80,12 @@ namespace OCMS_Services.Service
             {
                 // 1. Get course data efficiently
                 var course = await _courseRepository.GetCourseWithDetailsAsync(courseId);
-                if (course == null || !course.Subjects.Any() || course.Status != CourseStatus.Approved)
+                if (course == null || !course.CourseSubjectSpecialties.Any() || course.Status != CourseStatus.Approved)
                 {
                     throw new Exception($"Course with ID {courseId} not found or not active or has no subjects!");
                 }
 
-                int subjectCount = course.Subjects.Count;
+                int subjectCount = course.CourseSubjectSpecialties.Count;
 
                 // 2. Get template data with caching
                 var templateId = await GetTemplateIdByCourseLevelAsync(course.CourseLevel);
@@ -105,7 +105,7 @@ namespace OCMS_Services.Service
                 var templateType = GetTemplateTypeFromName(certificateTemplate.TemplateName);
 
                 // 3. Get all data needed for certificate generation in bulk
-                var traineeAssignments = await _traineeAssignRepository.GetTraineeAssignmentsByCourseIdAsync(courseId);
+                var traineeAssignments = await _traineeAssignRepository.GetTraineeAssignmentsByCourseIdAsync(course.CourseId);
                 var existingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.CourseId == courseId);
                 var allGrades = await _gradeRepository.GetGradesByCourseIdAsync(courseId);
 
@@ -299,7 +299,7 @@ namespace OCMS_Services.Service
 
                 // Get course data
                 var course = await _courseRepository.GetCourseWithDetailsAsync(courseId);
-                if (course == null || !course.Subjects.Any() || course.Status != CourseStatus.Approved)
+                if (course == null || !course.CourseSubjectSpecialties.Any() || course.Status != CourseStatus.Approved)
                 {
                     throw new Exception($"Course with ID {courseId} not found or not active or has no subjects!");
                 }
@@ -313,7 +313,7 @@ namespace OCMS_Services.Service
 
                 // Get all grades for this trainee in this course
                 var grades = await _gradeRepository.GetGradesByTraineeAssignIdAsync(traineeAssignment.TraineeAssignId);
-                if (!grades.Any() || grades.Count() < course.Subjects.Count)
+                if (!grades.Any() || grades.Count() < course.CourseSubjectSpecialties.Count)
                 {
                     throw new InvalidOperationException($"Trainee has not completed all subjects in this course");
                 }
@@ -884,6 +884,9 @@ namespace OCMS_Services.Service
                         break;
                     case CourseLevel.Relearn:
                         matchingTemplates = templates.Where(t => t.TemplateName.Contains("Initial")).ToList();
+                        break;
+                    case CourseLevel.Professional:
+                        matchingTemplates = templates.Where(t => t.TemplateName.Contains("Professional")).ToList();
                         break;
                     default:
                         matchingTemplates = templates.ToList();

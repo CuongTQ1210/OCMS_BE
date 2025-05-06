@@ -16,6 +16,7 @@ using Azure.Extensions.AspNetCore.Configuration.Secrets;
 using StackExchange.Redis;
 using OfficeOpenXml;
 using OCMS_Services.Middleware;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -86,6 +87,7 @@ builder.Services.AddScoped<IGradeRepository, GradeRepository>();
 builder.Services.AddScoped<ICertificateRepository, CertificateRepository>();
 builder.Services.AddScoped<IDecisionTemplateRepository, DecisionTemplateRepository>();
 builder.Services.AddScoped<IDecisionRepository, DecisionRepository>();
+builder.Services.AddScoped<ICourseSubjectSpecialtyRepository, CourseSubjectSpecialtyRepository>();
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
@@ -112,7 +114,7 @@ builder.Services.AddScoped<IDecisionService, DecisionService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IProgressTrackingService, ProgressTrackingService>();
 builder.Services.AddScoped<ICertificateMonitoringService, CertificateMonitoringService>();
-
+builder.Services.AddScoped<ICourseSubjectSpecialtyService, CourseSubjectSpecialtyService>();
 // Register Lazy<T> factories
 builder.Services.AddScoped(provider => new Lazy<ITrainingScheduleService>(() => provider.GetRequiredService<ITrainingScheduleService>()));
 builder.Services.AddScoped(provider => new Lazy<ITrainingPlanService>(() => provider.GetRequiredService<ITrainingPlanService>()));
@@ -152,7 +154,10 @@ builder.Services.AddCors(options =>
 
 // Add other services
 builder.Services.AddAuthorization();
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {

@@ -230,12 +230,12 @@ namespace OCMS_Services.Service
                 .GetQueryable()
                 .Where(x => x.TraineeId == traineeId)
                 .Include(x => x.Trainee)
-                .Include(x => x.Course)
+                .Include(x => x.CourseSubjectSpecialty)
                 .ToListAsync();
 
             var grades = await _unitOfWork.GradeRepository
                         .GetQueryable()
-                        .Include(g => g.Subject) // Include subject to access PassingScore
+                        .Include(g => g.TraineeAssign) // Include subject to access PassingScore
                          .Where(g => g.TraineeAssign.TraineeId == traineeId)
                          .ToListAsync();
             var report = (from assign in traineeAssigns
@@ -246,14 +246,14 @@ namespace OCMS_Services.Service
                               TraineeId = assign.TraineeId,
                               TraineeName = assign.Trainee?.FullName,
                               Email = assign.Trainee?.Email,
-                              CourseId = assign.CourseId,
-                              CourseName = assign.Course?.CourseName,
+                              CourseId = assign.CourseSubjectSpecialty.CourseId,
+                              CourseName = assign.CourseSubjectSpecialty.Course?.CourseName,
                               AssignDate = assign.AssignDate,
-                              SubjectId = subGrade?.SubjectId,
+                              SubjectId = assign.CourseSubjectSpecialty.SubjectId,
                               TotalGrade = subGrade?.TotalScore,
                               Status = subGrade == null
         ? "N/A"
-        : (subGrade.TotalScore >= (subGrade.Subject?.PassingScore ?? 5) ? "Pass" : "Fail")
+        : (subGrade.TotalScore >= (assign.CourseSubjectSpecialty.Subject?.PassingScore ?? 5) ? "Pass" : "Fail")
                           }).ToList();
 
             return report;
@@ -264,27 +264,27 @@ namespace OCMS_Services.Service
             // Step 1: Get all TraineeAssigns with Course & Grade info
             var traineeAssigns = await _unitOfWork.TraineeAssignRepository
                 .GetQueryable()
-                .Include(x => x.Course)
+                .Include(x => x.CourseSubjectSpecialty)
                 .ToListAsync();
 
             var traineeAssignIds = traineeAssigns.Select(x => x.TraineeAssignId).ToList();
 
             var grades = await _unitOfWork.GradeRepository
                 .GetQueryable()
-                .Include(g => g.Subject)
+                .Include(g => g.TraineeAssign.CourseSubjectSpecialty)
                 .Where(g => traineeAssignIds.Contains(g.TraineeAssignID))
                 .ToListAsync();
 
             // Step 2: Join Grades with their CourseId via TraineeAssign
             var report = (from assign in traineeAssigns
                           join grade in grades on assign.TraineeAssignId equals grade.TraineeAssignID
-                          where grade.Subject != null
+                          where grade.TraineeAssign.CourseSubjectSpecialty != null
                           select new
                           {
-                              assign.CourseId,
-                              grade.SubjectId,
+                              assign.CourseSubjectSpecialty.CourseId,
+                              grade.TraineeAssign.CourseSubjectSpecialty.SubjectId,
                               grade.TotalScore,
-                              grade.Subject.PassingScore
+                              grade.TraineeAssign.CourseSubjectSpecialty.Subject.PassingScore
                           })
                           .GroupBy(x => new { x.CourseId, x.SubjectId })
                           .Select(g => new CourseResultReportDto
