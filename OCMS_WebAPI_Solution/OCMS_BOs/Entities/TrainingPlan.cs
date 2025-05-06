@@ -13,13 +13,21 @@ namespace OCMS_BOs.Entities
         [Key]
         public string PlanId { get; set; }
         public string PlanName { get; set; }
-        public string Desciption { get; set; }
+        public string Description { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
 
         [ForeignKey("CreateUser")]
         public string CreateByUserId { get; set; }
         public User CreateByUser { get; set; }
+
+        [ForeignKey("Course")]
+        public string CourseId { get; set; }
+        public Course Course { get; set; }
+
+        [ForeignKey("Specialty")]
+        public string SpecialtyId { get; set; }
+        public Specialties Specialty { get; set; }
 
         public DateTime CreateDate { get; set; } = DateTime.Now;
         public DateTime ModifyDate { get; set; } = DateTime.Now;
@@ -30,7 +38,5 @@ namespace OCMS_BOs.Entities
         public DateTime? ApproveDate { get; set; } = DateTime.Now;
 
         public TrainingPlanStatus TrainingPlanStatus { get; set; }
-
-        public List<Course> Courses { get; set; }
     }
 }
