@@ -12,11 +12,6 @@ namespace OCMS_BOs.Entities
     {
         [Key]
         public string CourseId { get; set; }
-
-        [ForeignKey("TrainingPlan")]
-        public string? TrainingPlanId { get; set; }
-        public TrainingPlan? TrainingPlan { get; set; }
-
         public string CourseName { get; set; }
         public string? Description { get; set; }
         public CourseLevel CourseLevel { get; set; } // Initial, Relearn, Recurrent
@@ -44,6 +39,7 @@ namespace OCMS_BOs.Entities
         public ICollection<Course> RelatedCourses { get; set; }
         // Modified: Subject relationship now goes through the join table
         public List<CourseSubjectSpecialty> CourseSubjectSpecialties { get; set; }
-        
+
+        public virtual ICollection<TrainingPlan> TrainingPlans { get; set; }
     }
 }

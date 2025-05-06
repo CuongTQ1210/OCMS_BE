@@ -10,7 +10,6 @@ namespace OCMS_BOs.ViewModel
     public class CourseModel
     {
         public string CourseId { get; set; }
-        public string TrainingPlanId { get; set; }
         public string CourseName { get; set; }
         public string? Description { get; set; }
         public string? CourseRelatedId { get; set; }
@@ -26,5 +25,6 @@ namespace OCMS_BOs.ViewModel
         public List<TraineeAssignModel> Trainees { get; set; } = new List<TraineeAssignModel>();
         public List<SubjectModel> Subjects { get; set; } = new List<SubjectModel>();
         public List<CourseSubjectSpecialtyModel> CourseSubjectSpecialties { get; set; } = new List<CourseSubjectSpecialtyModel>();
+        public List<TrainingPlanModel> TrainingPlans { get; set; } = new List<TrainingPlanModel>();
     }
 }

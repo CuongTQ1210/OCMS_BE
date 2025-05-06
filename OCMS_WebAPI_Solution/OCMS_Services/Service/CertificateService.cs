@@ -885,6 +885,9 @@ namespace OCMS_Services.Service
                     case CourseLevel.Relearn:
                         matchingTemplates = templates.Where(t => t.TemplateName.Contains("Initial")).ToList();
                         break;
+                    case CourseLevel.Professional:
+                        matchingTemplates = templates.Where(t => t.TemplateName.Contains("Professional")).ToList();
+                        break;
                     default:
                         matchingTemplates = templates.ToList();
                         break;
