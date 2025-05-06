@@ -149,13 +149,71 @@ namespace OCMS_WebAPI.Controllers
         [CustomAuthorize("HeadMaster", "Training staff")]
         public async Task<IActionResult> ApproveRequest(string id)
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-            var success = await _requestService.ApproveRequestAsync(id, userId);
-            if (!success)
-                return NotFound("Request not found");
-
-            return Ok("Request approved successfully");
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                
+               
+                
+                var success = await _requestService.ApproveRequestAsync(id, userId);
+                
+                if (success)
+                {
+                    return Ok(new
+                    {
+                        success = true,
+                        message = "Request approved successfully."
+                    });
+                }
+                
+                return NotFound(new
+                {
+                    success = false,
+                    message = "Request not found or cannot be approved."
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(403, new
+                {
+                    success = false,
+                    message = ex.Message
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
+                {
+                    success = false,
+                    message = ex.Message
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = ex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                // Log the error
+                Console.WriteLine($"Error in ApproveRequest: {ex.Message}");
+                Console.WriteLine($"StackTrace: {ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"Inner Exception: {ex.InnerException.Message}");
+                }
+                
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Đã xảy ra lỗi khi xử lý yêu cầu.",
+                    error = ex.Message,
+                    innerError = ex.InnerException?.Message
+                });
+            }
         }
         #endregion
 
