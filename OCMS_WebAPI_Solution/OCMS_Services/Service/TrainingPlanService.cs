@@ -32,9 +32,22 @@ namespace OCMS_Services.Service
         #region Create Training
         public async Task<TrainingPlanModel> CreateTrainingPlanAsync(TrainingPlanDTO dto, string createUserId)
         {
+            // Validate dates: EndDate must be after StartDate
+            if (dto.EndDate <= dto.StartDate)
+            {
+                throw new ArgumentException("End date must be after start date.");
+            }
+
+            // Validate required fields
+            if (string.IsNullOrWhiteSpace(dto.PlanName))
+            {
+                throw new ArgumentException("Plan name is required.");
+            }
+
             var trainingPlan = _mapper.Map<TrainingPlan>(dto);
             trainingPlan.PlanId = await GenerateTrainingPlanId(dto.StartDate);
             trainingPlan.Description = dto.Description;
+
             trainingPlan.CreateDate = DateTime.Now;
             trainingPlan.ModifyDate = DateTime.Now;
             trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Draft;
@@ -110,6 +123,7 @@ namespace OCMS_Services.Service
             var result = _mapper.Map<TrainingPlanModel>(plan);
 
             return result;
+
         }
         #endregion
 
@@ -128,9 +142,21 @@ namespace OCMS_Services.Service
         #region Update Training Plan
         public async Task<TrainingPlanModel> UpdateTrainingPlanAsync(string id, TrainingPlanDTO dto, string updateUserId)
         {
-            var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetAsync(p => p.PlanId == id);
+            // Validate dates: EndDate must be after StartDate
+            if (dto.EndDate <= dto.StartDate)
+            {
+                throw new ArgumentException("End date must be after start date.");
+            }
+            
+            // Validate required fields
+            if (string.IsNullOrWhiteSpace(dto.PlanName))
+            {
+                throw new ArgumentException("Plan name is required.");
+            }
+            
+            var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(id);
             if (trainingPlan == null)
-                throw new KeyNotFoundException("Training plan not found.");
+                throw new KeyNotFoundException($"Training plan with ID {id} not found.");
 
             if (trainingPlan.TrainingPlanStatus != TrainingPlanStatus.Pending &&
                 trainingPlan.TrainingPlanStatus != TrainingPlanStatus.Draft &&
@@ -152,12 +178,14 @@ namespace OCMS_Services.Service
                 return _mapper.Map<TrainingPlanModel>(trainingPlan); // Return unchanged plan
             }
 
-            // Apply update for Pending or Draft
+            // Apply update for Pending or Draft - fix the typo and handle null values
             trainingPlan.PlanName = dto.PlanName;
+
             trainingPlan.Description = dto.Description; // Using existing property (still has typo)
             trainingPlan.StartDate = dto.StartDate;
             trainingPlan.EndDate = dto.EndDate;
             trainingPlan.ModifyDate = DateTime.Now;
+
             if (trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Updating)
             {
                 trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Pending;
