@@ -12,7 +12,7 @@ namespace OCMS_BOs.RequestModel
     {
         [Required(ErrorMessage = "CourseId is required")] 
         public string CourseId { get; set; }
-        [Required(ErrorMessage = "CourseId is required")]
+        [Required(ErrorMessage = "SpecialtyId is required")]
         public string SpecialtyId { get; set; }
 
     }

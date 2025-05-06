@@ -121,7 +121,7 @@ namespace OCMS_BOs.Helper
 
             CreateMap<TrainingPlan, TrainingPlanModel>()
                 .ForMember(dest => dest.TrainingPlanStatus, opt => opt.MapFrom(src => src.TrainingPlanStatus.ToString()))
-                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description)) // Fix typo in property name           
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description)); // Fix typo in property name           
 
 
             CreateMap<TrainingPlanDTO, TrainingPlan>();

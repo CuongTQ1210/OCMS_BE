@@ -93,7 +93,7 @@ namespace OCMS_Services.Service
                 css => css.Course,
                 css => css.Subject,
                 css => css.Specialty,
-                css => css.Course.TrainingPlan
+                css => css.Course.TrainingPlans
             );
             if (css == null)
                 throw new ArgumentException($"CourseSubjectSpecialty with ID '{dto.CourseSubjectSpecialtyId}' not found.");
@@ -199,7 +199,7 @@ namespace OCMS_Services.Service
             var courseSubjectSpecialty = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAsync(
                 s => s.Id == courseSubjectSpecialtyId,
                 s => s.Course,
-                s => s.Course.TrainingPlan);
+                s => s.Course.TrainingPlans);
 
             if (instructor == null)
                 throw new ArgumentException($"Instructor with ID '{instructorId}' not found");
@@ -459,14 +459,13 @@ namespace OCMS_Services.Service
             var css = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAsync(
                 css => css.Id == dto.CourseSubjectSpecialtyId,
                 css => css.Course,
-                css => css.Course.TrainingPlan
+                css => css.Course.TrainingPlans
             );
             if (css == null)
                 throw new ArgumentException($"CourseSubjectSpecialty with ID {dto.CourseSubjectSpecialtyId} does not exist.");
 
             var course = css.Course;
-            var plan = course.TrainingPlan;
-
+            
             // Validate StartDay and EndDay
             if (dto.StartDay == default)
                 throw new ArgumentException("StartDay is required.");
@@ -476,8 +475,7 @@ namespace OCMS_Services.Service
                 throw new ArgumentException("StartDay must be before EndDay.");
             if (dto.StartDay < DateTime.UtcNow)
                 throw new ArgumentException("StartDay cannot be in the past.");
-            if (dto.StartDay < plan.StartDate || dto.EndDay > plan.EndDate)
-                throw new ArgumentException("Start and end dates must be within the training plan's duration.");
+            
 
             // Validate for overlapping schedules (excluding current schedule in case of update)
             var existingSchedules = await _unitOfWork.TrainingScheduleRepository

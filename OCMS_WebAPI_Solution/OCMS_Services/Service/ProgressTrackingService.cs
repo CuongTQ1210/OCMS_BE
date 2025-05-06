@@ -214,7 +214,10 @@ namespace OCMS_Services.Service
                     _logger.LogInformation($"Updated Course {courseSubjectId} to Completed");
 
                     // Kiểm tra và cập nhật trạng thái TrainingPlan
-                    await CheckAndUpdateTrainingPlanStatus(courseSubject.Course.TrainingPlanId);
+                    foreach (var trainingPlan in courseSubject.Course.TrainingPlans)
+                    {
+                        await CheckAndUpdateTrainingPlanStatus(trainingPlan.PlanId);
+                    }
                 }
                 else
                 {
@@ -255,8 +258,14 @@ namespace OCMS_Services.Service
                     return;
                 }
 
-                // Lấy tất cả course của training plan
-                var courses = await _unitOfWork.CourseRepository.FindAsync(c => c.TrainingPlanId == planId);
+                // Get all training plans by ID
+                var trainingPlans = await _unitOfWork.TrainingPlanRepository.FindAsync(tp => tp.PlanId == planId);
+
+                // Get related course IDs
+                var courseIds = trainingPlans.Select(tp => tp.CourseId).Distinct();
+
+                // Fetch courses by those IDs
+                var courses = await _unitOfWork.CourseRepository.FindAsync(c => courseIds.Contains(c.CourseId));
                 if (courses == null || !courses.Any())
                 {
                     _logger.LogWarning($"No courses found for Training Plan {planId}");

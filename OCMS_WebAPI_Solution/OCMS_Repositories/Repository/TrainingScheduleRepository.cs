@@ -24,12 +24,12 @@ namespace OCMS_Repositories.Repository
         public async Task<IEnumerable<TrainingSchedule>> GetSchedulesByTrainingPlanIdAsync(string trainingPlanId)
         {
             return await _context.TrainingSchedules
-                .Where(s => s.CourseSubjectSpecialty.Course.TrainingPlanId == trainingPlanId)
+                .Where(s => s.CourseSubjectSpecialty.Course.TrainingPlans
+                    .Any(tp => tp.PlanId == trainingPlanId)) 
                 .Include(s => s.CourseSubjectSpecialty)
                     .ThenInclude(css => css.Course)
                 .ToListAsync();
         }
-
         public async Task<List<TraineeAssign>> GetTraineeAssignmentsWithSchedulesAsync(string traineeId)
         {
             return await _context.TraineeAssignments
