@@ -32,6 +32,7 @@ namespace OCMS_Services.Service
             _requestService = requestService ?? throw new ArgumentNullException(nameof(requestService));
         }
 
+        #region Get Trainees by SubjectId
         public async Task<List<TraineViewModel>> GetTraineesBySubjectIdAsync(string subjectId)
         {
             // Fetch CourseSubjectSpecialties for the subject
@@ -63,16 +64,25 @@ namespace OCMS_Services.Service
 
             return traineeViewModels.Any() ? traineeViewModels : new List<TraineViewModel>();
         }
+        #endregion
 
         #region Get All Subjects
         public async Task<IEnumerable<SubjectModel>> GetAllSubjectsAsync()
         {
+            // First, get all subjects with their CourseSubjectSpecialties collection
             var subjects = await _unitOfWork.SubjectRepository.GetAllAsync(
-                s => s.CourseSubjectSpecialties,
-                s => s.CourseSubjectSpecialties.Select(css => css.Course),
-                s => s.CourseSubjectSpecialties.Select(css => css.Specialty)
+                includes: s => s.CourseSubjectSpecialties
             );
 
+            // Then, get all the CourseSubjectSpecialty entities with their related Course and Specialty
+            var cssIds = subjects.SelectMany(s => s.CourseSubjectSpecialties.Select(css => css.Id)).ToList();
+            var cssEntities = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAllAsync(
+                css => cssIds.Contains(css.Id),
+                css => css.Course,
+                css => css.Specialty
+            );
+
+            // Map and return the results
             var subjectModels = _mapper.Map<IEnumerable<SubjectModel>>(subjects);
             return subjectModels;
         }
@@ -81,14 +91,34 @@ namespace OCMS_Services.Service
         #region Get Subject by Id
         public async Task<SubjectModel> GetSubjectByIdAsync(string subjectId)
         {
+            // First, get the subject with its CourseSubjectSpecialties collection
             var subject = await _unitOfWork.SubjectRepository.GetAsync(
                 s => s.SubjectId == subjectId,
-                s => s.CourseSubjectSpecialties,
-                s => s.CourseSubjectSpecialties.Select(css => css.Course),
-                s => s.CourseSubjectSpecialties.Select(css => css.Specialty)
+                s => s.CourseSubjectSpecialties
             );
+
             if (subject == null)
                 throw new KeyNotFoundException("Subject not found.");
+
+            // If there are any CourseSubjectSpecialties, load their related Course and Specialty entities
+            if (subject.CourseSubjectSpecialties?.Any() == true)
+            {
+                // Extract the IDs of CourseSubjectSpecialties
+                var cssIds = subject.CourseSubjectSpecialties.Select(css => css.Id).ToList();
+
+                // Get the CourseSubjectSpecialties with their related entities in a separate query
+                var cssWithRelations = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAllAsync(
+                    css => cssIds.Contains(css.Id),
+                    css => css.Course,
+                    css => css.Specialty
+                );
+
+                // Replace the existing CourseSubjectSpecialties with the fully loaded ones
+                var cssDict = cssWithRelations.ToDictionary(css => css.Id);
+                subject.CourseSubjectSpecialties = subject.CourseSubjectSpecialties
+                    .Select(css => cssDict.ContainsKey(css.Id) ? cssDict[css.Id] : css)
+                    .ToList();
+            }
 
             return _mapper.Map<SubjectModel>(subject);
         }

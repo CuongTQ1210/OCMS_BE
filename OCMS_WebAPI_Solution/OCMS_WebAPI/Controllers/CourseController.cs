@@ -116,6 +116,33 @@ namespace OCMS_WebAPI.Controllers
         }
         #endregion
 
+        #region Assign Course to Training Plan
+        [HttpPost("assign")]
+        [CustomAuthorize("Admin", "Training staff")]
+        public async Task<IActionResult> AssignCourseToTrainingPlan(string courseId, string trainingPlanId)
+        {
+            try
+            {
+                var result = await _courseService.AssignCourseToTrainingPlanAsync(courseId, trainingPlanId);
+                return Ok(new
+                {
+                    success = true,
+                    message = "Course assigned to training plan successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Failed to assign course to training plan.",
+                    error = ex.Message
+                });
+            }
+        }
+        #endregion
+
         #region Update Course
         /// <summary>
         /// Update a course
