@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using OCMS_Repositories.IRepository;
+using System.Linq.Expressions;
 
 namespace OCMS_Repositories.Repository
 {
@@ -54,36 +55,18 @@ namespace OCMS_Repositories.Repository
                 .FirstOrDefaultAsync(c => c.CourseId == courseId);
         }
 
-        public async Task<IEnumerable<Course>> GetAllWithDetailsAsync()
+        public async Task<IEnumerable<Course>> GetAllWithIncludesAsync(Func<IQueryable<Course>, IQueryable<Course>> includes)
         {
-            return await _context.Courses
-                .Include(c => c.CourseSubjectSpecialties)
-                    .ThenInclude(css => css.Subject)
-                .Include(c => c.CourseSubjectSpecialties)
-                    .ThenInclude(css => css.Trainees)
-                .Include(c => c.CourseSubjectSpecialties)
-                    .ThenInclude(css => css.Instructors)
-                .Include(c => c.CourseSubjectSpecialties)
-                    .ThenInclude(css => css.Schedules)
-                .Include(c => c.CourseSubjectSpecialties)
-                    .ThenInclude(css => css.Specialty)
-                .ToListAsync();
+            var query = _context.Set<Course>().AsQueryable();
+            query = includes(query);
+            return await query.ToListAsync();
         }
 
-        public async Task<Course?> GetByIdWithDetailsAsync(string id)
+        public async Task<Course> GetWithIncludesAsync(Expression<Func<Course, bool>> predicate, Func<IQueryable<Course>, IQueryable<Course>> includes)
         {
-            return await _context.Courses
-                .Include(c => c.CourseSubjectSpecialties)
-                    .ThenInclude(css => css.Subject)
-                .Include(c => c.CourseSubjectSpecialties)
-                    .ThenInclude(css => css.Trainees)
-                .Include(c => c.CourseSubjectSpecialties)
-                    .ThenInclude(css => css.Instructors)
-                .Include(c => c.CourseSubjectSpecialties)
-                    .ThenInclude(css => css.Schedules)
-                .Include(c => c.CourseSubjectSpecialties)
-                    .ThenInclude(css => css.Specialty)
-                .FirstOrDefaultAsync(c => c.CourseId == id);
+            var query = _context.Set<Course>().AsQueryable();
+            query = includes(query);
+            return await query.FirstOrDefaultAsync(predicate);
         }
     }
 }
