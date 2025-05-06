@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 
 public class CourseService : ICourseService
 {
@@ -26,17 +27,18 @@ public class CourseService : ICourseService
         _requestService = requestService;
     }
 
+    #region Create Course
     public async Task<CourseModel> CreateCourseAsync(CourseDTO dto, string createdByUserId)
     {
         // Check if Training Plan exists
-        var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(dto.TrainingPlanId);
-        if (trainingPlan == null)
-            throw new Exception("Training Plan ID does not exist. Please provide a valid Training Plan.");
+        //var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(dto.TrainingPlanId);
+        //if (trainingPlan == null)
+        //    throw new Exception("Training Plan ID does not exist. Please provide a valid Training Plan.");
 
         // Validate Training Plan status
-        if (trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Approved ||
-            trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Rejected)
-            throw new Exception("Training Plan is already approved or rejected!");
+        //if (trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Approved ||
+        //    trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Rejected)
+        //    throw new Exception("Training Plan is already approved or rejected!");
 
         // Convert empty CourseRelatedId to null
         if (string.IsNullOrEmpty(dto.CourseRelatedId))
@@ -137,11 +139,24 @@ public class CourseService : ICourseService
 
         return _mapper.Map<CourseModel>(course);
     }
+    #endregion
 
     #region Get All Courses
     public async Task<IEnumerable<CourseModel>> GetAllCoursesAsync()
     {
-        var courses = await _courseRepository.GetAllWithDetailsAsync();
+        var courses = await _courseRepository.GetAllWithIncludesAsync(query =>
+            query.Include(c => c.CourseSubjectSpecialties)
+                 .ThenInclude(css => css.Subject)
+                 .Include(c => c.CourseSubjectSpecialties)
+                 .ThenInclude(css => css.Trainees)
+                 .Include(c => c.CourseSubjectSpecialties)
+                 .ThenInclude(css => css.Instructors)
+                 .Include(c => c.CourseSubjectSpecialties)
+                 .ThenInclude(css => css.Schedules)
+                 .Include(c => c.CourseSubjectSpecialties)
+                 .ThenInclude(css => css.Specialty)
+        );
+
         return _mapper.Map<IEnumerable<CourseModel>>(courses);
     }
     #endregion
@@ -149,8 +164,38 @@ public class CourseService : ICourseService
     #region Get Course by ID
     public async Task<CourseModel?> GetCourseByIdAsync(string id)
     {
-        var course = await _courseRepository.GetByIdWithDetailsAsync(id);
+        var course = await _courseRepository.GetWithIncludesAsync(
+            c => c.CourseId == id,
+            query => query.Include(c => c.CourseSubjectSpecialties)
+                          .ThenInclude(css => css.Subject)
+                          .Include(c => c.CourseSubjectSpecialties)
+                          .ThenInclude(css => css.Trainees)
+                          .Include(c => c.CourseSubjectSpecialties)
+                          .ThenInclude(css => css.Instructors)
+                          .Include(c => c.CourseSubjectSpecialties)
+                          .ThenInclude(css => css.Schedules)
+                          .Include(c => c.CourseSubjectSpecialties)
+                          .ThenInclude(css => css.Specialty)
+        );
+
         return course == null ? null : _mapper.Map<CourseModel>(course);
+    }
+    #endregion
+
+    #region Assign Course to Training Plan
+    public async Task<bool> AssignCourseToTrainingPlanAsync(string courseId, string trainingPlanId)
+    {
+        var course = await _unitOfWork.CourseRepository.GetByIdAsync(courseId);
+        if (course == null)
+            throw new Exception("Course does not exist.");
+        // Check if the course is already assigned to the training plan
+        if (course.TrainingPlanId == trainingPlanId)
+            throw new InvalidOperationException($"Course {courseId} is already assigned to Training Plan {trainingPlanId}.");
+        // Assign the course to the training plan
+        course.TrainingPlanId = trainingPlanId;
+        await _unitOfWork.CourseRepository.UpdateAsync(course);
+        await _unitOfWork.SaveChangesAsync();
+        return true;
     }
     #endregion
 

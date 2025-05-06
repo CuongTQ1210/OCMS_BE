@@ -51,7 +51,9 @@ namespace OCMS_Services.Service
         {
             var schedules = await _unitOfWork.TrainingScheduleRepository.GetAllAsync(
                 s => s.Instructor,
-                s => s.CreatedBy
+                s => s.CreatedBy,
+                s => s.CourseSubjectSpecialty,
+                s => s.CourseSubjectSpecialty.Subject
             );
             return _mapper.Map<IEnumerable<TrainingScheduleModel>>(schedules);
         }
@@ -69,7 +71,9 @@ namespace OCMS_Services.Service
             var schedule = await _unitOfWork.TrainingScheduleRepository.GetAsync(
                 s => s.ScheduleID == scheduleId,
                 s => s.Instructor,
-                s => s.CreatedBy
+                s => s.CreatedBy,
+                s => s.CourseSubjectSpecialty,
+                s => s.CourseSubjectSpecialty.Subject
             );
             if (schedule == null)
                 throw new KeyNotFoundException($"Training schedule with ID {scheduleId} not found.");
@@ -119,6 +123,7 @@ namespace OCMS_Services.Service
 
             var schedule = _mapper.Map<TrainingSchedule>(dto);
             schedule.ScheduleID = Guid.NewGuid().ToString();
+            schedule.CourseSubjectSpecialtyId = dto.CourseSubjectSpecialtyId; // Ensure this is explicitly set
             schedule.CreatedByUserId = createdByUserId;
             schedule.CreatedDate = DateTime.UtcNow;
             schedule.ModifiedDate = DateTime.UtcNow;
@@ -167,8 +172,6 @@ namespace OCMS_Services.Service
 
             return _mapper.Map<TrainingScheduleModel>(updatedSchedule);
         }
-
-
         #endregion
 
         #region Manage Instructor Assignment
@@ -178,6 +181,16 @@ namespace OCMS_Services.Service
         /// </summary>
         public async Task ManageInstructorAssignment(string courseSubjectSpecialtyId, string instructorId, string assignByUserId)
         {
+            // Validate parameters
+            if (string.IsNullOrEmpty(courseSubjectSpecialtyId))
+                throw new ArgumentException("CourseSubjectSpecialtyId cannot be null or empty", nameof(courseSubjectSpecialtyId));
+
+            if (string.IsNullOrEmpty(instructorId))
+                throw new ArgumentException("InstructorId cannot be null or empty", nameof(instructorId));
+
+            if (string.IsNullOrEmpty(assignByUserId))
+                throw new ArgumentException("AssignByUserId cannot be null or empty", nameof(assignByUserId));
+
             // Kiểm tra Specialty của Instructor và Subject/Course/TrainingPlan
             var instructor = await _unitOfWork.UserRepository.GetAsync(u => u.UserId == instructorId);
             var courseSubjectSpecialty = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAsync(
@@ -185,10 +198,11 @@ namespace OCMS_Services.Service
                 s => s.Course,
                 s => s.Course.TrainingPlan);
 
-            if (instructor == null || courseSubjectSpecialty == null)
-            {
-                throw new ArgumentException("Instructor or CourseSubjectSpecialty not found");
-            }
+            if (instructor == null)
+                throw new ArgumentException($"Instructor with ID '{instructorId}' not found");
+
+            if (courseSubjectSpecialty == null)
+                throw new ArgumentException($"CourseSubjectSpecialty with ID '{courseSubjectSpecialtyId}' not found");
 
             string trainingPlanSpecialtyId = courseSubjectSpecialty.SpecialtyId;
 
@@ -207,21 +221,37 @@ namespace OCMS_Services.Service
             {
                 var assignmentDto = new InstructorAssignmentDTO
                 {
-                    CourseSubjectSpecialtyId = courseSubjectSpecialtyId,
+                    CourseSubjectSpecialtyId = courseSubjectSpecialtyId,  // Ensure this is set correctly
                     InstructorId = instructorId,
                     Notes = "Automatically created from training schedule"
                 };
-                await _instructorAssignmentService.CreateInstructorAssignmentAsync(assignmentDto, assignByUserId);
+
+                try
+                {
+                    await _instructorAssignmentService.CreateInstructorAssignmentAsync(assignmentDto, assignByUserId);
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Failed to create instructor assignment: {ex.Message}", ex);
+                }
             }
             else if (existingAssignment.InstructorId != instructorId)
             {
                 var assignmentDto = new InstructorAssignmentDTO
                 {
-                    CourseSubjectSpecialtyId = courseSubjectSpecialtyId,
+                    CourseSubjectSpecialtyId = courseSubjectSpecialtyId,  // Ensure this is set correctly
                     InstructorId = instructorId,
                     Notes = existingAssignment.Notes ?? "Updated from training schedule"
                 };
-                await _instructorAssignmentService.UpdateInstructorAssignmentAsync(existingAssignment.AssignmentId, assignmentDto);
+
+                try
+                {
+                    await _instructorAssignmentService.UpdateInstructorAssignmentAsync(existingAssignment.AssignmentId, assignmentDto);
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Failed to update instructor assignment: {ex.Message}", ex);
+                }
             }
         }
         #endregion
