@@ -13,8 +13,7 @@ namespace OCMS_BOs.Entities
         [Key]
         public string PlanId { get; set; }
         public string PlanName { get; set; }
-        public string Desciption { get; set; }
-        public PlanLevel PlanLevel { get; set; }
+        public string Description { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
 
@@ -22,20 +21,26 @@ namespace OCMS_BOs.Entities
         public string CreateByUserId { get; set; }
         public User CreateByUser { get; set; }
 
-        public DateTime CreateDate { get; set; } = DateTime.UtcNow;
-        public DateTime ModifyDate { get; set; } = DateTime.UtcNow;
+        // Reference to Course (n-1 relationship)
+        [ForeignKey("Course")]
+        public string CourseId { get; set; }
+        public Course Course { get; set; }
+
+        [ForeignKey("Specialty")]
+        public string SpecialtyId { get; set; }
+        public Specialties Specialty { get; set; }
+
+        public DateTime CreateDate { get; set; } = DateTime.Now;
+        public DateTime ModifyDate { get; set; } = DateTime.Now;
 
         [ForeignKey("ApproveUser")]
         public string? ApproveByUserId { get; set; }
-        [ForeignKey("Specialty")]
-        public string SpecialtyId { get; set; }
-
         public User? ApproveByUser { get; set; }
-        public virtual Specialties Specialty { get; set; }
-        public DateTime? ApproveDate { get; set; } = DateTime.UtcNow;
+        public DateTime? ApproveDate { get; set; }
 
         public TrainingPlanStatus TrainingPlanStatus { get; set; }
 
-        public List<Course> Courses { get; set; }
+        // A TrainingPlan can have multiple schedules
+        public virtual ICollection<TrainingSchedule> Schedules { get; set; }
     }
 }

@@ -144,6 +144,9 @@ namespace OCMS_BOs.Migrations
                     b.Property<DateTime?>("ExpirationDate")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<bool>("IncludesRelearn")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsRevoked")
                         .HasColumnType("boolean");
 
@@ -154,6 +157,9 @@ namespace OCMS_BOs.Migrations
                     b.Property<DateTime>("IssueDate")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<string>("RelearnSubjects")
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("RevocationDate")
                         .HasColumnType("timestamp without time zone");
 
@@ -162,6 +168,9 @@ namespace OCMS_BOs.Migrations
 
                     b.Property<DateTime>("SignDate")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("SpecialtyId")
+                        .HasColumnType("text");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -179,6 +188,8 @@ namespace OCMS_BOs.Migrations
                     b.HasIndex("CourseId");
 
                     b.HasIndex("IssueByUserId");
+
+                    b.HasIndex("SpecialtyId");
 
                     b.HasIndex("UserId");
 
@@ -264,10 +275,6 @@ namespace OCMS_BOs.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
-                    b.Property<string>("TrainingPlanId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
 
@@ -279,9 +286,51 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("RelatedCourseId");
 
-                    b.HasIndex("TrainingPlanId");
-
                     b.ToTable("Courses");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.CourseSubjectSpecialty", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CourseId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SpecialtyId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SubjectId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourseId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("SpecialtyId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.ToTable("CourseSubjectSpecialties");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Decision", b =>
@@ -494,10 +543,6 @@ namespace OCMS_BOs.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("SubjectId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<double>("TotalScore")
                         .HasColumnType("double precision");
 
@@ -514,8 +559,6 @@ namespace OCMS_BOs.Migrations
                     b.HasKey("GradeId");
 
                     b.HasIndex("GradedByInstructorId");
-
-                    b.HasIndex("SubjectId");
 
                     b.HasIndex("TraineeAssignID");
 
@@ -534,6 +577,10 @@ namespace OCMS_BOs.Migrations
                     b.Property<DateTime>("AssignDate")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<string>("CourseSubjectSpecialtyId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("InstructorId")
                         .IsRequired()
                         .HasColumnType("text");
@@ -545,17 +592,13 @@ namespace OCMS_BOs.Migrations
                     b.Property<int>("RequestStatus")
                         .HasColumnType("integer");
 
-                    b.Property<string>("SubjectId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.HasKey("AssignmentId");
 
                     b.HasIndex("AssignByUserId");
 
-                    b.HasIndex("InstructorId");
+                    b.HasIndex("CourseSubjectSpecialtyId");
 
-                    b.HasIndex("SubjectId");
+                    b.HasIndex("InstructorId");
 
                     b.ToTable("InstructorAssignments");
                 });
@@ -757,14 +800,17 @@ namespace OCMS_BOs.Migrations
                         .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("CreatedByUserId")
                         .HasColumnType("text");
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<string>("ParentSpecialtyId")
                         .HasColumnType("text");
@@ -778,7 +824,9 @@ namespace OCMS_BOs.Migrations
                         .HasColumnType("integer");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp without time zone");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("UpdatedByUserId")
                         .HasColumnType("text");
@@ -797,22 +845,18 @@ namespace OCMS_BOs.Migrations
                         new
                         {
                             SpecialtyId = "SPEC-001",
-                            CreatedAt = new DateTime(2025, 4, 26, 17, 0, 1, 637, DateTimeKind.Utc).AddTicks(1610),
+                            CreatedAt = new DateTime(2025, 5, 6, 13, 53, 51, 244, DateTimeKind.Utc).AddTicks(6996),
                             CreatedByUserId = "ADM-1",
                             Description = "Admin Specialty Description",
                             SpecialtyName = "Admin Specialty",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 27, 0, 0, 1, 637, DateTimeKind.Local).AddTicks(1607)
+                            UpdatedAt = new DateTime(2025, 5, 6, 20, 53, 51, 244, DateTimeKind.Local).AddTicks(6994)
                         });
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Subject", b =>
                 {
                     b.Property<string>("SubjectId")
-                        .HasColumnType("text");
-
-                    b.Property<string>("CourseId")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CreateByUserId")
@@ -841,8 +885,6 @@ namespace OCMS_BOs.Migrations
 
                     b.HasKey("SubjectId");
 
-                    b.HasIndex("CourseId");
-
                     b.HasIndex("CreateByUserId");
 
                     b.ToTable("Subjects");
@@ -865,7 +907,7 @@ namespace OCMS_BOs.Migrations
                     b.Property<DateTime>("AssignDate")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<string>("CourseId")
+                    b.Property<string>("CourseSubjectSpecialtyId")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -890,7 +932,7 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("AssignByUserId");
 
-                    b.HasIndex("CourseId");
+                    b.HasIndex("CourseSubjectSpecialtyId");
 
                     b.HasIndex("RequestId");
 
@@ -910,6 +952,10 @@ namespace OCMS_BOs.Migrations
                     b.Property<DateTime?>("ApproveDate")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<string>("CourseId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("CreateByUserId")
                         .IsRequired()
                         .HasColumnType("text");
@@ -917,7 +963,7 @@ namespace OCMS_BOs.Migrations
                     b.Property<DateTime>("CreateDate")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<string>("Desciption")
+                    b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -926,9 +972,6 @@ namespace OCMS_BOs.Migrations
 
                     b.Property<DateTime>("ModifyDate")
                         .HasColumnType("timestamp without time zone");
-
-                    b.Property<int>("PlanLevel")
-                        .HasColumnType("integer");
 
                     b.Property<string>("PlanName")
                         .IsRequired()
@@ -948,6 +991,8 @@ namespace OCMS_BOs.Migrations
 
                     b.HasIndex("ApproveByUserId");
 
+                    b.HasIndex("CourseId");
+
                     b.HasIndex("CreateByUserId");
 
                     b.HasIndex("SpecialtyId");
@@ -962,6 +1007,10 @@ namespace OCMS_BOs.Migrations
 
                     b.Property<TimeOnly>("ClassTime")
                         .HasColumnType("time without time zone");
+
+                    b.Property<string>("CourseSubjectSpecialtyId")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("CreatedByUserId")
                         .IsRequired()
@@ -1002,20 +1051,21 @@ namespace OCMS_BOs.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
-                    b.Property<string>("SubjectID")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<TimeSpan>("SubjectPeriod")
                         .HasColumnType("interval");
 
+                    b.Property<string>("TrainingPlanPlanId")
+                        .HasColumnType("text");
+
                     b.HasKey("ScheduleID");
+
+                    b.HasIndex("CourseSubjectSpecialtyId");
 
                     b.HasIndex("CreatedByUserId");
 
                     b.HasIndex("InstructorID");
 
-                    b.HasIndex("SubjectID");
+                    b.HasIndex("TrainingPlanPlanId");
 
                     b.ToTable("TrainingSchedules");
                 });
@@ -1111,18 +1161,18 @@ namespace OCMS_BOs.Migrations
                             UserId = "ADM-1",
                             Address = "123 Admin Street",
                             AvatarUrl = "",
-                            CreatedAt = new DateTime(2025, 4, 26, 17, 0, 2, 38, DateTimeKind.Utc).AddTicks(3536),
+                            CreatedAt = new DateTime(2025, 5, 6, 13, 53, 51, 608, DateTimeKind.Utc).AddTicks(91),
                             DateOfBirth = new DateTime(2000, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "admin@gmail.com",
                             FullName = "Admin User",
                             Gender = "Other",
                             IsAssign = false,
-                            PasswordHash = "$2a$11$tBJPPC0f3tVEc200l1o9SuvlfuH.snKX46yI5unXsXV2LmyytS7o6",
+                            PasswordHash = "$2a$11$E7dtbJRZ2Q7sA.lqUamyQeKc2Ru8p/YKzETpAFwcJLsVwFl4fr4aW",
                             PhoneNumber = "1234567890",
                             RoleId = 1,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 26, 17, 0, 2, 38, DateTimeKind.Utc).AddTicks(3536),
+                            UpdatedAt = new DateTime(2025, 5, 6, 13, 53, 51, 608, DateTimeKind.Utc).AddTicks(91),
                             Username = "Admin"
                         },
                         new
@@ -1130,18 +1180,18 @@ namespace OCMS_BOs.Migrations
                             UserId = "HM-1",
                             Address = "456 Headmaster Street",
                             AvatarUrl = "",
-                            CreatedAt = new DateTime(2025, 4, 26, 17, 0, 2, 38, DateTimeKind.Utc).AddTicks(3543),
+                            CreatedAt = new DateTime(2025, 5, 6, 13, 53, 51, 608, DateTimeKind.Utc).AddTicks(96),
                             DateOfBirth = new DateTime(1980, 5, 20, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "headmaster@gmail.com",
                             FullName = "Head Master User",
                             Gender = "Male",
                             IsAssign = false,
-                            PasswordHash = "$2a$11$4dAIhexXqTkA9/bemOPKWu898ATd/tukt97N9.JVmiSKyy.SV7JWC",
+                            PasswordHash = "$2a$11$3DtQlMoEhXY1bGb/Dymo/ewulyg0DOvE/a7ivCU85Rrea/SzBeKhS",
                             PhoneNumber = "0987654321",
                             RoleId = 2,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 26, 17, 0, 2, 38, DateTimeKind.Utc).AddTicks(3544),
+                            UpdatedAt = new DateTime(2025, 5, 6, 13, 53, 51, 608, DateTimeKind.Utc).AddTicks(97),
                             Username = "HeadMaster"
                         },
                         new
@@ -1149,18 +1199,18 @@ namespace OCMS_BOs.Migrations
                             UserId = "TS-1",
                             Address = "789 Training Staff Lane",
                             AvatarUrl = "",
-                            CreatedAt = new DateTime(2025, 4, 26, 17, 0, 2, 38, DateTimeKind.Utc).AddTicks(3547),
+                            CreatedAt = new DateTime(2025, 5, 6, 13, 53, 51, 608, DateTimeKind.Utc).AddTicks(100),
                             DateOfBirth = new DateTime(1992, 7, 10, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "trainingstaff@gmail.com",
                             FullName = "Training Staff User",
                             Gender = "Female",
                             IsAssign = false,
-                            PasswordHash = "$2a$11$4dAIhexXqTkA9/bemOPKWu898ATd/tukt97N9.JVmiSKyy.SV7JWC",
+                            PasswordHash = "$2a$11$3DtQlMoEhXY1bGb/Dymo/ewulyg0DOvE/a7ivCU85Rrea/SzBeKhS",
                             PhoneNumber = "1122334455",
                             RoleId = 3,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 26, 17, 0, 2, 38, DateTimeKind.Utc).AddTicks(3547),
+                            UpdatedAt = new DateTime(2025, 5, 6, 13, 53, 51, 608, DateTimeKind.Utc).AddTicks(100),
                             Username = "TrainingStaff"
                         },
                         new
@@ -1168,18 +1218,18 @@ namespace OCMS_BOs.Migrations
                             UserId = "HR-1",
                             Address = "101 HR Street",
                             AvatarUrl = "",
-                            CreatedAt = new DateTime(2025, 4, 26, 17, 0, 2, 38, DateTimeKind.Utc).AddTicks(3550),
+                            CreatedAt = new DateTime(2025, 5, 6, 13, 53, 51, 608, DateTimeKind.Utc).AddTicks(102),
                             DateOfBirth = new DateTime(1985, 3, 15, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "hrmanager@gmail.com",
                             FullName = "HR Manager",
                             Gender = "Male",
                             IsAssign = false,
-                            PasswordHash = "$2a$11$4dAIhexXqTkA9/bemOPKWu898ATd/tukt97N9.JVmiSKyy.SV7JWC",
+                            PasswordHash = "$2a$11$3DtQlMoEhXY1bGb/Dymo/ewulyg0DOvE/a7ivCU85Rrea/SzBeKhS",
                             PhoneNumber = "2233445566",
                             RoleId = 4,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 26, 17, 0, 2, 38, DateTimeKind.Utc).AddTicks(3551),
+                            UpdatedAt = new DateTime(2025, 5, 6, 13, 53, 51, 608, DateTimeKind.Utc).AddTicks(103),
                             Username = "HRManager"
                         },
                         new
@@ -1187,18 +1237,18 @@ namespace OCMS_BOs.Migrations
                             UserId = "INST-1",
                             Address = "202 Instructor Avenue",
                             AvatarUrl = "",
-                            CreatedAt = new DateTime(2025, 4, 26, 17, 0, 2, 38, DateTimeKind.Utc).AddTicks(3553),
+                            CreatedAt = new DateTime(2025, 5, 6, 13, 53, 51, 608, DateTimeKind.Utc).AddTicks(105),
                             DateOfBirth = new DateTime(1990, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "instructor@gmail.com",
                             FullName = "Instructor User",
                             Gender = "Female",
                             IsAssign = false,
-                            PasswordHash = "$2a$11$4dAIhexXqTkA9/bemOPKWu898ATd/tukt97N9.JVmiSKyy.SV7JWC",
+                            PasswordHash = "$2a$11$3DtQlMoEhXY1bGb/Dymo/ewulyg0DOvE/a7ivCU85Rrea/SzBeKhS",
                             PhoneNumber = "3344556677",
                             RoleId = 5,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 26, 17, 0, 2, 38, DateTimeKind.Utc).AddTicks(3554),
+                            UpdatedAt = new DateTime(2025, 5, 6, 13, 53, 51, 608, DateTimeKind.Utc).AddTicks(105),
                             Username = "Instructor"
                         },
                         new
@@ -1206,18 +1256,18 @@ namespace OCMS_BOs.Migrations
                             UserId = "REV-1",
                             Address = "303 Reviewer Blvd",
                             AvatarUrl = "",
-                            CreatedAt = new DateTime(2025, 4, 26, 17, 0, 2, 38, DateTimeKind.Utc).AddTicks(3557),
+                            CreatedAt = new DateTime(2025, 5, 6, 13, 53, 51, 608, DateTimeKind.Utc).AddTicks(108),
                             DateOfBirth = new DateTime(1993, 12, 5, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "reviewer@gmail.com",
                             FullName = "Reviewer User",
                             Gender = "Male",
                             IsAssign = false,
-                            PasswordHash = "$2a$11$4dAIhexXqTkA9/bemOPKWu898ATd/tukt97N9.JVmiSKyy.SV7JWC",
+                            PasswordHash = "$2a$11$3DtQlMoEhXY1bGb/Dymo/ewulyg0DOvE/a7ivCU85Rrea/SzBeKhS",
                             PhoneNumber = "4455667788",
                             RoleId = 6,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 26, 17, 0, 2, 38, DateTimeKind.Utc).AddTicks(3557),
+                            UpdatedAt = new DateTime(2025, 5, 6, 13, 53, 51, 608, DateTimeKind.Utc).AddTicks(108),
                             Username = "Reviewer"
                         },
                         new
@@ -1225,18 +1275,18 @@ namespace OCMS_BOs.Migrations
                             UserId = "TR-1",
                             Address = "404 Trainee Lane",
                             AvatarUrl = "",
-                            CreatedAt = new DateTime(2025, 4, 26, 17, 0, 2, 38, DateTimeKind.Utc).AddTicks(3560),
+                            CreatedAt = new DateTime(2025, 5, 6, 13, 53, 51, 608, DateTimeKind.Utc).AddTicks(110),
                             DateOfBirth = new DateTime(2002, 8, 18, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "trainee@gmail.com",
                             FullName = "Trainee User",
                             Gender = "Female",
                             IsAssign = false,
-                            PasswordHash = "$2a$11$4dAIhexXqTkA9/bemOPKWu898ATd/tukt97N9.JVmiSKyy.SV7JWC",
+                            PasswordHash = "$2a$11$3DtQlMoEhXY1bGb/Dymo/ewulyg0DOvE/a7ivCU85Rrea/SzBeKhS",
                             PhoneNumber = "5566778899",
                             RoleId = 7,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 26, 17, 0, 2, 38, DateTimeKind.Utc).AddTicks(3561),
+                            UpdatedAt = new DateTime(2025, 5, 6, 13, 53, 51, 608, DateTimeKind.Utc).AddTicks(111),
                             Username = "Trainee"
                         },
                         new
@@ -1244,18 +1294,18 @@ namespace OCMS_BOs.Migrations
                             UserId = "AOC-1",
                             Address = "505 AOC Street",
                             AvatarUrl = "",
-                            CreatedAt = new DateTime(2025, 4, 26, 17, 0, 2, 38, DateTimeKind.Utc).AddTicks(3564),
+                            CreatedAt = new DateTime(2025, 5, 6, 13, 53, 51, 608, DateTimeKind.Utc).AddTicks(113),
                             DateOfBirth = new DateTime(1975, 11, 30, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "aocmanager@gmail.com",
                             FullName = "AOC Manager User",
                             Gender = "Male",
                             IsAssign = false,
-                            PasswordHash = "$2a$11$4dAIhexXqTkA9/bemOPKWu898ATd/tukt97N9.JVmiSKyy.SV7JWC",
+                            PasswordHash = "$2a$11$3DtQlMoEhXY1bGb/Dymo/ewulyg0DOvE/a7ivCU85Rrea/SzBeKhS",
                             PhoneNumber = "6677889900",
                             RoleId = 8,
                             SpecialtyId = "SPEC-001",
                             Status = 1,
-                            UpdatedAt = new DateTime(2025, 4, 26, 17, 0, 2, 38, DateTimeKind.Utc).AddTicks(3564),
+                            UpdatedAt = new DateTime(2025, 5, 6, 13, 53, 51, 608, DateTimeKind.Utc).AddTicks(113),
                             Username = "AOCManager"
                         });
                 });
@@ -1314,6 +1364,10 @@ namespace OCMS_BOs.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("OCMS_BOs.Entities.Specialties", "Specialty")
+                        .WithMany()
+                        .HasForeignKey("SpecialtyId");
+
                     b.HasOne("OCMS_BOs.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -1327,6 +1381,8 @@ namespace OCMS_BOs.Migrations
                     b.Navigation("Course");
 
                     b.Navigation("IssueByUser");
+
+                    b.Navigation("Specialty");
 
                     b.Navigation("User");
                 });
@@ -1364,19 +1420,46 @@ namespace OCMS_BOs.Migrations
                         .WithMany("RelatedCourses")
                         .HasForeignKey("RelatedCourseId");
 
-                    b.HasOne("OCMS_BOs.Entities.TrainingPlan", "TrainingPlan")
-                        .WithMany("Courses")
-                        .HasForeignKey("TrainingPlanId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.Navigation("ApproveByUser");
 
                     b.Navigation("CreatedByUser");
 
                     b.Navigation("RelatedCourse");
+                });
 
-                    b.Navigation("TrainingPlan");
+            modelBuilder.Entity("OCMS_BOs.Entities.CourseSubjectSpecialty", b =>
+                {
+                    b.HasOne("OCMS_BOs.Entities.Course", "Course")
+                        .WithMany("CourseSubjectSpecialties")
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OCMS_BOs.Entities.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OCMS_BOs.Entities.Specialties", "Specialty")
+                        .WithMany("CourseSubjectSpecialties")
+                        .HasForeignKey("SpecialtyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OCMS_BOs.Entities.Subject", "Subject")
+                        .WithMany("CourseSubjectSpecialties")
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Course");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("Specialty");
+
+                    b.Navigation("Subject");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Decision", b =>
@@ -1464,12 +1547,6 @@ namespace OCMS_BOs.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("OCMS_BOs.Entities.Subject", "Subject")
-                        .WithMany()
-                        .HasForeignKey("SubjectId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("OCMS_BOs.Entities.TraineeAssign", "TraineeAssign")
                         .WithMany()
                         .HasForeignKey("TraineeAssignID")
@@ -1477,8 +1554,6 @@ namespace OCMS_BOs.Migrations
                         .IsRequired();
 
                     b.Navigation("GradedByInstructor");
-
-                    b.Navigation("Subject");
 
                     b.Navigation("TraineeAssign");
                 });
@@ -1491,23 +1566,23 @@ namespace OCMS_BOs.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("OCMS_BOs.Entities.CourseSubjectSpecialty", "CourseSubjectSpecialty")
+                        .WithMany("Instructors")
+                        .HasForeignKey("CourseSubjectSpecialtyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("OCMS_BOs.Entities.User", "Instructor")
                         .WithMany()
                         .HasForeignKey("InstructorId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("OCMS_BOs.Entities.Subject", "Subject")
-                        .WithMany("Instructors")
-                        .HasForeignKey("SubjectId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.Navigation("AssignByUser");
 
-                    b.Navigation("Instructor");
+                    b.Navigation("CourseSubjectSpecialty");
 
-                    b.Navigation("Subject");
+                    b.Navigation("Instructor");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Notification", b =>
@@ -1553,15 +1628,18 @@ namespace OCMS_BOs.Migrations
                 {
                     b.HasOne("OCMS_BOs.Entities.User", "CreatedByUser")
                         .WithMany()
-                        .HasForeignKey("CreatedByUserId");
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("OCMS_BOs.Entities.Specialties", "ParentSpecialty")
                         .WithMany("SubSpecialties")
-                        .HasForeignKey("ParentSpecialtyId");
+                        .HasForeignKey("ParentSpecialtyId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("OCMS_BOs.Entities.User", "UpdatedByUser")
                         .WithMany()
-                        .HasForeignKey("UpdatedByUserId");
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("CreatedByUser");
 
@@ -1572,19 +1650,11 @@ namespace OCMS_BOs.Migrations
 
             modelBuilder.Entity("OCMS_BOs.Entities.Subject", b =>
                 {
-                    b.HasOne("OCMS_BOs.Entities.Course", "Course")
-                        .WithMany("Subjects")
-                        .HasForeignKey("CourseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("OCMS_BOs.Entities.User", "CreateByUser")
                         .WithMany()
                         .HasForeignKey("CreateByUserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Course");
 
                     b.Navigation("CreateByUser");
                 });
@@ -1599,9 +1669,9 @@ namespace OCMS_BOs.Migrations
                         .WithMany()
                         .HasForeignKey("AssignByUserId");
 
-                    b.HasOne("OCMS_BOs.Entities.Course", "Course")
+                    b.HasOne("OCMS_BOs.Entities.CourseSubjectSpecialty", "CourseSubjectSpecialty")
                         .WithMany("Trainees")
-                        .HasForeignKey("CourseId")
+                        .HasForeignKey("CourseSubjectSpecialtyId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -1621,7 +1691,7 @@ namespace OCMS_BOs.Migrations
 
                     b.Navigation("AssignByUser");
 
-                    b.Navigation("Course");
+                    b.Navigation("CourseSubjectSpecialty");
 
                     b.Navigation("Request");
 
@@ -1634,6 +1704,12 @@ namespace OCMS_BOs.Migrations
                         .WithMany()
                         .HasForeignKey("ApproveByUserId");
 
+                    b.HasOne("OCMS_BOs.Entities.Course", "Course")
+                        .WithMany("TrainingPlans")
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("OCMS_BOs.Entities.User", "CreateByUser")
                         .WithMany()
                         .HasForeignKey("CreateByUserId")
@@ -1641,12 +1717,14 @@ namespace OCMS_BOs.Migrations
                         .IsRequired();
 
                     b.HasOne("OCMS_BOs.Entities.Specialties", "Specialty")
-                        .WithMany()
+                        .WithMany("TrainingPlans")
                         .HasForeignKey("SpecialtyId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("ApproveByUser");
+
+                    b.Navigation("Course");
 
                     b.Navigation("CreateByUser");
 
@@ -1655,6 +1733,12 @@ namespace OCMS_BOs.Migrations
 
             modelBuilder.Entity("OCMS_BOs.Entities.TrainingSchedule", b =>
                 {
+                    b.HasOne("OCMS_BOs.Entities.CourseSubjectSpecialty", "CourseSubjectSpecialty")
+                        .WithMany("Schedules")
+                        .HasForeignKey("CourseSubjectSpecialtyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("OCMS_BOs.Entities.User", "CreatedBy")
                         .WithMany()
                         .HasForeignKey("CreatedByUserId")
@@ -1667,17 +1751,15 @@ namespace OCMS_BOs.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("OCMS_BOs.Entities.Subject", "Subject")
+                    b.HasOne("OCMS_BOs.Entities.TrainingPlan", null)
                         .WithMany("Schedules")
-                        .HasForeignKey("SubjectID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("TrainingPlanPlanId");
+
+                    b.Navigation("CourseSubjectSpecialty");
 
                     b.Navigation("CreatedBy");
 
                     b.Navigation("Instructor");
-
-                    b.Navigation("Subject");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.User", b =>
@@ -1713,28 +1795,39 @@ namespace OCMS_BOs.Migrations
 
             modelBuilder.Entity("OCMS_BOs.Entities.Course", b =>
                 {
+                    b.Navigation("CourseSubjectSpecialties");
+
                     b.Navigation("RelatedCourses");
 
-                    b.Navigation("Subjects");
+                    b.Navigation("TrainingPlans");
+                });
+
+            modelBuilder.Entity("OCMS_BOs.Entities.CourseSubjectSpecialty", b =>
+                {
+                    b.Navigation("Instructors");
+
+                    b.Navigation("Schedules");
 
                     b.Navigation("Trainees");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Specialties", b =>
                 {
+                    b.Navigation("CourseSubjectSpecialties");
+
                     b.Navigation("SubSpecialties");
+
+                    b.Navigation("TrainingPlans");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.Subject", b =>
                 {
-                    b.Navigation("Instructors");
-
-                    b.Navigation("Schedules");
+                    b.Navigation("CourseSubjectSpecialties");
                 });
 
             modelBuilder.Entity("OCMS_BOs.Entities.TrainingPlan", b =>
                 {
-                    b.Navigation("Courses");
+                    b.Navigation("Schedules");
                 });
 #pragma warning restore 612, 618
         }

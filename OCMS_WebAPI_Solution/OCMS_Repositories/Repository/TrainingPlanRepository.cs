@@ -22,12 +22,10 @@ namespace OCMS_Repositories.Repository
         {
             return await _context.TrainingPlans.AnyAsync(tp => tp.PlanId == id);
         }
-        public async Task<TrainingPlan?> GetLastTrainingPlanAsync(string specialtyId, string seasonCode, string year, PlanLevel planLevel)
+        public async Task<TrainingPlan?> GetLastTrainingPlanAsync(string seasonCode, string year)
         {
             return await _context.Set<TrainingPlan>()
-                .Where(tp => tp.SpecialtyId == specialtyId &&
-                             tp.PlanId.StartsWith($"{specialtyId}-{seasonCode}{year}") &&
-                             tp.PlanLevel == planLevel)
+                .Where(tp => tp.PlanId.StartsWith($"{seasonCode}{year}")) 
                 .OrderByDescending(tp => tp.PlanId)
                 .FirstOrDefaultAsync();
         }
@@ -35,15 +33,18 @@ namespace OCMS_Repositories.Repository
         public async Task<TrainingPlan> GetTrainingPlanWithDetailsAsync(string planId)
         {
             return await _context.TrainingPlans
-                .Include(p => p.CreateByUser)
-                .Include(p => p.Specialty)
-                .Include(p => p.Courses)
-                    .ThenInclude(c => c.Trainees)
-                .Include(p => p.Courses)
-                    .ThenInclude(c => c.Subjects)
+                .Include(p => p.CreateByUser) 
+                .Include(p => p.Course)
+                    .ThenInclude(c => c.CourseSubjectSpecialties)
+                        .ThenInclude(css => css.Subject)
+                .Include(p => p.Course)
+                    .ThenInclude(c => c.CourseSubjectSpecialties)
+                        .ThenInclude(css => css.Specialty)
+                .Include(p => p.Course)
+                    .ThenInclude(c => c.CourseSubjectSpecialties)
                         .ThenInclude(s => s.Instructors)
-                .Include(p => p.Courses)
-                    .ThenInclude(c => c.Subjects)
+                .Include(p => p.Course)
+                    .ThenInclude(c => c.CourseSubjectSpecialties)
                         .ThenInclude(s => s.Schedules)
                 .FirstOrDefaultAsync(p => p.PlanId == planId);
         }

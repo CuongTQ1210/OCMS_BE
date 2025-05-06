@@ -22,9 +22,14 @@ namespace OCMS_BOs.Entities
         public string CourseId { get; set; }
         public Course Course { get; set; }
 
+        [ForeignKey("Specialty")]
+        public string? SpecialtyId { get; set; }
+        public Specialties? Specialty { get; set; }
+
         [ForeignKey("CertificateTemplate")]
         public string CertificateTemplateId { get; set; }
         public CertificateTemplate CertificateTemplate { get; set; }
+
         [ForeignKey("IssueUser")]
         public string IssueByUserId { get; set; }
         public User IssueByUser { get; set; }
@@ -35,18 +40,20 @@ namespace OCMS_BOs.Entities
         public string? ApprovebyUserId { get; set; }
         public User? ApprovebyUser { get; set; }
 
-       
-        public CertificateStatus Status { get; set; } // active, expired, revoked, returned
-        
-        public DateTime SignDate { get; set; } = DateTime.UtcNow;
+        public CertificateStatus Status { get; set; } 
+
+        public DateTime SignDate { get; set; } = DateTime.Now;
         public DateTime? ExpirationDate { get; set; }
 
         public string CertificateURL { get; set; }
         public bool IsRevoked { get; set; }
         public string? RevocationReason { get; set; }
-       
 
         public DateTime? RevocationDate { get; set; }
+
+        public bool IncludesRelearn { get; set; } = false;
+        public string? RelearnSubjects { get; set; }
+
     }
 }
 

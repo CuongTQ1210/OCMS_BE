@@ -121,14 +121,15 @@ namespace OCMS_BOs.Helper
 
             CreateMap<TrainingPlan, TrainingPlanModel>()
                 .ForMember(dest => dest.TrainingPlanStatus, opt => opt.MapFrom(src => src.TrainingPlanStatus.ToString()))
-                .ForMember(dest => dest.Courses, opt => opt.MapFrom(src => src.Courses))
-                .ReverseMap();
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description)); // Fix typo in property name           
+
+
             CreateMap<TrainingPlanDTO, TrainingPlan>();
             CreateMap<TrainingPlan, TrainingPlanDTO>();
             // Course Mapping
             CreateMap<Course, CourseModel>()
                 .ForMember(dest => dest.CourseId, opt => opt.MapFrom(src => src.CourseId))
-                .ForMember(dest => dest.TrainingPlanId, opt => opt.MapFrom(src => src.TrainingPlanId))
+    // Remove TrainingPlanId mapping as Course doesn't have this property
                 .ForMember(dest => dest.CourseName, opt => opt.MapFrom(src => src.CourseName))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
                 .ForMember(dest => dest.CourseRelatedId, opt => opt.MapFrom(src => src.RelatedCourseId))
@@ -140,118 +141,214 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.CreatedByUserId, opt => opt.MapFrom(src => src.CreatedByUserId))
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
                 .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.UpdatedAt))
-                .ForMember(dest => dest.Trainees, opt => opt.MapFrom(src => src.Trainees))
-                .ForMember(dest => dest.Subjects, opt => opt.MapFrom(src => src.Subjects))
-                .ReverseMap()
-                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => Enum.Parse<CourseStatus>(src.Status)))
-                .ForMember(dest => dest.CourseLevel, opt => opt.MapFrom(src => Enum.Parse<CourseLevel>(src.CourseLevel)))
-                .ForMember(dest => dest.Progress, opt => opt.MapFrom(src => Enum.Parse<Progress>(src.Progress)));
+                .ForMember(dest => dest.Trainees, opt => opt.MapFrom(src => src.CourseSubjectSpecialties != null ?
+                    src.CourseSubjectSpecialties.Where(css => css.Trainees != null)
+                    .SelectMany(css => css.Trainees).ToList() : new List<TraineeAssign>()))
+                .ForMember(dest => dest.Subjects, opt => opt.MapFrom(src => src.CourseSubjectSpecialties != null ?
+                    src.CourseSubjectSpecialties.Where(css => css.Subject != null)
+                    .Select(css => css.Subject).ToList() : new List<Subject>()))
+                .ForMember(dest => dest.CourseSubjectSpecialties, opt => opt.Ignore())
+                .ForMember(dest => dest.TrainingPlans, opt => opt.MapFrom(src => src.TrainingPlans));
+
 
             CreateMap<CourseDTO, Course>()
                 .ForMember(dest => dest.CourseId, opt => opt.MapFrom(src => src.CourseId))
-                .ForMember(dest => dest.TrainingPlanId, opt => opt.MapFrom(src => src.TrainingPlanId))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
                 .ForMember(dest => dest.RelatedCourseId, opt => opt.MapFrom(src => src.CourseRelatedId))
-                .ForMember(dest => dest.CourseName, opt => opt.MapFrom(src => src.CourseName));
+                .ForMember(dest => dest.CourseName, opt => opt.MapFrom(src => src.CourseName))
+                .ForMember(dest => dest.CourseLevel, opt => opt.MapFrom(src => Enum.Parse<CourseLevel>(src.CourseLevel)))
+                .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
+                .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
+                .ForMember(dest => dest.CreatedByUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.ApproveByUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.ApprovalDate, opt => opt.Ignore())
+                .ForMember(dest => dest.Status, opt => opt.Ignore())
+                .ForMember(dest => dest.Progress, opt => opt.Ignore())
+                .ForMember(dest => dest.CourseSubjectSpecialties, opt => opt.Ignore())
+                .ForMember(dest => dest.TrainingPlans, opt => opt.Ignore())
+                .ForMember(dest => dest.RelatedCourses, opt => opt.Ignore());
 
             CreateMap<Course, CourseDTO>()
                 .ForMember(dest => dest.CourseId, opt => opt.MapFrom(src => src.CourseId))
-                .ForMember(dest => dest.TrainingPlanId, opt => opt.MapFrom(src => src.TrainingPlanId))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
                 .ForMember(dest => dest.CourseRelatedId, opt => opt.MapFrom(src => src.RelatedCourseId))
-                .ForMember(dest => dest.CourseName, opt => opt.MapFrom(src => src.CourseName));
+                .ForMember(dest => dest.CourseName, opt => opt.MapFrom(src => src.CourseName))
+                .ForMember(dest => dest.CourseLevel, opt => opt.MapFrom(src => src.CourseLevel.ToString()));
 
             CreateMap<CourseUpdateDTO, Course>()
                 .ForMember(dest => dest.CourseId, opt => opt.Ignore())
                 .ForMember(dest => dest.CourseName, opt => opt.MapFrom(src => src.CourseName))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
+                .ForMember(dest => dest.RelatedCourseId, opt => opt.MapFrom(src => src.CourseRelatedId))
                 .ForMember(dest => dest.Status, opt => opt.Ignore())
                 .ForMember(dest => dest.Progress, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
-                .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(_ => DateTime.Now))
+                .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
                 .ForMember(dest => dest.CreatedByUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.ApproveByUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.ApproveByUser, opt => opt.Ignore())
-                .ForMember(dest => dest.TrainingPlan, opt => opt.Ignore())
-                .ForMember(dest => dest.Subjects, opt => opt.Ignore())
-                .ForMember(dest => dest.Trainees, opt => opt.Ignore());
-            // Subject Mapping
+                .ForMember(dest => dest.TrainingPlans, opt => opt.Ignore()) // Replace with this line
+                .ForMember(dest => dest.CourseSubjectSpecialties, opt => opt.Ignore())
+                .ForMember(dest => dest.RelatedCourses, opt => opt.Ignore());
+
+            // CourseSubjectSpecialty Mappings
+            CreateMap<CourseSubjectSpecialty, CourseSubjectSpecialtyModel>()
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+                .ForMember(dest => dest.CourseId, opt => opt.MapFrom(src => src.CourseId))
+                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.SubjectId))
+                .ForMember(dest => dest.SpecialtyId, opt => opt.MapFrom(src => src.SpecialtyId))
+                .ForMember(dest => dest.Notes, opt => opt.MapFrom(src => src.Notes))
+                .ForMember(dest => dest.CreatedByUserId, opt => opt.MapFrom(src => src.CreatedByUserId))
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
+                .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.UpdatedAt))
+                .ForMember(dest => dest.Course, opt => opt.Ignore())
+                .ForMember(dest => dest.Subject, opt => opt.MapFrom(src => src.Subject))
+                .ForMember(dest => dest.Specialty, opt => opt.MapFrom(src => src.Specialty))
+                .ForMember(dest => dest.Trainees, opt => opt.MapFrom(src => src.Trainees != null ?
+                    src.Trainees : new List<TraineeAssign>()))
+                .ForMember(dest => dest.Instructors, opt => opt.MapFrom(src => src.Instructors != null ?
+                    src.Instructors : new List<InstructorAssignment>()))
+                .ForMember(dest => dest.Schedules, opt => opt.MapFrom(src => src.Schedules != null ?
+                    src.Schedules : new List<TrainingSchedule>()));
+
+            CreateMap<CourseSubjectSpecialtyDTO, CourseSubjectSpecialty>()
+                .ForMember(dest => dest.Id, opt => opt.Ignore())
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.Now))
+                .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(_ => DateTime.Now))
+                .ForMember(dest => dest.Trainees, opt => opt.Ignore())
+                .ForMember(dest => dest.Instructors, opt => opt.Ignore())
+                .ForMember(dest => dest.Schedules, opt => opt.Ignore());
+
+            CreateMap<CourseSubjectSpecialty, CourseSubjectSpecialtyDTO>();
+            // Subject Mappings
             CreateMap<Subject, SubjectModel>()
-                .ForMember(dest => dest.Instructors, opt => opt.MapFrom(src => src.Instructors))
-                .ForMember(dest => dest.trainingSchedules, opt => opt.MapFrom(src => src.Schedules))
-                .ReverseMap();
-            CreateMap<SubjectDTO, Subject>();
-            CreateMap<Subject, SubjectDTO>();
-            // Trainee Assignment Mapping
-            // Mapping TraineeAssign → TraineeAssignModel (ViewModel for displaying data)
+                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.SubjectId))
+                .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.SubjectName))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
+                .ForMember(dest => dest.Credits, opt => opt.MapFrom(src => src.Credits))
+                .ForMember(dest => dest.PassingScore, opt => opt.MapFrom(src => src.PassingScore))
+                .ForMember(dest => dest.CreateByUserId, opt => opt.MapFrom(src => src.CreateByUserId))
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
+                .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.UpdatedAt))
+                .ForMember(dest => dest.CourseSubjectSpecialties, opt => opt.MapFrom(src => src.CourseSubjectSpecialties != null ?
+                    src.CourseSubjectSpecialties : new List<CourseSubjectSpecialty>()));
+
+            CreateMap<SubjectDTO, Subject>()
+                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.SubjectId))
+                .ForMember(dest => dest.CourseSubjectSpecialties, opt => opt.Ignore())
+                .ForMember(dest => dest.CreateByUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
+                .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
+                .ReverseMap();           
+
+            // Trainee Assignment Mappings
             CreateMap<TraineeAssign, TraineeAssignModel>()
-                .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => src.RequestStatus.ToString())) // Convert Enum to String
+                .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => src.RequestStatus.ToString()))
                 .ReverseMap()
-                .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => Enum.Parse<RequestStatus>(src.RequestStatus))) // Convert String to Enum
-                .ForMember(dest => dest.AssignDate, opt => opt.MapFrom(src => src.AssignDate == default ? DateTime.Now : src.AssignDate)) // Default AssignDate
-                .ForMember(dest => dest.ApprovalDate, opt => opt.MapFrom(src => src.ApprovalDate == default ? null : src.ApprovalDate)); // Keep null if not approved
+                .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => Enum.Parse<RequestStatus>(src.RequestStatus)))
+                .ForMember(dest => dest.AssignDate, opt => opt.MapFrom(src => src.AssignDate == default ? DateTime.Now : src.AssignDate))
+                .ForMember(dest => dest.ApprovalDate, opt => opt.MapFrom(src => src.ApprovalDate == default ? null : src.ApprovalDate))
+                .ForMember(dest => dest.Trainee, opt => opt.Ignore())
+                .ForMember(dest => dest.CourseSubjectSpecialty, opt => opt.Ignore())
+                .ForMember(dest => dest.AssignByUser, opt => opt.Ignore())
+                .ForMember(dest => dest.ApproveByUser, opt => opt.Ignore())
+                .ForMember(dest => dest.Request, opt => opt.Ignore());
 
-            // Mapping TraineeAssignDTO → TraineeAssign (Used for Creating Assignments)
             CreateMap<TraineeAssignDTO, TraineeAssign>()
-                .ForMember(dest => dest.TraineeAssignId, opt => opt.Ignore()) // Ignore ID, auto-generated
-                .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(_ => RequestStatus.Pending)) // Default to Pending
-                .ForMember(dest => dest.AssignDate, opt => opt.MapFrom(_ => DateTime.Now)) // Set AssignDate to now
-                .ForMember(dest => dest.ApprovalDate, opt => opt.Ignore()) // ApprovalDate ignored during creation
-                .ForMember(dest => dest.ApproveByUserId, opt => opt.Ignore()) // Approval user not set at creation
-                .ForMember(dest => dest.RequestId, opt => opt.Ignore()) // Request will be assigned later
-                .ForMember(dest => dest.Request, opt => opt.Ignore()); // Ignore navigation property
-            CreateMap<TraineeAssign, TraineeAssignDTO>();
-            // Instructor Assignment Mapping
-            CreateMap<InstructorAssignmentDTO, InstructorAssignment>()
-    .ForMember(dest => dest.AssignmentId, opt => opt.Ignore()) // AssignmentId should be generated, not mapped
-    .ForMember(dest => dest.AssignByUserId, opt => opt.Ignore()) // AssignByUserId is set elsewhere
-    .ForMember(dest => dest.AssignDate, opt => opt.MapFrom(src => DateTime.Now)) // Set default assign date
-    .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => "Pending")) // Default status if needed
-    .ReverseMap();
+                .ForMember(dest => dest.TraineeAssignId, opt => opt.Ignore())
+                .ForMember(dest => dest.CourseSubjectSpecialtyId, opt => opt.Ignore()) // Map CourseId to CourseSubjectSpecialtyId in service
+                .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(_ => RequestStatus.Pending))
+                .ForMember(dest => dest.AssignDate, opt => opt.MapFrom(_ => DateTime.Now))
+                .ForMember(dest => dest.ApprovalDate, opt => opt.Ignore())
+                .ForMember(dest => dest.ApproveByUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.RequestId, opt => opt.Ignore())
+                .ForMember(dest => dest.Request, opt => opt.Ignore())
+                .ForMember(dest => dest.Trainee, opt => opt.Ignore())
+                .ForMember(dest => dest.CourseSubjectSpecialty, opt => opt.Ignore())
+                .ForMember(dest => dest.AssignByUser, opt => opt.Ignore())
+                .ForMember(dest => dest.ApproveByUser, opt => opt.Ignore());
 
+            CreateMap<TraineeAssign, TraineeAssignDTO>()
+                .ForMember(dest => dest.CourseSubjectSpecialtyId, opt => opt.Ignore()); // CourseId not directly mapped
+
+            // Instructor Assignment Mappings
             CreateMap<InstructorAssignment, InstructorAssignmentModel>()
-                .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => src.RequestStatus.ToString())) // Ensure status is a string
-                .ReverseMap();
+                .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => src.RequestStatus.ToString()))
+                .ReverseMap()
+                .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => Enum.Parse<RequestStatus>(src.RequestStatus)))
+                .ForMember(dest => dest.CourseSubjectSpecialty, opt => opt.Ignore())
+                .ForMember(dest => dest.Instructor, opt => opt.Ignore())
+                .ForMember(dest => dest.AssignByUser, opt => opt.Ignore());
 
+            CreateMap<InstructorAssignmentDTO, InstructorAssignment>()
+                .ForMember(dest => dest.AssignmentId, opt => opt.Ignore())
+                .ForMember(dest => dest.CourseSubjectSpecialtyId, opt => opt.Ignore()) // Map SubjectId to CourseSubjectSpecialtyId in service
+                .ForMember(dest => dest.AssignByUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.AssignDate, opt => opt.MapFrom(_ => DateTime.Now))
+                .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(_ => RequestStatus.Pending))
+                .ForMember(dest => dest.CourseSubjectSpecialty, opt => opt.Ignore())
+                .ForMember(dest => dest.Instructor, opt => opt.Ignore())
+                .ForMember(dest => dest.AssignByUser, opt => opt.Ignore());
 
-            // Mapping from TrainingSchedule to TrainingScheduleModel
+            CreateMap<InstructorAssignment, InstructorAssignmentDTO>()
+                .ForMember(dest => dest.CourseSubjectSpecialtyId, opt => opt.Ignore()); // SubjectId not directly mapped
+
+            // Training Schedule Mappings
             CreateMap<TrainingSchedule, TrainingScheduleModel>()
-    .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.Subject.SubjectName))
-    .ForMember(dest => dest.InstructorName, opt => opt.MapFrom(src => src.Instructor != null ? src.Instructor.FullName : null)) // Adjust based on actual property name
-    .ForMember(dest => dest.StartDateTime, opt => opt.MapFrom(src => src.StartDateTime))
-    .ForMember(dest => dest.EndDateTime, opt => opt.MapFrom(src => src.EndDateTime))
-    .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
-    .ForMember(dest => dest.DaysOfWeek, opt => opt.MapFrom(src =>
-        src.DaysOfWeek != null
-            ? string.Join(", ", src.DaysOfWeek.Select(d => d.ToString()))
-            : ""))
-    .ForMember(dest => dest.SubjectPeriod, opt => opt.MapFrom(src => src.SubjectPeriod))
-    .ReverseMap()
-    .ForMember(dest => dest.DaysOfWeek, opt => opt.Ignore()); // Still ignoring reverse mapping for DaysOfWeek
+                .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.CourseSubjectSpecialty.Subject.SubjectName))
+                .ForMember(dest => dest.InstructorName, opt => opt.MapFrom(src => src.Instructor != null ? src.Instructor.FullName : null))
+                .ForMember(dest => dest.StartDateTime, opt => opt.MapFrom(src => src.StartDateTime))
+                .ForMember(dest => dest.EndDateTime, opt => opt.MapFrom(src => src.EndDateTime))
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
+                .ForMember(dest => dest.DaysOfWeek, opt => opt.MapFrom(src => src.DaysOfWeek != null ? string.Join(", ", src.DaysOfWeek.Select(d => d.ToString())) : ""))
+                .ForMember(dest => dest.SubjectPeriod, opt => opt.MapFrom(src => src.SubjectPeriod))
+                .ReverseMap()
+                .ForMember(dest => dest.DaysOfWeek, opt => opt.MapFrom(src => src.DaysOfWeek.Split(", ", StringSplitOptions.RemoveEmptyEntries).Select(d => Enum.Parse<DayOfWeek>(d)).ToList()))
+                .ForMember(dest => dest.CourseSubjectSpecialty, opt => opt.Ignore())
+                .ForMember(dest => dest.Instructor, opt => opt.Ignore())
+                .ForMember(dest => dest.CreatedBy, opt => opt.Ignore());
 
-            // Mapping from TrainingScheduleDTO to TrainingSchedule
             CreateMap<TrainingScheduleDTO, TrainingSchedule>()
-    .ForMember(dest => dest.DaysOfWeek, opt => opt.MapFrom(src =>
-        src.DaysOfWeek != null
-            ? src.DaysOfWeek.Select(d => (DayOfWeek)d).ToList()
-            : new List<DayOfWeek>()))
-    .ForMember(dest => dest.SubjectPeriod, opt => opt.MapFrom(src => src.SubjectPeriod))
-    .ReverseMap()
-    .ForMember(dest => dest.StartDay, opt => opt.MapFrom(src => src.StartDateTime))
-    .ForMember(dest => dest.EndDay, opt => opt.MapFrom(src => src.EndDateTime))
-    .ForMember(dest => dest.DaysOfWeek, opt => opt.MapFrom(src =>
-        src.DaysOfWeek != null
-            ? src.DaysOfWeek.Select(d => (int)d).ToList()
-            : new List<int>()))
-    .ForMember(dest => dest.SubjectPeriod, opt => opt.MapFrom(src => src.SubjectPeriod));
-           
+                .ForMember(dest => dest.ScheduleID, opt => opt.Ignore())
+                .ForMember(dest => dest.CourseSubjectSpecialtyId, opt => opt.Ignore()) // Map SubjectID to CourseSubjectSpecialtyId in service
+                .ForMember(dest => dest.InstructorID, opt => opt.MapFrom(src => src.InstructorID))
+                .ForMember(dest => dest.Location, opt => opt.MapFrom(src => src.Location))
+                .ForMember(dest => dest.Room, opt => opt.MapFrom(src => src.Room))
+                .ForMember(dest => dest.Notes, opt => opt.MapFrom(src => src.Notes))
+                .ForMember(dest => dest.StartDateTime, opt => opt.MapFrom(src => src.StartDay))
+                .ForMember(dest => dest.EndDateTime, opt => opt.MapFrom(src => src.EndDay))
+                .ForMember(dest => dest.DaysOfWeek, opt => opt.MapFrom(src => src.DaysOfWeek != null ? src.DaysOfWeek.Select(d => (DayOfWeek)d).ToList() : new List<DayOfWeek>()))
+                .ForMember(dest => dest.ClassTime, opt => opt.MapFrom(src => src.ClassTime))
+                .ForMember(dest => dest.SubjectPeriod, opt => opt.MapFrom(src => src.SubjectPeriod))
+                .ForMember(dest => dest.CreatedDate, opt => opt.MapFrom(_ => DateTime.Now))
+                .ForMember(dest => dest.ModifiedDate, opt => opt.MapFrom(_ => DateTime.Now))
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(_ => ScheduleStatus.Pending))
+                .ForMember(dest => dest.CourseSubjectSpecialty, opt => opt.Ignore())
+                .ForMember(dest => dest.Instructor, opt => opt.Ignore())
+                .ForMember(dest => dest.CreatedBy, opt => opt.Ignore());
+
+            CreateMap<TrainingSchedule, TrainingScheduleDTO>()
+                .ForMember(dest => dest.CourseSubjectSpecialtyId, opt => opt.Ignore()) // SubjectID not directly mapped
+                .ForMember(dest => dest.InstructorID, opt => opt.MapFrom(src => src.InstructorID))
+                .ForMember(dest => dest.Location, opt => opt.MapFrom(src => src.Location))
+                .ForMember(dest => dest.Room, opt => opt.MapFrom(src => src.Room))
+                .ForMember(dest => dest.Notes, opt => opt.MapFrom(src => src.Notes))
+                .ForMember(dest => dest.StartDay, opt => opt.MapFrom(src => src.StartDateTime))
+                .ForMember(dest => dest.EndDay, opt => opt.MapFrom(src => src.EndDateTime))
+                .ForMember(dest => dest.DaysOfWeek, opt => opt.MapFrom(src => src.DaysOfWeek != null ? src.DaysOfWeek.Select(d => (int)d).ToList() : new List<int>()))
+                .ForMember(dest => dest.ClassTime, opt => opt.MapFrom(src => src.ClassTime))
+                .ForMember(dest => dest.SubjectPeriod, opt => opt.MapFrom(src => src.SubjectPeriod));
+
+            // Grade Mappings
             CreateMap<Grade, GradeModel>()
-    .ForMember(dest => dest.GradeStatus, opt => opt.MapFrom(src => src.gradeStatus.ToString()));
+                .ForMember(dest => dest.GradeStatus, opt => opt.MapFrom(src => src.gradeStatus.ToString()))
+                .ReverseMap()
+                .ForMember(dest => dest.gradeStatus, opt => opt.MapFrom(src => Enum.Parse<GradeStatus>(src.GradeStatus)));
 
             CreateMap<GradeDTO, Grade>()
                 .ForMember(dest => dest.GradeId, opt => opt.Ignore())
-                .ForMember(dest => dest.TotalScore, opt => opt.Ignore()) // Calculated separately
-                .ForMember(dest => dest.gradeStatus, opt => opt.Ignore()) // Determined based on TotalScore
+                .ForMember(dest => dest.TotalScore, opt => opt.Ignore())
+                .ForMember(dest => dest.gradeStatus, opt => opt.Ignore())
                 .ForMember(dest => dest.GradedByInstructorId, opt => opt.Ignore())
                 .ForMember(dest => dest.GradedByInstructor, opt => opt.Ignore())
                 .ForMember(dest => dest.EvaluationDate, opt => opt.MapFrom(_ => DateTime.Now))
@@ -265,7 +362,7 @@ namespace OCMS_BOs.Helper
     .ForMember(dest => dest.CertificateName, opt => opt.MapFrom(src => src.CertificateName))
     .ForMember(dest => dest.IssuingOrganization, opt => opt.MapFrom(src => src.CertificateProvider))
     .ForMember(dest => dest.CandidateId, opt => opt.MapFrom(src => src.CandidateId))
-    .ForMember(dest => dest.CertificateFileURL, opt => opt.Ignore()) // You’ll set this after upload
+    .ForMember(dest => dest.CertificateFileURL, opt => opt.Ignore()) // You'll set this after upload
     .ForMember(dest => dest.UserId, opt => opt.Ignore())
     .ForMember(dest => dest.User, opt => opt.Ignore())
     .ForMember(dest => dest.Candidate, opt => opt.Ignore())
@@ -384,8 +481,5 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.DecisionStatus))
                 .ForMember(dest => dest.DecisionTemplateId, opt => opt.MapFrom(src => src.DecisionTemplateId));
         }
-
     }
-
 }
-

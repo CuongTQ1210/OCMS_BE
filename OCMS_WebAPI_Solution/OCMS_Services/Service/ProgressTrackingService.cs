@@ -31,32 +31,32 @@ namespace OCMS_Services.Service
         /// <summary>
         /// Kiểm tra và cập nhật trạng thái của một Subject dựa trên lịch học và điểm số
         /// </summary>
-        public async Task CheckAndUpdateSubjectStatus(string subjectId)
+        public async Task CheckAndUpdateCourseSubjectStatus(string courseSubjectId)
         {
             try
             {
-                _logger.LogInformation($"Checking status for Subject ID: {subjectId}");
+                _logger.LogInformation($"Checking status for Subject ID: {courseSubjectId}");
 
-                var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(subjectId);
-                if (subject == null)
+                var courseSubject = await _unitOfWork.CourseSubjectSpecialtyRepository.GetByIdAsync(courseSubjectId);
+                if (courseSubject == null)
                 {
-                    _logger.LogWarning($"Subject with ID {subjectId} not found");
+                    _logger.LogWarning($"CourseSubject with ID {courseSubjectId} not found");
                     return;
                 }
 
                 // Lấy course để biết danh sách học viên
-                var course = await _unitOfWork.CourseRepository.GetByIdAsync(subject.CourseId);
+                var course = await _unitOfWork.CourseRepository.GetByIdAsync(courseSubject.CourseId);
                 if (course == null)
                 {
-                    _logger.LogWarning($"Course with ID {subject.CourseId} not found for Subject {subjectId}");
+                    _logger.LogWarning($"Course with ID {courseSubject.CourseId} not found for Subject {courseSubjectId}");
                     return;
                 }
 
                 // Lấy tất cả lịch học của subject
-                var schedules = await _scheduleRepository.GetSchedulesBySubjectIdAsync(subjectId);
+                var schedules = await _scheduleRepository.GetSchedulesByCourseSubjectIdAsync(courseSubjectId);
                 if (schedules == null || !schedules.Any())
                 {
-                    _logger.LogWarning($"No schedules found for Subject {subjectId}");
+                    _logger.LogWarning($"No schedules found for CourseSubject {courseSubjectId}");
                     return;
                 }
 
@@ -64,7 +64,7 @@ namespace OCMS_Services.Service
                 bool hasStarted = schedules.Any(s => DateTime.Now >= s.StartDateTime);
                 if (!hasStarted)
                 {
-                    _logger.LogInformation($"Subject {subjectId} has not started yet");
+                    _logger.LogInformation($"CourseSubject {courseSubjectId} has not started yet");
                     return;
                 }
 
@@ -74,19 +74,19 @@ namespace OCMS_Services.Service
 
                 if (!allSchedulesEnded)
                 {
-                    _logger.LogInformation($"Subject {subjectId} has schedules that haven't ended yet");
+                    _logger.LogInformation($"CourseSubject {courseSubjectId} has schedules that haven't ended yet");
                     return;
                 }
 
                 // Kiểm tra tất cả học viên đã có điểm
-                var traineeAssigns = await _unitOfWork.TraineeAssignRepository.FindAsync(ta => ta.CourseId == course.CourseId);
+                var traineeAssigns = await _unitOfWork.TraineeAssignRepository.FindAsync(ta => ta.CourseSubjectSpecialty.CourseId == course.CourseId);
                 if (traineeAssigns == null || !traineeAssigns.Any())
                 {
                     _logger.LogWarning($"No trainees assigned to Course {course.CourseId}");
                     return;
                 }
 
-                var grades = await _unitOfWork.GradeRepository.FindAsync(g => g.SubjectId == subjectId);
+                var grades = await _unitOfWork.GradeRepository.FindAsync(g => g.TraineeAssign.CourseSubjectSpecialty.SubjectId == courseSubjectId);
 
                 // Kiểm tra xem mỗi học viên được assign đã có điểm chưa
                 bool allTraineesGraded = true;
@@ -96,14 +96,14 @@ namespace OCMS_Services.Service
                     if (!hasGrade)
                     {
                         allTraineesGraded = false;
-                        _logger.LogInformation($"Trainee assign {traineeAssign.TraineeAssignId} doesn't have grade for Subject {subjectId}");
+                        _logger.LogInformation($"Trainee assign {traineeAssign.TraineeAssignId} doesn't have grade for CourseSubject {courseSubjectId}");
                         break;
                     }
                 }
 
                 if (!allTraineesGraded)
                 {
-                    _logger.LogInformation($"Subject {subjectId} has trainees without grades");
+                    _logger.LogInformation($"CourseSubject {courseSubjectId} has trainees without grades");
                     return;
                 }
 
@@ -120,14 +120,14 @@ namespace OCMS_Services.Service
                 }
 
                 await _unitOfWork.SaveChangesAsync();
-                _logger.LogInformation($"All schedules for Subject {subjectId} marked as Completed");
+                _logger.LogInformation($"All schedules for CourseSubject {courseSubjectId} marked as Completed");
 
                 // Kiểm tra và cập nhật trạng thái Course
-                await CheckAndUpdateCourseStatus(subject.CourseId);
+                await CheckAndUpdateCourseStatus(courseSubject.Id);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error checking status for Subject {subjectId}");
+                _logger.LogError(ex, $"Error checking status for CourseSubject {courseSubjectId}");
                 throw;
             }
         }
@@ -137,31 +137,31 @@ namespace OCMS_Services.Service
         /// <summary>
         /// Kiểm tra và cập nhật trạng thái Course dựa trên trạng thái của tất cả Subject
         /// </summary>
-        public async Task CheckAndUpdateCourseStatus(string courseId)
+        public async Task CheckAndUpdateCourseStatus(string courseSubjectId)
         {
             try
             {
-                _logger.LogInformation($"Checking status for Course ID: {courseId}");
+                _logger.LogInformation($"Error checking status for CourseSubject  {courseSubjectId}");
 
-                var course = await _unitOfWork.CourseRepository.GetByIdAsync(courseId);
-                if (course == null)
+                var courseSubject = await _unitOfWork.CourseSubjectSpecialtyRepository.GetByIdAsync(courseSubjectId);
+                if (courseSubject == null)
                 {
-                    _logger.LogWarning($"Course with ID {courseId} not found");
+                    _logger.LogWarning($"CourseSubject with ID {courseSubjectId} not found");
                     return;
                 }
 
                 // Đã completed hoặc không phải đang ongoing thì bỏ qua
-                if (course.Progress == Progress.Completed || course.Progress == Progress.NotYet)
+                if (courseSubject.Course.Progress == Progress.Completed || courseSubject.Course.Progress == Progress.NotYet)
                 {
-                    _logger.LogInformation($"Course {courseId} is already {course.Progress}, no update needed");
+                    _logger.LogInformation($"Course {courseSubjectId} is already {courseSubject.Course.Progress}, no update needed");
                     return;
                 }
 
                 // Lấy tất cả subject của course
-                var subjects = await _unitOfWork.SubjectRepository.FindAsync(s => s.CourseId == courseId);
+                var subjects = await _unitOfWork.SubjectRepository.FindAsync(s => s.SubjectId == courseSubject.SubjectId);
                 if (subjects == null || !subjects.Any())
                 {
-                    _logger.LogWarning($"No subjects found for Course {courseId}");
+                    _logger.LogWarning($"No subjects found for CourseSubject {courseSubjectId}");
                     return;
                 }
 
@@ -169,7 +169,7 @@ namespace OCMS_Services.Service
                 bool allSubjectsCompleted = true;
                 foreach (var subject in subjects)
                 {
-                    var schedules = await _scheduleRepository.GetSchedulesBySubjectIdAsync(subject.SubjectId);
+                    var schedules = await _scheduleRepository.GetSchedulesByCourseSubjectIdAsync(courseSubject.Id);
 
                     if (schedules == null || !schedules.Any())
                     {
@@ -187,8 +187,8 @@ namespace OCMS_Services.Service
                     }
 
                     // Kiểm tra tất cả học viên đã có điểm
-                    var traineeAssigns = await _unitOfWork.TraineeAssignRepository.FindAsync(ta => ta.CourseId == courseId);
-                    var grades = await _unitOfWork.GradeRepository.FindAsync(g => g.SubjectId == subject.SubjectId);
+                    var traineeAssigns = await _unitOfWork.TraineeAssignRepository.FindAsync(ta => ta.CourseSubjectSpecialty.Id == courseSubjectId);
+                    var grades = await _unitOfWork.GradeRepository.FindAsync(g => g.TraineeAssign.CourseSubjectSpecialty.Id == courseSubjectId);
 
                     foreach (var traineeAssign in traineeAssigns)
                     {
@@ -207,23 +207,26 @@ namespace OCMS_Services.Service
 
                 if (allSubjectsCompleted)
                 {
-                    course.Progress = Progress.Completed;
-                    course.UpdatedAt = DateTime.Now;
-                    await _unitOfWork.CourseRepository.UpdateAsync(course);
+                    courseSubject.Course.Progress = Progress.Completed;
+                    courseSubject.Course.UpdatedAt = DateTime.Now;
+                    await _unitOfWork.CourseRepository.UpdateAsync(courseSubject.Course);
                     await _unitOfWork.SaveChangesAsync();
-                    _logger.LogInformation($"Updated Course {courseId} to Completed");
+                    _logger.LogInformation($"Updated Course {courseSubjectId} to Completed");
 
                     // Kiểm tra và cập nhật trạng thái TrainingPlan
-                    await CheckAndUpdateTrainingPlanStatus(course.TrainingPlanId);
+                    foreach (var trainingPlan in courseSubject.Course.TrainingPlans)
+                    {
+                        await CheckAndUpdateTrainingPlanStatus(trainingPlan.PlanId);
+                    }
                 }
                 else
                 {
-                    _logger.LogInformation($"Course {courseId} has incomplete subjects");
+                    _logger.LogInformation($"Course {courseSubjectId} has incomplete subjects");
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error checking status for Course {courseId}");
+                _logger.LogError(ex, $"Error checking status for Course {courseSubjectId}");
                 throw;
             }
         }
@@ -255,8 +258,14 @@ namespace OCMS_Services.Service
                     return;
                 }
 
-                // Lấy tất cả course của training plan
-                var courses = await _unitOfWork.CourseRepository.FindAsync(c => c.TrainingPlanId == planId);
+                // Get all training plans by ID
+                var trainingPlans = await _unitOfWork.TrainingPlanRepository.FindAsync(tp => tp.PlanId == planId);
+
+                // Get related course IDs
+                var courseIds = trainingPlans.Select(tp => tp.CourseId).Distinct();
+
+                // Fetch courses by those IDs
+                var courses = await _unitOfWork.CourseRepository.FindAsync(c => courseIds.Contains(c.CourseId));
                 if (courses == null || !courses.Any())
                 {
                     _logger.LogWarning($"No courses found for Training Plan {planId}");
@@ -321,10 +330,10 @@ namespace OCMS_Services.Service
                 foreach (var schedule in expiredSchedules)
                 {
                     // Chỉ xử lý mỗi subject một lần
-                    if (!processedSubjectIds.Contains(schedule.SubjectID))
+                    if (!processedSubjectIds.Contains(schedule.CourseSubjectSpecialty.Id))
                     {
-                        await CheckAndUpdateSubjectStatus(schedule.SubjectID);
-                        processedSubjectIds.Add(schedule.SubjectID);
+                        await CheckAndUpdateCourseSubjectStatus(schedule.CourseSubjectSpecialty.Id);
+                        processedSubjectIds.Add(schedule.CourseSubjectSpecialty.Id);
                     }
                 }
 

@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using OCMS_Repositories.IRepository;
+using System.Linq.Expressions;
 
 namespace OCMS_Repositories.Repository
 {
@@ -31,22 +32,43 @@ namespace OCMS_Repositories.Repository
                 .FirstOrDefaultAsync();
         }
 
-        public async Task<IEnumerable<Course>> GetCoursesByTrainingPlanIdAsync(string trainingPlanId)
+        public async Task<Course?> GetCourseByTrainingPlanIdAsync(string trainingPlanId)
         {
-            return await _context.Courses
-                .Where(c => c.TrainingPlanId == trainingPlanId)
-                .ToListAsync();
+            var trainingPlan = await _context.TrainingPlans
+                .Include(tp => tp.Course)
+                .FirstOrDefaultAsync(tp => tp.PlanId == trainingPlanId);
+
+            return trainingPlan?.Course;
         }
 
         public async Task<Course?> GetCourseWithDetailsAsync(string courseId)
         {
             return await _context.Courses
-                .Include(c => c.Subjects)
+                .Include(c => c.CourseSubjectSpecialties)
                     .ThenInclude(s => s.Instructors)
-                .Include(c => c.Subjects)
+                .Include(c => c.CourseSubjectSpecialties)
                     .ThenInclude(s => s.Schedules)
-                .Include(c => c.Trainees)
+                .Include(c => c.CourseSubjectSpecialties)
+                    .ThenInclude(s => s.Trainees)
+                .Include(c => c.CourseSubjectSpecialties)
+                    .ThenInclude(s => s.Subject)
+                .Include(c => c.CourseSubjectSpecialties)
+                    .ThenInclude(s => s.Specialty)
                 .FirstOrDefaultAsync(c => c.CourseId == courseId);
+        }
+
+        public async Task<IEnumerable<Course>> GetAllWithIncludesAsync(Func<IQueryable<Course>, IQueryable<Course>> includes)
+        {
+            var query = _context.Set<Course>().AsQueryable();
+            query = includes(query);
+            return await query.ToListAsync();
+        }
+
+        public async Task<Course> GetWithIncludesAsync(Expression<Func<Course, bool>> predicate, Func<IQueryable<Course>, IQueryable<Course>> includes)
+        {
+            var query = _context.Set<Course>().AsQueryable();
+            query = includes(query);
+            return await query.FirstOrDefaultAsync(predicate);
         }
     }
 }
