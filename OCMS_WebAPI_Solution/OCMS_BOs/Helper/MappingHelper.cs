@@ -122,7 +122,7 @@ namespace OCMS_BOs.Helper
             CreateMap<TrainingPlan, TrainingPlanModel>()
                 .ForMember(dest => dest.TrainingPlanStatus, opt => opt.MapFrom(src => src.TrainingPlanStatus.ToString()))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description)) // Fix typo in property name           
-                .ReverseMap();
+
 
             CreateMap<TrainingPlanDTO, TrainingPlan>();
             CreateMap<TrainingPlan, TrainingPlanDTO>();
@@ -149,6 +149,7 @@ namespace OCMS_BOs.Helper
                     .Select(css => css.Subject).ToList() : new List<Subject>()))
                 .ForMember(dest => dest.CourseSubjectSpecialties, opt => opt.Ignore())
                 .ForMember(dest => dest.TrainingPlans, opt => opt.MapFrom(src => src.TrainingPlans));
+
 
             CreateMap<CourseDTO, Course>()
                 .ForMember(dest => dest.CourseId, opt => opt.MapFrom(src => src.CourseId))
@@ -201,7 +202,7 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
                 .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.UpdatedAt))
                 .ForMember(dest => dest.Course, opt => opt.Ignore())
-                .ForMember(dest => dest.Subject, opt => opt.Ignore())
+                .ForMember(dest => dest.Subject, opt => opt.MapFrom(src => src.Subject))
                 .ForMember(dest => dest.Specialty, opt => opt.MapFrom(src => src.Specialty))
                 .ForMember(dest => dest.Trainees, opt => opt.MapFrom(src => src.Trainees != null ?
                     src.Trainees : new List<TraineeAssign>()))
@@ -229,7 +230,8 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.CreateByUserId, opt => opt.MapFrom(src => src.CreateByUserId))
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
                 .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.UpdatedAt))
-                .ForMember(dest => dest.CourseSubjectSpecialties, opt => opt.Ignore());
+                .ForMember(dest => dest.CourseSubjectSpecialties, opt => opt.MapFrom(src => src.CourseSubjectSpecialties != null ?
+                    src.CourseSubjectSpecialties : new List<CourseSubjectSpecialty>()));
 
             CreateMap<SubjectDTO, Subject>()
                 .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.SubjectId))
@@ -360,7 +362,7 @@ namespace OCMS_BOs.Helper
     .ForMember(dest => dest.CertificateName, opt => opt.MapFrom(src => src.CertificateName))
     .ForMember(dest => dest.IssuingOrganization, opt => opt.MapFrom(src => src.CertificateProvider))
     .ForMember(dest => dest.CandidateId, opt => opt.MapFrom(src => src.CandidateId))
-    .ForMember(dest => dest.CertificateFileURL, opt => opt.Ignore()) // You’ll set this after upload
+    .ForMember(dest => dest.CertificateFileURL, opt => opt.Ignore()) // You'll set this after upload
     .ForMember(dest => dest.UserId, opt => opt.Ignore())
     .ForMember(dest => dest.User, opt => opt.Ignore())
     .ForMember(dest => dest.Candidate, opt => opt.Ignore())

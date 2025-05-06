@@ -46,7 +46,7 @@ namespace OCMS_WebAPI.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return StatusCode(500, new { message = ex.Message });
             }
         }
         #endregion
@@ -63,7 +63,7 @@ namespace OCMS_WebAPI.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return StatusCode(500, new { message = ex.Message });
             }
         }
         #endregion
@@ -76,11 +76,11 @@ namespace OCMS_WebAPI.Controllers
             try
             {
                 var grades = await _gradeService.GetGradesByStatusAsync(GradeStatus.Pass);
-            return Ok(grades);
+                return Ok(grades);
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return StatusCode(500, new { message = ex.Message });
             }
         }
         #endregion
@@ -98,7 +98,7 @@ namespace OCMS_WebAPI.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return StatusCode(500, new { message = ex.Message });
             }
         }
         #endregion
@@ -116,7 +116,7 @@ namespace OCMS_WebAPI.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return StatusCode(500, new { message = ex.Message });
             }
         }
         #endregion
@@ -133,7 +133,7 @@ namespace OCMS_WebAPI.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return StatusCode(500, new { message = ex.Message });
             }
         }
         #endregion
@@ -144,15 +144,15 @@ namespace OCMS_WebAPI.Controllers
         public async Task<IActionResult> GetFailedGrades()
         {
             try
-                {
-                    var grades = await _gradeService.GetGradesByStatusAsync(GradeStatus.Fail);
-            return Ok(grades);
-                }
-                catch (Exception ex)
-                {
-                    return BadRequest(new { message = ex.Message });
-                }
+            {
+                var grades = await _gradeService.GetGradesByStatusAsync(GradeStatus.Fail);
+                return Ok(grades);
             }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
         #endregion
 
         #region Get Grade By ID
@@ -170,7 +170,7 @@ namespace OCMS_WebAPI.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return StatusCode(500, new { message = ex.Message });
             }
         }
         #endregion
@@ -191,7 +191,7 @@ namespace OCMS_WebAPI.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return StatusCode(500, new { message = ex.Message });
             }
         }
         #endregion
@@ -214,7 +214,7 @@ namespace OCMS_WebAPI.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return StatusCode(500, new { message = ex.Message });
             }
         }
         #endregion
@@ -234,7 +234,7 @@ namespace OCMS_WebAPI.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return StatusCode(500, new { message = ex.Message });
             }
         }
         #endregion

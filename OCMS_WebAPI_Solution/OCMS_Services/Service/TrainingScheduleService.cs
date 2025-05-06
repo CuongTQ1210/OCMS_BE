@@ -132,6 +132,9 @@ namespace OCMS_Services.Service
             await _unitOfWork.TrainingScheduleRepository.AddAsync(schedule);
             await _unitOfWork.SaveChangesAsync();
 
+            // Assign instructor after creating schedule
+            await ManageInstructorAssignment(dto.CourseSubjectSpecialtyId, dto.InstructorID, createdByUserId);
+
             return _mapper.Map<TrainingScheduleModel>(schedule);
         }
         #endregion

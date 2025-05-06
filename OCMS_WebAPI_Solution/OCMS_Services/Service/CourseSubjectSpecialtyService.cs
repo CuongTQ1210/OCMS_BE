@@ -4,6 +4,7 @@ using OCMS_BOs.RequestModel;
 using OCMS_BOs.ViewModel;
 using OCMS_Repositories;
 using OCMS_Services.IService;
+using Org.BouncyCastle.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -47,6 +48,10 @@ namespace OCMS_Services.Service
             // Validate user
             if (!await _unitOfWork.UserRepository.ExistsAsync(u => u.UserId == createdByUserId))
                 throw new ArgumentException("The specified User ID does not exist.");
+            // Check for that specialty has already have subject
+            if (await _unitOfWork.CourseSubjectSpecialtyRepository.ExistsAsync(
+                css => css.SubjectId == dto.SubjectId && css.SpecialtyId == dto.SpecialtyId))
+                throw new ArgumentException("Specialty: " + dto.SpecialtyId + " has already exist Subject: " + dto.SubjectId);
 
             // Check if Course is approved
             if (course.Status == CourseStatus.Approved)
@@ -61,11 +66,6 @@ namespace OCMS_Services.Service
                 await _requestService.CreateRequestAsync(requestDto, createdByUserId);
                 throw new InvalidOperationException("Cannot add subject to an approved course. A request has been sent to the HeadMaster.");
             }
-
-            // Check for existing relationship
-            if (await _unitOfWork.CourseSubjectSpecialtyRepository.ExistsAsync(
-                css => css.CourseId == dto.CourseId && css.SubjectId == dto.SubjectId && css.SpecialtyId == dto.SpecialtyId))
-                throw new ArgumentException("This course-subject-specialty relationship already exists.");
 
             // Map DTO to entity
             var css = _mapper.Map<CourseSubjectSpecialty>(dto);
@@ -120,5 +120,92 @@ namespace OCMS_Services.Service
             return true;
         }
         #endregion
+
+        #region Delete All Subjects by Course and Specialty 
+        public async Task<bool> DeleteSubjectsbyCourseIdandSpecialtyId(DeleteAllSubjectInCourseSpecialty dto, string deletedByUserId)
+        {
+            var css = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAllAsync(
+                css => css.SpecialtyId == dto.SpecialtyId && css.CourseId == dto.CourseId,
+                css => css.Course
+            );
+            if (css == null || !css.Any())
+                throw new KeyNotFoundException("CourseSubjectSpecialty not found.");
+
+            // Check if Course is approved
+            if (css[0].Course.Status == CourseStatus.Approved)
+            {
+                var requestDto = new RequestDTO
+                {
+                    RequestType = RequestType.Delete,
+                    RequestEntityId =$"{dto.CourseId}:{dto.SpecialtyId}",
+                    Description = $"Request to delete all subject for Course: {dto.CourseId} - Specialty: {dto.SpecialtyId}",
+                    Notes = "Awaiting HeadMaster approval"
+                };
+                await _requestService.CreateRequestAsync(requestDto, deletedByUserId);
+                throw new InvalidOperationException($"Cannot delete all subject for Course: {dto.CourseId} - Specialty: {dto.SpecialtyId} because the course is Approved. A request has been sent to the HeadMaster.");
+            }
+            
+            foreach (var c in css)
+            {
+                // Delete related schedules
+                var schedules = await _unitOfWork.TrainingScheduleRepository.GetAllAsync(s => s.CourseSubjectSpecialtyId == c.Id);
+                foreach (var schedule in schedules)
+                {
+                    await _trainingScheduleService.DeleteTrainingScheduleAsync(schedule.ScheduleID);
+                }
+
+                // Delete CourseSubjectSpecialty
+                await _unitOfWork.CourseSubjectSpecialtyRepository.DeleteAsync(c.Id);
+            }
+            
+            // Gọi SaveChangesAsync một lần sau khi đã xóa tất cả
+            await _unitOfWork.SaveChangesAsync();
+            
+            return true;
+        }
+        #endregion
+
+        #region Get Subjects By CourseId And SpecialtyId
+        public async Task<List<SubjectModel>> GetSubjectsByCourseIdAndSpecialtyIdAsync(string courseId, string specialtyId)
+        {
+            // check if the course and specialty exist
+            var course = await _unitOfWork.CourseRepository.GetByIdAsync(courseId);
+            if (course == null)
+                throw new KeyNotFoundException($"Course with ID '{courseId}' does not exist.");
+
+            var specialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(specialtyId);
+            if (specialty == null)
+                throw new KeyNotFoundException($"Specialty with ID '{specialtyId}' does not exist.");
+
+            // get the list of CourseSubjectSpecialty by courseId and specialtyId
+            var cssList = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAllAsync(
+                css => css.CourseId == courseId && css.SpecialtyId == specialtyId,
+                css => css.Subject
+            );
+
+            if (!cssList.Any())
+                throw new KeyNotFoundException($"No subjects found for course '{courseId}' and specialty '{specialtyId}'.");
+
+            // get the subjects from CourseSubjectSpecialty
+            var subjects = cssList.Select(css => css.Subject).ToList();
+            
+            return _mapper.Map<List<SubjectModel>>(subjects);
+        }
+        #endregion
+
+        #region Get All CourseSubjectSpecialties
+        public async Task<List<CourseSubjectSpecialtyModel>> GetAllCourseSubjectSpecialtiesAsync()
+        {
+            var courseSubjectSpecialties = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAllAsync(
+                css => css.Course,
+                css => css.Subject,
+                css => css.Specialty,
+                css => css.CreatedByUser
+            );
+
+            return _mapper.Map<List<CourseSubjectSpecialtyModel>>(courseSubjectSpecialties);
+        }
+        #endregion
+
     }
 }
