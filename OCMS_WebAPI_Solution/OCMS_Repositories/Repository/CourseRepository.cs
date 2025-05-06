@@ -46,8 +46,44 @@ namespace OCMS_Repositories.Repository
                 .Include(c => c.CourseSubjectSpecialties)
                     .ThenInclude(s => s.Schedules)
                 .Include(c => c.CourseSubjectSpecialties)
-                    .ThenInclude(s=>s.Trainees)
+                    .ThenInclude(s => s.Trainees)
+                .Include(c => c.CourseSubjectSpecialties)
+                    .ThenInclude(s => s.Subject)
+                .Include(c => c.CourseSubjectSpecialties)
+                    .ThenInclude(s => s.Specialty)
                 .FirstOrDefaultAsync(c => c.CourseId == courseId);
+        }
+
+        public async Task<IEnumerable<Course>> GetAllWithDetailsAsync()
+        {
+            return await _context.Courses
+                .Include(c => c.CourseSubjectSpecialties)
+                    .ThenInclude(css => css.Subject)
+                .Include(c => c.CourseSubjectSpecialties)
+                    .ThenInclude(css => css.Trainees)
+                .Include(c => c.CourseSubjectSpecialties)
+                    .ThenInclude(css => css.Instructors)
+                .Include(c => c.CourseSubjectSpecialties)
+                    .ThenInclude(css => css.Schedules)
+                .Include(c => c.CourseSubjectSpecialties)
+                    .ThenInclude(css => css.Specialty)
+                .ToListAsync();
+        }
+
+        public async Task<Course?> GetByIdWithDetailsAsync(string id)
+        {
+            return await _context.Courses
+                .Include(c => c.CourseSubjectSpecialties)
+                    .ThenInclude(css => css.Subject)
+                .Include(c => c.CourseSubjectSpecialties)
+                    .ThenInclude(css => css.Trainees)
+                .Include(c => c.CourseSubjectSpecialties)
+                    .ThenInclude(css => css.Instructors)
+                .Include(c => c.CourseSubjectSpecialties)
+                    .ThenInclude(css => css.Schedules)
+                .Include(c => c.CourseSubjectSpecialties)
+                    .ThenInclude(css => css.Specialty)
+                .FirstOrDefaultAsync(c => c.CourseId == id);
         }
     }
 }
