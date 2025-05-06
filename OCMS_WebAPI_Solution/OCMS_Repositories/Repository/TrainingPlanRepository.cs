@@ -34,16 +34,16 @@ namespace OCMS_Repositories.Repository
         {
             return await _context.TrainingPlans
                 .Include(p => p.CreateByUser) 
-                .Include(p => p.Courses)
+                .Include(p => p.Course)
                     .ThenInclude(c => c.CourseSubjectSpecialties)
                         .ThenInclude(css => css.Subject)
-                .Include(p => p.Courses)
+                .Include(p => p.Course)
                     .ThenInclude(c => c.CourseSubjectSpecialties)
                         .ThenInclude(css => css.Specialty)
-                .Include(p => p.Courses)
+                .Include(p => p.Course)
                     .ThenInclude(c => c.CourseSubjectSpecialties)
                         .ThenInclude(s => s.Instructors)
-                .Include(p => p.Courses)
+                .Include(p => p.Course)
                     .ThenInclude(c => c.CourseSubjectSpecialties)
                         .ThenInclude(s => s.Schedules)
                 .FirstOrDefaultAsync(p => p.PlanId == planId);

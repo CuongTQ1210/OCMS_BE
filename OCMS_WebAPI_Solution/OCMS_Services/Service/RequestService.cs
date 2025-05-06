@@ -284,13 +284,13 @@ namespace OCMS_Services.Service
                     var plan = await _unitOfWork.TrainingPlanRepository
                         .GetQueryable()
                         .Where(p => p.PlanId == entityId)
-                        .Include(p => p.Courses)
+                        .Include(p => p.Course)
                             .ThenInclude(c => c.CourseSubjectSpecialties)
                                 .ThenInclude(css => css.Subject)
-                        .Include(p => p.Courses)
+                        .Include(p => p.Course)
                             .ThenInclude(c => c.CourseSubjectSpecialties)
                                 .ThenInclude(css => css.Schedules)
-                        .Include(p => p.Courses)
+                        .Include(p => p.Course)
                             .ThenInclude(c => c.CourseSubjectSpecialties)
                                 .ThenInclude(css => css.Trainees)
                         .FirstOrDefaultAsync();
@@ -301,34 +301,32 @@ namespace OCMS_Services.Service
                     }
 
                     // Step 1: Has at least one course
-                    if (plan.Courses == null || !plan.Courses.Any())
+                    if (plan.Course == null)
                     {
                         throw new InvalidOperationException("Training plan must have at least one course.");
                     }
 
-                    foreach (var course in plan.Courses)
-                    {
                         // Step 2: Each course has at least one CourseSubjectSpecialty
-                        if (course.CourseSubjectSpecialties == null || !course.CourseSubjectSpecialties.Any())
+                        if (plan.Course.CourseSubjectSpecialties == null || !plan.Course.CourseSubjectSpecialties.Any())
                         {
-                            throw new InvalidOperationException($"Course '{course.CourseName}' must have at least one CourseSubjectSpecialty.");
+                            throw new InvalidOperationException($"Course '{plan.Course.CourseName}' must have at least one CourseSubjectSpecialty.");
                         }
 
-                        foreach (var css in course.CourseSubjectSpecialties)
+                        foreach (var css in plan.Course.CourseSubjectSpecialties)
                         {
                             // Step 2a: Ensure CourseSubjectSpecialty has a Subject
                             if (css.Subject == null)
                             {
-                                throw new InvalidOperationException($"CourseSubjectSpecialty with ID '{css.Id}' in course '{course.CourseName}' must be associated with a subject.");
+                                throw new InvalidOperationException($"CourseSubjectSpecialty with ID '{css.Id}' in course '{plan.Course.CourseName}' must be associated with a subject.");
                             }
 
                             // Step 3: Each CourseSubjectSpecialty has at least one schedule
                             if (css.Schedules == null || !css.Schedules.Any())
                             {
-                                throw new InvalidOperationException($"Subject '{css.Subject.SubjectName}' in course '{course.CourseName}' must have at least one schedule.");
+                                throw new InvalidOperationException($"Subject '{css.Subject.SubjectName}' in course '{plan.Course.CourseName}' must have at least one schedule.");
                             }
                         }
-                    }
+                    
 
                     return true;
                 case RequestType.Update:
@@ -514,9 +512,8 @@ namespace OCMS_Services.Service
                         plan.ApproveDate = DateTime.Now;
                         await _unitOfWork.TrainingPlanRepository.UpdateAsync(plan);
 
-                        var courses = await _courseRepository.GetCoursesByTrainingPlanIdAsync(plan.PlanId);
-                        foreach (var course in courses)
-                        {
+                        var course = await _courseRepository.GetCourseByTrainingPlanIdAsync(plan.PlanId);
+                        
                             course.Status = CourseStatus.Approved;
                             course.Progress = Progress.Ongoing;
                             course.ApproveByUserId = approvedByUserId;
@@ -548,7 +545,7 @@ namespace OCMS_Services.Service
                                     );
                                 }
                             }
-                        }
+                        
 
                         var instructorAssignments = await _instructorAssignmentRepository.GetAssignmentsByTrainingPlanIdAsync(plan.PlanId);
                         foreach (var assignment in instructorAssignments)
@@ -739,9 +736,8 @@ namespace OCMS_Services.Service
                         trainingplan.ApproveDate = DateTime.UtcNow;
                         await _unitOfWork.TrainingPlanRepository.UpdateAsync(trainingplan);
 
-                        var courses = await _courseRepository.GetCoursesByTrainingPlanIdAsync(trainingplan.PlanId);
-                        foreach (var course in courses)
-                        {
+                        var course = await _courseRepository.GetCourseByTrainingPlanIdAsync(trainingplan.PlanId);
+                        
                             course.Status = CourseStatus.Pending;
                             course.Progress = Progress.NotYet;
                             course.ApproveByUserId = approvedByUserId;
@@ -768,7 +764,7 @@ namespace OCMS_Services.Service
                                     await _unitOfWork.TraineeAssignRepository.UpdateAsync(trainee);
                                 }
                             }
-                        }
+                        
 
                         var instructorAssignments = await _instructorAssignmentRepository.GetAssignmentsByTrainingPlanIdAsync(trainingplan.PlanId);
                         foreach (var assignment in instructorAssignments)
@@ -878,9 +874,8 @@ namespace OCMS_Services.Service
                         await _unitOfWork.TrainingPlanRepository.UpdateAsync(plan);
 
                         // ❌ Reject all associated courses
-                        var courses = await _courseRepository.GetCoursesByTrainingPlanIdAsync(plan.PlanId);
-                        foreach (var course in courses)
-                        {
+                        var course = await _courseRepository.GetCourseByTrainingPlanIdAsync(plan.PlanId);
+                        
                             course.Status = CourseStatus.Rejected;
                             await _unitOfWork.CourseRepository.UpdateAsync(course);
 
@@ -908,7 +903,7 @@ namespace OCMS_Services.Service
                                     await _unitOfWork.TraineeAssignRepository.UpdateAsync(trainee);
                                 }
                             }
-                        }
+                        
 
                         // ❌ Reject all instructor assignments
                         var instructorAssignments = await _instructorAssignmentRepository.GetAssignmentsByTrainingPlanIdAsync(plan.PlanId);
@@ -937,9 +932,8 @@ namespace OCMS_Services.Service
                             trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Approved;
 
                             // Reject associated entities
-                            var courses = await _courseRepository.GetCoursesByTrainingPlanIdAsync(trainingPlan.PlanId);
-                            foreach (var course in courses)
-                            {
+                            var course = await _courseRepository.GetCourseByTrainingPlanIdAsync(trainingPlan.PlanId);
+                            
                                 // If course was pending update, revert to previous state
                                 course.Status = CourseStatus.Approved;
                                 await _unitOfWork.CourseRepository.UpdateAsync(course);
@@ -963,7 +957,7 @@ namespace OCMS_Services.Service
                                         await _unitOfWork.TraineeAssignRepository.UpdateAsync(trainee);
                                     }
                                 }
-                            }
+                            
 
                             var instructorAssignments = await _instructorAssignmentRepository.GetAssignmentsByTrainingPlanIdAsync(trainingPlan.PlanId);
                             foreach (var assignment in instructorAssignments)
@@ -992,9 +986,8 @@ namespace OCMS_Services.Service
                         {
                             _trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Approved;
 
-                            var courses = await _courseRepository.GetCoursesByTrainingPlanIdAsync(_trainingPlan.PlanId);
-                            foreach (var course in courses)
-                            {
+                            var course = await _courseRepository.GetCourseByTrainingPlanIdAsync(_trainingPlan.PlanId);
+                            
                                 course.Status = CourseStatus.Approved;
                                 await _unitOfWork.CourseRepository.UpdateAsync(course);
 
@@ -1017,7 +1010,7 @@ namespace OCMS_Services.Service
                                         await _unitOfWork.TraineeAssignRepository.UpdateAsync(trainee);
                                     }
                                 }
-                            }
+                            
 
                             var instructorAssignments = await _instructorAssignmentRepository.GetAssignmentsByTrainingPlanIdAsync(_trainingPlan.PlanId);
                             foreach (var assignment in instructorAssignments)

@@ -101,9 +101,13 @@ namespace OCMS_Services.Service
             if (course == null)
                 throw new Exception($"Course with ID {css.CourseId} not found.");
 
-            var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(course.TrainingPlanId);
-            if (trainingPlan == null)
-                throw new Exception($"Training Plan with ID {course.TrainingPlanId} not found.");
+            var trainingPlan = await _unitOfWork.TrainingPlanRepository
+    .FindAsync(tp => tp.CourseId == course.CourseId);
+
+            var trainingPlanEntity = trainingPlan.FirstOrDefault();
+
+            if (trainingPlanEntity == null)
+                throw new Exception($"Training Plan with CourseID {course.CourseId} not found.");
 
             // Kiểm tra nếu Trainee có Specialty phù hợp với TrainingPlan
             if (trainee.SpecialtyId != css.SpecialtyId)
@@ -214,11 +218,13 @@ namespace OCMS_Services.Service
                 throw new Exception("Course hasn't been approved yet!");
             }
 
-            var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(course.TrainingPlanId);
-            if (trainingPlan == null)
-            {
-                throw new Exception($"Training Plan with ID {course.TrainingPlanId} not found.");
-            }
+            var trainingPlan = await _unitOfWork.TrainingPlanRepository
+    .FindAsync(tp => tp.CourseId == course.CourseId);
+
+            var trainingPlanEntity = trainingPlan.FirstOrDefault();
+
+            if (trainingPlanEntity == null)
+                throw new Exception($"Training Plan with CourseID {course.CourseId} not found.");
 
             // Kiểm tra nếu Trainee có Specialty phù hợp với TrainingPlan
             if (trainee.SpecialtyId != css.SpecialtyId)
@@ -303,10 +309,14 @@ namespace OCMS_Services.Service
 
             try
             {
-                // Fetch existing data for validation
                 var existingCss = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAllAsync(
-                    css => css.Course,
-                    css => css.Course.TrainingPlan);
+                    css => css.Course);
+
+                // Now, separately get all training plans for the related course IDs
+                var courseIds = existingCss.Select(css => css.Course.CourseId).Distinct().ToList();
+
+                var trainingPlans = await _unitOfWork.TrainingPlanRepository
+                    .FindAsync(tp => courseIds.Contains(tp.CourseId));
                 var existingCssIds = existingCss.Select(css => css.Id).ToList();
                 var cssDict = existingCss.ToDictionary(css => css.Id, css => css);
 
@@ -338,12 +348,18 @@ namespace OCMS_Services.Service
 
                     var css = cssDict[cssId];
                     var course = css.Course;
+
                     if (course.Status != CourseStatus.Approved)
                     {
                         throw new Exception("Course hasn't been approved yet!");
                     }
-                    var trainingPlan = course.TrainingPlan;
-                    string trainingPlanSpecialtyId = css.SpecialtyId;
+
+                    // Fetch all training plans that use this course
+                    var relevantTrainingPlans = trainingPlans.Where(tp => tp.CourseId == course.CourseId).ToList();
+                    if (!relevantTrainingPlans.Any())
+                    {
+                        throw new Exception($"No training plan found for course ID {course.CourseId}");
+                    }
 
                     var lastTraineeAssignId = await GetLastTraineeAssignIdAsync();
                     int lastIdNumber = 0;
@@ -393,12 +409,22 @@ namespace OCMS_Services.Service
                             continue;
                         }
 
-                        if (user.SpecialtyId != trainingPlanSpecialtyId)
+                        // Validate the specialty ID for each training plan
+                        bool specialtyMismatch = false;
+                        foreach (var trainingPlan in relevantTrainingPlans)
                         {
-                            result.FailedCount++;
-                            result.Errors.Add($"Error at row {row}: Trainee '{userId}' specialty ({user.SpecialtyId}) does not match with the Training Plan's specialty ({trainingPlanSpecialtyId}).");
-                            continue;
+                            string trainingPlanSpecialtyId = css.SpecialtyId;
+
+                            if (user.SpecialtyId != trainingPlanSpecialtyId)
+                            {
+                                specialtyMismatch = true;
+                                result.FailedCount++;
+                                result.Errors.Add($"Error at row {row}: Trainee '{userId}' specialty ({user.SpecialtyId}) does not match with the Training Plan's specialty ({trainingPlanSpecialtyId}).");
+                                break;  // Stop checking other training plans for this row
+                            }
                         }
+
+                        if (specialtyMismatch) continue;
 
                         string notes = worksheet.Cells[row, 2].Text ?? "";
 
@@ -417,6 +443,7 @@ namespace OCMS_Services.Service
                             ApprovalDate = null,
                             Notes = notes
                         };
+
                         if (user != null)
                         {
                             user.IsAssign = true;
@@ -478,6 +505,7 @@ namespace OCMS_Services.Service
             return result;
         }
         #endregion
+
 
         #region Get Trainees by SubjectId
         public async Task<List<TraineeAssignModel>> GetTraineesBySubjectIdAsync(string subjectId)

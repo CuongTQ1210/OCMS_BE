@@ -32,11 +32,13 @@ namespace OCMS_Repositories.Repository
                 .FirstOrDefaultAsync();
         }
 
-        public async Task<IEnumerable<Course>> GetCoursesByTrainingPlanIdAsync(string trainingPlanId)
+        public async Task<Course?> GetCourseByTrainingPlanIdAsync(string trainingPlanId)
         {
-            return await _context.Courses
-                .Where(c => c.TrainingPlanId == trainingPlanId)
-                .ToListAsync();
+            var trainingPlan = await _context.TrainingPlans
+                .Include(tp => tp.Course)
+                .FirstOrDefaultAsync(tp => tp.PlanId == trainingPlanId);
+
+            return trainingPlan?.Course;
         }
 
         public async Task<Course?> GetCourseWithDetailsAsync(string courseId)

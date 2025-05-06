@@ -21,6 +21,7 @@ namespace OCMS_BOs.Entities
         public string CreateByUserId { get; set; }
         public User CreateByUser { get; set; }
 
+        // Reference to Course (n-1 relationship)
         [ForeignKey("Course")]
         public string CourseId { get; set; }
         public Course Course { get; set; }
@@ -35,11 +36,11 @@ namespace OCMS_BOs.Entities
         [ForeignKey("ApproveUser")]
         public string? ApproveByUserId { get; set; }
         public User? ApproveByUser { get; set; }
-        public DateTime? ApproveDate { get; set; } = DateTime.Now;
+        public DateTime? ApproveDate { get; set; }
 
         public TrainingPlanStatus TrainingPlanStatus { get; set; }
 
-        public List<Course> Courses { get; set; }
-
+        // A TrainingPlan can have multiple schedules
+        public virtual ICollection<TrainingSchedule> Schedules { get; set; }
     }
 }
