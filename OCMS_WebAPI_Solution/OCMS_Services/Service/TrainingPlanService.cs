@@ -96,14 +96,14 @@ namespace OCMS_Services.Service
         {
             var plans = await _unitOfWork.TrainingPlanRepository.GetAllAsync();
 
-            // Additional queries to load related entities if needed
-            var planIds = plans.Select(p => p.PlanId).ToList();
-            var users = await _unitOfWork.UserRepository.GetAllAsync(
-                u => plans.Any(p => p.CreateByUserId == u.UserId)
-            );
+            // Materialize users in memory after fetching all
+            var users = (await _unitOfWork.UserRepository.GetAllAsync())
+                .Where(u => plans.Any(p => p.CreateByUserId == u.UserId))
+                .ToList();
 
-            // Map the training plans
             var planModels = _mapper.Map<IEnumerable<TrainingPlanModel>>(plans);
+
+            // Optional: Map users into the planModels if needed
 
             return planModels;
         }

@@ -258,6 +258,8 @@ namespace OCMS_Services.Service
         RequestType.CreateRelearn,
         RequestType.Complaint,
         RequestType.CandidateImport,
+        RequestType.AssignTrainee,
+        RequestType.AddTraineeAssign,
         RequestType.Revoke
     };
 
@@ -786,9 +788,65 @@ namespace OCMS_Services.Service
                             actionSuccessful = true;
                     }
                     break;
+                    case RequestType.AssignTrainee:
+                        if (approver == null || approver.RoleId != 2)
+                        {
+                            throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
+                        }
+                        {
+                            var traineeAssigns = await _unitOfWork.TraineeAssignRepository
+                                .GetAllAsync(ta => ta.RequestId == request.RequestId);
 
-                    // Các case khác giữ nguyên, thêm actionSuccessful = true ở cuối mỗi case
-                    
+                            if (traineeAssigns == null || !traineeAssigns.Any())
+                                throw new Exception($"No TraineeAssigns found for RequestId {request.RequestId}.");
+
+                            foreach (var traineeAssign in traineeAssigns)
+                            {
+                                if (traineeAssign.RequestStatus != RequestStatus.Pending)
+                                    throw new Exception("One or more TraineeAssigns are not in a pending state.");
+
+                                traineeAssign.RequestStatus = RequestStatus.Approved;
+                                traineeAssign.ApproveByUserId = approvedByUserId;
+                                traineeAssign.ApprovalDate = DateTime.UtcNow;
+
+                                await _unitOfWork.TraineeAssignRepository.UpdateAsync(traineeAssign);
+                            }
+
+                            request.Status = RequestStatus.Approved;
+                            await _unitOfWork.RequestRepository.UpdateAsync(request);
+
+                            await _unitOfWork.SaveChangesAsync();
+
+                            break;
+                        }
+                    case RequestType.AddTraineeAssign:
+                        if (approver == null || approver.RoleId != 2)
+                        {
+                            throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
+                        }
+                        {
+                            var traineeAssign = await _unitOfWork.TraineeAssignRepository
+                                .FirstOrDefaultAsync(ta => ta.RequestId == request.RequestId);
+
+                            if (traineeAssign == null)
+                                throw new Exception($"TraineeAssign linked to RequestId {request.RequestId} not found.");
+
+                            if (traineeAssign.RequestStatus != RequestStatus.Pending)
+                                throw new Exception("TraineeAssign is not in a pending state.");
+
+                            traineeAssign.RequestStatus = RequestStatus.Approved;
+                            traineeAssign.ApproveByUserId = approvedByUserId;
+                            traineeAssign.ApprovalDate = DateTime.UtcNow;
+
+                            request.Status = RequestStatus.Approved;
+
+                            // Save changes
+                            await _unitOfWork.TraineeAssignRepository.UpdateAsync(traineeAssign);
+                            await _unitOfWork.RequestRepository.UpdateAsync(request);
+                            await _unitOfWork.SaveChangesAsync();
+
+                            break;
+                        }
                     default:
                         // Handle default case
                         actionSuccessful = true;
