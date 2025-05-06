@@ -141,14 +141,7 @@ public class CourseService : ICourseService
     #region Get All Courses
     public async Task<IEnumerable<CourseModel>> GetAllCoursesAsync()
     {
-        var courses = await _unitOfWork.CourseRepository.GetAllAsync(
-            c => c.CourseSubjectSpecialties,
-            c => c.CourseSubjectSpecialties.Select(css => css.Subject),
-            c => c.CourseSubjectSpecialties.Select(css => css.Trainees),
-            c => c.CourseSubjectSpecialties.Select(css => css.Instructors),
-            c => c.CourseSubjectSpecialties.Select(css => css.Schedules),
-            c => c.CourseSubjectSpecialties.Select(css => css.Specialty)
-        );
+        var courses = await _courseRepository.GetAllWithDetailsAsync();
         return _mapper.Map<IEnumerable<CourseModel>>(courses);
     }
     #endregion
@@ -156,15 +149,7 @@ public class CourseService : ICourseService
     #region Get Course by ID
     public async Task<CourseModel?> GetCourseByIdAsync(string id)
     {
-        var course = await _unitOfWork.CourseRepository.GetAsync(
-            c => c.CourseId == id,
-            c => c.CourseSubjectSpecialties,
-            c => c.CourseSubjectSpecialties.Select(css => css.Subject),
-            c => c.CourseSubjectSpecialties.Select(css => css.Trainees),
-            c => c.CourseSubjectSpecialties.Select(css => css.Instructors),
-            c => c.CourseSubjectSpecialties.Select(css => css.Schedules),
-            c => c.CourseSubjectSpecialties.Select(css => css.Specialty)
-        );
+        var course = await _courseRepository.GetByIdWithDetailsAsync(id);
         return course == null ? null : _mapper.Map<CourseModel>(course);
     }
     #endregion
