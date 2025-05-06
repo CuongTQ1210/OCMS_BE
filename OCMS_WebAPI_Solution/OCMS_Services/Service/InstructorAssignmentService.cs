@@ -74,6 +74,7 @@ namespace OCMS_Services.Service
             } while (await _unitOfWork.InstructorAssignmentRepository.ExistsAsync(a => a.AssignmentId == assignmentId));
 
             var assignment = _mapper.Map<InstructorAssignment>(dto);
+            assignment.CourseSubjectSpecialtyId = dto.CourseSubjectSpecialtyId;
             assignment.AssignmentId = assignmentId;
             assignment.AssignByUserId = assignByUserId;
             assignment.AssignDate = DateTime.UtcNow;

@@ -35,8 +35,8 @@ namespace OCMS_Services.Service
             var trainingPlan = _mapper.Map<TrainingPlan>(dto);
             trainingPlan.PlanId = await GenerateTrainingPlanId(dto.StartDate);
             trainingPlan.Desciption = dto.Description;
-            trainingPlan.CreateDate = DateTime.UtcNow;
-            trainingPlan.ModifyDate = DateTime.UtcNow;
+            trainingPlan.CreateDate = DateTime.Now;
+            trainingPlan.ModifyDate = DateTime.Now;
             trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Draft;
             trainingPlan.CreateByUserId = createUserId;
             await _unitOfWork.TrainingPlanRepository.AddAsync(trainingPlan);
@@ -142,7 +142,7 @@ namespace OCMS_Services.Service
             trainingPlan.Desciption = dto.Description; // Fix typo to Description if entity is updated
             trainingPlan.StartDate = dto.StartDate;
             trainingPlan.EndDate = dto.EndDate;
-            trainingPlan.ModifyDate = DateTime.UtcNow;
+            trainingPlan.ModifyDate = DateTime.Now;
             trainingPlan.CreateByUserId = updateUserId; // Note: This may be incorrect; should it be a separate ModifiedByUserId?
             if (trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Updating)
             {

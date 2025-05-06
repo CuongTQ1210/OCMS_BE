@@ -12,12 +12,6 @@ using System.Threading.Tasks;
 
 namespace OCMS_Services.Service
 {
-    public interface ICourseSubjectSpecialtyService
-    {
-        Task<CourseSubjectSpecialtyModel> CreateCourseSubjectSpecialtyAsync(CourseSubjectSpecialtyDTO dto, string createdByUserId);
-        Task<bool> DeleteCourseSubjectSpecialtyAsync(string id, string deletedByUserId);
-    }
-
     public class CourseSubjectSpecialtyService : ICourseSubjectSpecialtyService
     {
         private readonly UnitOfWork _unitOfWork;
@@ -34,6 +28,7 @@ namespace OCMS_Services.Service
             _trainingScheduleService = trainingScheduleService ?? throw new ArgumentNullException(nameof(trainingScheduleService));
         }
 
+        #region Create Course-Subject-Specialty
         public async Task<CourseSubjectSpecialtyModel> CreateCourseSubjectSpecialtyAsync(CourseSubjectSpecialtyDTO dto, string createdByUserId)
         {
             // Validate CourseId, SubjectId, SpecialtyId
@@ -85,7 +80,9 @@ namespace OCMS_Services.Service
 
             return _mapper.Map<CourseSubjectSpecialtyModel>(css);
         }
+        #endregion
 
+        #region Delete Course-Subject-Specialty
         public async Task<bool> DeleteCourseSubjectSpecialtyAsync(string id, string deletedByUserId)
         {
             var css = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAsync(
@@ -122,5 +119,6 @@ namespace OCMS_Services.Service
 
             return true;
         }
+        #endregion
     }
 }
