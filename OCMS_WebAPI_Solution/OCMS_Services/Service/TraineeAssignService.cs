@@ -251,7 +251,7 @@ namespace OCMS_Services.Service
             lastIdNumber++;
             string newTraineeAssignId = $"TA{lastIdNumber:D5}";
 
-            // ✅ Create a new Request for approval
+            //Create a new Request for approval
             var newRequest = new Request
             {
                 RequestId = $"REQ-{Guid.NewGuid().ToString("N")[..6].ToUpper()}",
@@ -263,7 +263,7 @@ namespace OCMS_Services.Service
                 Notes = $"Request to assign Trainee {dto.TraineeId} to CourseSubjectSpecialty {dto.CourseSubjectSpecialtyId}."
             };
 
-            // ✅ Create TraineeAssign object with RequestId
+            //Create TraineeAssign object with RequestId
             var traineeAssign = new TraineeAssign
             {
                 TraineeAssignId = newTraineeAssignId,
@@ -286,12 +286,12 @@ namespace OCMS_Services.Service
                 await _unitOfWork.SaveChangesAsync();
             }
 
-            // ✅ Save both Request & TraineeAssign in a single transaction
+            //Save both Request & TraineeAssign in a single transaction
             await _unitOfWork.RequestRepository.AddAsync(newRequest);
             await _unitOfWork.TraineeAssignRepository.AddAsync(traineeAssign);
             await _unitOfWork.SaveChangesAsync();
 
-            // ✅ Return TraineeAssignModel
+            //Return TraineeAssignModel
             return _mapper.Map<TraineeAssignModel>(traineeAssign);
         }
         #endregion
@@ -339,14 +339,57 @@ namespace OCMS_Services.Service
                     }
 
                     // Read CourseSubjectSpecialtyId from cell B1
-                    string cssId = worksheet.Cells[1, 2].GetValue<string>(); // B1 (row 1, column 2)
-                    if (string.IsNullOrEmpty(cssId) || !existingCssIds.Contains(cssId))
+                    string courseId = worksheet.Cells[1, 2].GetValue<string>(); // B1 (row 1, column 2)
+                    if (string.IsNullOrEmpty(courseId) || !existingCssIds.Contains(courseId))
                     {
-                        result.Errors.Add($"Invalid or missing CourseSubjectSpecialtyId '{cssId}' in cell B1.");
+                        result.Errors.Add($"Invalid or missing CourseId '{courseId}' in cell B1.");
+                        return result;
+                    }
+                    var courses = await _unitOfWork.CourseRepository.FirstOrDefaultAsync(css => css.CourseId == courseId);
+                    if(courses == null)    
+                    {
+                        result.Errors.Add($"Dont have Course that have CourseID: '{courseId}' in cell B1.");
+                        return result;
+
+                    }
+                    string subjectId = worksheet.Cells[1, 4].GetValue<string>(); 
+                    if (string.IsNullOrEmpty(subjectId) || !existingCssIds.Contains(subjectId))
+                    {
+                        result.Errors.Add($"Invalid or missing SubjectId '{subjectId}' in cell D1.");
+                        return result;
+                    }
+                    var subjects = await _unitOfWork.SubjectRepository.FirstOrDefaultAsync(css => css.SubjectId == subjectId);
+
+                    if (subjects == null)
+                    {
+                        result.Errors.Add($"Dont have Subject that have SubjectId: '{subjects}' in cell D1.");
+                        return result;
+
+                    }
+                    string SpecialtyId = worksheet.Cells[1, 6].GetValue<string>(); 
+                    if (string.IsNullOrEmpty(SpecialtyId) || !existingCssIds.Contains(SpecialtyId))
+                    {
+                        result.Errors.Add($"Invalid or missing SpecialtyId '{SpecialtyId}' in cell F1.");
+                        return result;
+                    }
+                    var Specialtys = await _unitOfWork.SpecialtyRepository.FirstOrDefaultAsync(css => css.SpecialtyId == SpecialtyId);
+
+                    if (Specialtys == null)
+                    {
+                        result.Errors.Add($"Dont have Specialty that have SpecialtyID: '{SpecialtyId}' in cell F1.");
+                        return result;
+
+                    }
+                    var cssEntity = await _unitOfWork.CourseSubjectSpecialtyRepository.FirstOrDefaultAsync(
+                        css => css.CourseId == courseId && css.SubjectId == subjectId && css.SpecialtyId == SpecialtyId);
+
+                    if (cssEntity == null)
+                    {
+                        result.Errors.Add($"Không tìm thấy CourseSubjectSpecialty với CourseId={courseId}, SubjectId={subjectId}, SpecialtyId={SpecialtyId}");
                         return result;
                     }
 
-                    var css = cssDict[cssId];
+                    var cssId = cssEntity.Id; var css = cssDict[cssId];
                     var course = css.Course;
 
                     if (course.Status != CourseStatus.Approved)

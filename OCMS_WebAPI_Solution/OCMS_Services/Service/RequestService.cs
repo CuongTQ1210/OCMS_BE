@@ -72,17 +72,17 @@ namespace OCMS_Services.Service
             if (user == null)
                 throw new Exception("User not found.");
 
-                bool isValidEntity = await ValidateRequestEntityIdAsync(requestDto.RequestType, requestDto.RequestEntityId);
-                if (!isValidEntity)
-                    throw new ArgumentException("Invalid RequestEntityId for the given RequestType.");
-            
+            bool isValidEntity = await ValidateRequestEntityIdAsync(requestDto.RequestType, requestDto.RequestEntityId);
+            if (!isValidEntity)
+                throw new ArgumentException("Invalid RequestEntityId for the given RequestType.");
+
             var newRequest = new Request
             {
                 RequestId = GenerateRequestId(),
                 RequestUserId = userId,
-                RequestUser= user,
+                RequestUser = user,
                 RequestEntityId = requestDto.RequestEntityId,
-                Status=RequestStatus.Pending,
+                Status = RequestStatus.Pending,
                 RequestType = requestDto.RequestType,
                 Description = requestDto.Description,
                 Notes = requestDto.Notes,
@@ -98,11 +98,11 @@ namespace OCMS_Services.Service
 
             // Send notification to the director if NewPlan, RecurrentPlan, RelearnPlan
             if (newRequest.RequestType == RequestType.NewPlan ||
-                newRequest.RequestType == RequestType.Update||
-                newRequest.RequestType == RequestType.Delete||
-                newRequest.RequestType== RequestType.AssignTrainee||
-                newRequest.RequestType == RequestType.AddTraineeAssign||
-                newRequest.RequestType== RequestType.SignRequest
+                newRequest.RequestType == RequestType.Update ||
+                newRequest.RequestType == RequestType.Delete ||
+                newRequest.RequestType == RequestType.AssignTrainee ||
+                newRequest.RequestType == RequestType.AddTraineeAssign ||
+                newRequest.RequestType == RequestType.SignRequest
                 )
             {
                 var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
@@ -116,8 +116,8 @@ namespace OCMS_Services.Service
                     );
                 }
             }
-            if ( newRequest.RequestType == RequestType.SignRequest)
-                
+            if (newRequest.RequestType == RequestType.SignRequest)
+
             {
                 var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
                 foreach (var director in directors)
@@ -130,14 +130,14 @@ namespace OCMS_Services.Service
                     );
                 }
             }
-            else if(newRequest.RequestType == RequestType.CreateNew ||
+            else if (newRequest.RequestType == RequestType.CreateNew ||
                 newRequest.RequestType == RequestType.CreateRecurrent ||
                 newRequest.RequestType == RequestType.CreateRelearn)
             {
-                
+
                 var eduofficers = await _userRepository.GetUsersByRoleAsync("Training staff");
-                
-                    foreach (var edu in eduofficers)
+
+                foreach (var edu in eduofficers)
                 {
                     await _notificationService.SendNotificationAsync(
                         edu.UserId,
@@ -209,7 +209,7 @@ namespace OCMS_Services.Service
         public async Task<IEnumerable<RequestModel>> GetAllRequestsAsync()
         {
             var requests = await _unitOfWork.RequestRepository.GetAllAsync(); // Remove includeProperties
-            
+
 
             return _mapper.Map<IEnumerable<RequestModel>>(requests);
         }
@@ -219,7 +219,7 @@ namespace OCMS_Services.Service
         public async Task<RequestModel> GetRequestByIdAsync(string requestId)
         {
             var request = await _unitOfWork.RequestRepository.GetByIdAsync(requestId); // Remove includeProperties
-           
+
             return _mapper.Map<RequestModel>(request);
         }
         #endregion
@@ -308,77 +308,77 @@ namespace OCMS_Services.Service
                         throw new InvalidOperationException("Training plan must have at least one course.");
                     }
 
-                        // Step 2: Each course has at least one CourseSubjectSpecialty
-                        if (plan.Course.CourseSubjectSpecialties == null || !plan.Course.CourseSubjectSpecialties.Any())
+                    // Step 2: Each course has at least one CourseSubjectSpecialty
+                    if (plan.Course.CourseSubjectSpecialties == null || !plan.Course.CourseSubjectSpecialties.Any())
+                    {
+                        throw new InvalidOperationException($"Course '{plan.Course.CourseName}' must have at least one CourseSubjectSpecialty.");
+                    }
+
+                    foreach (var css in plan.Course.CourseSubjectSpecialties)
+                    {
+                        // Step 2a: Ensure CourseSubjectSpecialty has a Subject
+                        if (css.Subject == null)
                         {
-                            throw new InvalidOperationException($"Course '{plan.Course.CourseName}' must have at least one CourseSubjectSpecialty.");
+                            throw new InvalidOperationException($"CourseSubjectSpecialty with ID '{css.Id}' in course '{plan.Course.CourseName}' must be associated with a subject.");
                         }
 
-                        foreach (var css in plan.Course.CourseSubjectSpecialties)
+                        // Step 3: Each CourseSubjectSpecialty has at least one schedule
+                        if (css.Schedules == null || !css.Schedules.Any())
                         {
-                            // Step 2a: Ensure CourseSubjectSpecialty has a Subject
-                            if (css.Subject == null)
-                            {
-                                throw new InvalidOperationException($"CourseSubjectSpecialty with ID '{css.Id}' in course '{plan.Course.CourseName}' must be associated with a subject.");
-                            }
-
-                            // Step 3: Each CourseSubjectSpecialty has at least one schedule
-                            if (css.Schedules == null || !css.Schedules.Any())
-                            {
-                                throw new InvalidOperationException($"Subject '{css.Subject.SubjectName}' in course '{plan.Course.CourseName}' must have at least one schedule.");
-                            }
+                            throw new InvalidOperationException($"Subject '{css.Subject.SubjectName}' in course '{plan.Course.CourseName}' must have at least one schedule.");
                         }
-                    
+                    }
+
 
                     return true;
                 case RequestType.Update:
                 case RequestType.Delete:
                     if (string.IsNullOrWhiteSpace(entityId))
                         return false;
-                        
+
                     // Kiểm tra format "CourseId:...specialtyId:..." cho việc xóa tất cả subject trong course và specialty
                     if (entityId.StartsWith("CourseId:") && entityId.Contains("specialtyId:"))
                     {
                         // Phân tích RequestEntityId để lấy CourseId và SpecialtyId
                         string fullId = entityId;
                         int specialtyIdIndex = fullId.IndexOf("specialtyId:");
-                        
+
                         if (specialtyIdIndex > 0)
                         {
                             string courseIdPart = fullId.Substring(9, specialtyIdIndex - 9);
                             string specialtyIdPart = fullId.Substring(specialtyIdIndex + 12);
-                            
+
                             // Kiểm tra tồn tại của Course và Specialty
                             bool courseExists = await _unitOfWork.CourseRepository.ExistsAsync(c => c.CourseId == courseIdPart);
                             bool specialtyExists = await _unitOfWork.SpecialtyRepository.ExistsAsync(s => s.SpecialtyId == specialtyIdPart);
-                            
+
                             return courseExists && specialtyExists;
                         }
-                        
+
                         return false;
                     }
-                    
+
                     // Kiểm tra format "{CourseId}:{SpecialtyId}" cho việc xóa tất cả subject trong course và specialty (format mới)
                     if (entityId.Contains(":") && entityId.Split(':').Length == 2)
                     {
                         string[] parts = entityId.Split(':');
                         string courseId = parts[0];
                         string specialtyId = parts[1];
-                        
+
                         // Kiểm tra tồn tại của Course và Specialty
                         bool courseExists = await _unitOfWork.CourseRepository.ExistsAsync(c => c.CourseId == courseId);
                         bool specialtyExists = await _unitOfWork.SpecialtyRepository.ExistsAsync(s => s.SpecialtyId == specialtyId);
-                        
+
                         // Kiểm tra xem có CourseSubjectSpecialty nào tồn tại cho cặp này không
                         bool hasSubjects = await _unitOfWork.CourseSubjectSpecialtyRepository.ExistsAsync(
                             css => css.CourseId == courseId && css.SpecialtyId == specialtyId);
-                            
+
                         if (!hasSubjects)
                             throw new InvalidOperationException($"No subjects found for Course: {courseId} - Specialty: {specialtyId}");
-                            
+
                         return courseExists && specialtyExists;
                     }
-                    
+
                     // Kiểm tra format "{CourseId}:{SubjectId}:{SpecialtyId}" cho việc thêm subject vào course đã approved
                     if (entityId.Contains(":") && entityId.Split(':').Length == 3)
                     {
@@ -386,22 +386,22 @@ namespace OCMS_Services.Service
                         string courseId = parts[0];
                         string subjectId = parts[1];
                         string specialtyId = parts[2];
-                        
+
                         bool courseExists = await _unitOfWork.CourseRepository.ExistsAsync(c => c.CourseId == courseId);
                         bool subjectExists = await _unitOfWork.SubjectRepository.ExistsAsync(s => s.SubjectId == subjectId);
                         bool specialtyExists = await _unitOfWork.SpecialtyRepository.ExistsAsync(s => s.SpecialtyId == specialtyId);
-                        
+
                         // Kiểm tra xem combination này đã tồn tại chưa
                         bool combinationExists = await _unitOfWork.CourseSubjectSpecialtyRepository.ExistsAsync(
                             css => css.CourseId == courseId && css.SubjectId == subjectId && css.SpecialtyId == specialtyId);
-                            
+
                         // Nếu đã tồn tại, không cho phép thêm request
                         if (combinationExists)
                             throw new InvalidOperationException($"Course-Subject-Specialty combination already exists.");
-                            
+
                         return courseExists && subjectExists && specialtyExists;
                     }
-                    
+
                     var validplan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(entityId);
                     if (validplan != null && validplan.TrainingPlanStatus != TrainingPlanStatus.Approved)
                     {
@@ -424,7 +424,7 @@ namespace OCMS_Services.Service
                 case RequestType.CreateNew:
                 case RequestType.CreateRecurrent:
                 case RequestType.CreateRelearn:
-                    
+
                     return string.IsNullOrEmpty(entityId);
 
                 case RequestType.Complaint:
@@ -448,8 +448,8 @@ namespace OCMS_Services.Service
                 case RequestType.Revoke:
                     if (string.IsNullOrWhiteSpace(entityId))
                         return false;
-                    var existedCertificate = await _unitOfWork.CertificateRepository.ExistsAsync(dt => dt.CertificateId == entityId); 
-                    if( existedCertificate)
+                    var existedCertificate = await _unitOfWork.CertificateRepository.ExistsAsync(dt => dt.CertificateId == entityId);
+                    if (existedCertificate)
                     {
                         return true;
                     }
@@ -477,45 +477,45 @@ namespace OCMS_Services.Service
         public async Task<bool> ApproveRequestAsync(string requestId, string approvedByUserId)
         {
             try
-        {
-            var request = await _unitOfWork.RequestRepository.GetByIdAsync(requestId);
-            if (request == null || request.Status != RequestStatus.Pending)
-                return false;
+            {
+                var request = await _unitOfWork.RequestRepository.GetByIdAsync(requestId);
+                if (request == null || request.Status != RequestStatus.Pending)
+                    return false;
 
                 if (request.Status == RequestStatus.Rejected)
-            {
-                throw new InvalidOperationException("The request has already been rejected and cannot be approved.");
-            }
-                
-            var approver = await _userRepository.GetByIdAsync(approvedByUserId);
-                
+                {
+                    throw new InvalidOperationException("The request has already been rejected and cannot be approved.");
+                }
+
+                var approver = await _userRepository.GetByIdAsync(approvedByUserId);
+
                 // Lưu các thông tin cơ bản nhưng chưa đổi status
                 request.ApproveByUserId = approvedByUserId;
                 request.ApprovedDate = DateTime.Now;
                 request.UpdatedAt = DateTime.Now;
-                
+
                 // Biến để kiểm tra xem tất cả các hoạt động đã hoàn thành thành công chưa
                 bool actionSuccessful = false;
 
                 // Handle request type-specific actions
                 switch (request.RequestType)
-            {
-                case RequestType.NewPlan:
-                    if (approver == null || approver.RoleId != 2)
-                    {
-                        throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
-                    }
+                {
+                    case RequestType.NewPlan:
+                        if (approver == null || approver.RoleId != 2)
+                        {
+                            throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
+                        }
 
-                    var plan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
-                    if (plan != null)
-                    {
-                        plan.TrainingPlanStatus = TrainingPlanStatus.Approved;
-                        plan.ApproveByUserId = approvedByUserId;
-                        plan.ApproveDate = DateTime.Now;
-                        await _unitOfWork.TrainingPlanRepository.UpdateAsync(plan);
+                        var plan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
+                        if (plan != null)
+                        {
+                            plan.TrainingPlanStatus = TrainingPlanStatus.Approved;
+                            plan.ApproveByUserId = approvedByUserId;
+                            plan.ApproveDate = DateTime.Now;
+                            await _unitOfWork.TrainingPlanRepository.UpdateAsync(plan);
 
-                        var course = await _courseRepository.GetCourseByTrainingPlanIdAsync(plan.PlanId);
-                        
+                            var course = await _courseRepository.GetCourseByTrainingPlanIdAsync(plan.PlanId);
+
                             course.Status = CourseStatus.Approved;
                             course.Progress = Progress.Ongoing;
                             course.ApproveByUserId = approvedByUserId;
@@ -547,62 +547,62 @@ namespace OCMS_Services.Service
                                     );
                                 }
                             }
-                        
 
-                        var instructorAssignments = await _instructorAssignmentRepository.GetAssignmentsByTrainingPlanIdAsync(plan.PlanId);
-                        foreach (var assignment in instructorAssignments)
-                        {
-                            assignment.RequestStatus = RequestStatus.Approved;
-                            await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
-                            await _notificationService.SendNotificationAsync(
-                                assignment.InstructorId,
-                                "Subject schedule assignment",
-                                $"You have been assigned to this subject {assignment.CourseSubjectSpecialty.Subject.SubjectName}.",
-                                "Schedule notification."
-                            );
+
+                            var instructorAssignments = await _instructorAssignmentRepository.GetAssignmentsByTrainingPlanIdAsync(plan.PlanId);
+                            foreach (var assignment in instructorAssignments)
+                            {
+                                assignment.RequestStatus = RequestStatus.Approved;
+                                await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
+                                await _notificationService.SendNotificationAsync(
+                                    assignment.InstructorId,
+                                    "Subject schedule assignment",
+                                    $"You have been assigned to this subject {assignment.CourseSubjectSpecialty.Subject.SubjectName}.",
+                                    "Schedule notification."
+                                );
+                            }
+
+                            if (!string.IsNullOrEmpty(request.RequestUserId))
+                            {
+                                await _notificationService.SendNotificationAsync(
+                                    request.RequestUserId,
+                                    "Trainee Plan Approved",
+                                    $"Your request for {request.RequestEntityId} has been approved.",
+                                    $"{request.RequestType.ToString()}"
+                                );
+                            }
                         }
 
-                        if (!string.IsNullOrEmpty(request.RequestUserId))
-                        {
-                            await _notificationService.SendNotificationAsync(
-                                request.RequestUserId,
-                                "Trainee Plan Approved",
-                                $"Your request for {request.RequestEntityId} has been approved.",
-                                $"{request.RequestType.ToString()}"
-                            );
-                        }
-                    }
-                        
                         actionSuccessful = true;
-                    break;
-                        
-                case RequestType.Update:
-                case RequestType.Delete:
-                    if (approver == null || approver.RoleId != 2)
-                    {
-                        throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
-                    }
+                        break;
+
+                    case RequestType.Update:
+                    case RequestType.Delete:
+                        if (approver == null || approver.RoleId != 2)
+                        {
+                            throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
+                        }
 
                         // check if the request is to delete all subjects for a course and specialty
                         if (request.RequestEntityId.StartsWith("CourseId:") && request.RequestEntityId.Contains("specialtyId:"))
                         {
                             string fullId = request.RequestEntityId;
                             int specialtyIdIndex = fullId.IndexOf("specialtyId:");
-                            
+
                             string courseIdPart = fullId.Substring(9, specialtyIdIndex - 9);
                             string specialtyIdPart = fullId.Substring(specialtyIdIndex + 12);
-                            
+
                             // get the list of CourseSubjectSpecialty to delete
                             var cssItems = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAllAsync(
                                 css => css.CourseId == courseIdPart && css.SpecialtyId == specialtyIdPart,
                                 css => css.Schedules
                             );
-                            
+
                             if (cssItems == null || !cssItems.Any())
                             {
                                 throw new KeyNotFoundException($"No subjects found for Course: {courseIdPart} - Specialty: {specialtyIdPart}");
                             }
-                            
+
                             foreach (var css in cssItems)
                             {
                                 foreach (var schedule in css.Schedules)
@@ -611,7 +611,7 @@ namespace OCMS_Services.Service
                                 }
                                 await _unitOfWork.CourseSubjectSpecialtyRepository.DeleteAsync(css.Id);
                             }
-                            
+
                             await _unitOfWork.SaveChangesAsync();
                             await _notificationService.SendNotificationAsync(
                                 request.RequestUserId,
@@ -619,29 +619,29 @@ namespace OCMS_Services.Service
                                 $"Your request to delete all subjects for Course: {courseIdPart} - Specialty: {specialtyIdPart} has been approved.",
                                 "Delete Subjects"
                             );
-                            
+
                             actionSuccessful = true;
                             break;
                         }
-                        
+
                         // Check if the request is to delete all subjects for a course and specialty with the format "{CourseId}:{SpecialtyId}"
                         if (request.RequestEntityId.Contains(":") && request.RequestEntityId.Split(':').Length == 2)
                         {
                             string[] parts = request.RequestEntityId.Split(':');
                             string courseId = parts[0];
                             string specialtyId = parts[1];
-                            
+
                             // get the list of CourseSubjectSpecialty to delete
                             var cssItems = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAllAsync(
                                 css => css.CourseId == courseId && css.SpecialtyId == specialtyId,
                                 css => css.Schedules
                             );
-                            
+
                             if (cssItems == null || !cssItems.Any())
                             {
                                 throw new KeyNotFoundException($"No subjects found for Course: {courseId} - Specialty: {specialtyId}");
                             }
-                            
+
                             foreach (var css in cssItems)
                             {
                                 foreach (var schedule in css.Schedules)
@@ -650,7 +650,7 @@ namespace OCMS_Services.Service
                                 }
                                 await _unitOfWork.CourseSubjectSpecialtyRepository.DeleteAsync(css.Id);
                             }
-                            
+
                             await _unitOfWork.SaveChangesAsync();
                             await _notificationService.SendNotificationAsync(
                                 request.RequestUserId,
@@ -658,11 +658,11 @@ namespace OCMS_Services.Service
                                 $"Your request to delete all subjects for Course: {courseId} - Specialty: {specialtyId} has been approved.",
                                 "Delete Subjects"
                             );
-                            
+
                             actionSuccessful = true;
                             break;
                         }
-                        
+
                         // Check if the request is to add subject to approved course with the format "{CourseId}:{SubjectId}:{SpecialtyId}"
                         if (request.RequestType == RequestType.Update && request.RequestEntityId.Contains(":") && request.RequestEntityId.Split(':').Length == 3)
                         {
@@ -670,39 +670,39 @@ namespace OCMS_Services.Service
                             string courseId = parts[0];
                             string subjectId = parts[1];
                             string specialtyId = parts[2];
-                            
+
                             // check if the course, subject, specialty exists
                             var course = await _unitOfWork.CourseRepository.GetByIdAsync(courseId);
                             var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(subjectId);
                             var specialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(specialtyId);
-                            
+
                             if (course == null)
                             {
                                 throw new KeyNotFoundException($"Course with ID '{courseId}' not found.");
                             }
-                            
+
                             if (subject == null)
                             {
                                 throw new KeyNotFoundException($"Subject with ID '{subjectId}' not found.");
                             }
-                            
+
                             if (specialty == null)
                             {
                                 throw new KeyNotFoundException($"Specialty with ID '{specialtyId}' not found.");
                             }
-                            
+
                             // Verify if the subject is suitable for this course (add your business logic here)
                             // For example, check if the subject fits into the course curriculum
-                            
+
                             // check if the combination already exists
                             bool exists = await _unitOfWork.CourseSubjectSpecialtyRepository.ExistsAsync(
                                 css => css.CourseId == courseId && css.SubjectId == subjectId && css.SpecialtyId == specialtyId);
-                                
+
                             if (exists)
                             {
                                 throw new InvalidOperationException($"Course-Subject-Specialty combination already exists for Course: {courseId}, Subject: {subjectId}, Specialty: {specialtyId}");
                             }
-                            
+
                             // create new CourseSubjectSpecialty
                             var css = new CourseSubjectSpecialty
                             {
@@ -715,31 +715,31 @@ namespace OCMS_Services.Service
                                 UpdatedAt = DateTime.UtcNow,
                                 Notes = "HeadMasterApprove"
                             };
-                            
+
                             await _unitOfWork.CourseSubjectSpecialtyRepository.AddAsync(css);
                             await _unitOfWork.SaveChangesAsync();
-                            
+
                             await _notificationService.SendNotificationAsync(
                                 request.RequestUserId,
                                 "Add Subject Request Approved",
                                 $"Your request to add subject {subjectId} to course {courseId} with specialty {specialtyId} has been approved.",
                                 "Add Subject"
                             );
-                            
+
                             actionSuccessful = true;
                             break;
                         }
 
-                    var trainingplan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
-                    if (trainingplan != null)
-                    {
-                        trainingplan.TrainingPlanStatus = TrainingPlanStatus.Pending;
-                        trainingplan.ApproveByUserId = approvedByUserId;
-                        trainingplan.ApproveDate = DateTime.UtcNow;
-                        await _unitOfWork.TrainingPlanRepository.UpdateAsync(trainingplan);
+                        var trainingplan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
+                        if (trainingplan != null)
+                        {
+                            trainingplan.TrainingPlanStatus = TrainingPlanStatus.Pending;
+                            trainingplan.ApproveByUserId = approvedByUserId;
+                            trainingplan.ApproveDate = DateTime.UtcNow;
+                            await _unitOfWork.TrainingPlanRepository.UpdateAsync(trainingplan);
 
-                        var course = await _courseRepository.GetCourseByTrainingPlanIdAsync(trainingplan.PlanId);
-                        
+                            var course = await _courseRepository.GetCourseByTrainingPlanIdAsync(trainingplan.PlanId);
+
                             course.Status = CourseStatus.Pending;
                             course.Progress = Progress.NotYet;
                             course.ApproveByUserId = approvedByUserId;
@@ -766,28 +766,28 @@ namespace OCMS_Services.Service
                                     await _unitOfWork.TraineeAssignRepository.UpdateAsync(trainee);
                                 }
                             }
-                        
 
-                        var instructorAssignments = await _instructorAssignmentRepository.GetAssignmentsByTrainingPlanIdAsync(trainingplan.PlanId);
-                        foreach (var assignment in instructorAssignments)
-                        {
-                            assignment.RequestStatus = RequestStatus.Pending;
-                            await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
-                        }
 
-                        if (!string.IsNullOrEmpty(request.RequestUserId))
-                        {
-                            await _notificationService.SendNotificationAsync(
-                                request.RequestUserId,
-                                "Training Plan Status Updated",
-                                $"Your request for {request.RequestEntityId} has been set to pending for {request.RequestType.ToString().ToLower()}.",
-                                $"{request.RequestType.ToString()}"
-                            );
-                        }
-                            
+                            var instructorAssignments = await _instructorAssignmentRepository.GetAssignmentsByTrainingPlanIdAsync(trainingplan.PlanId);
+                            foreach (var assignment in instructorAssignments)
+                            {
+                                assignment.RequestStatus = RequestStatus.Pending;
+                                await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
+                            }
+
+                            if (!string.IsNullOrEmpty(request.RequestUserId))
+                            {
+                                await _notificationService.SendNotificationAsync(
+                                    request.RequestUserId,
+                                    "Training Plan Status Updated",
+                                    $"Your request for {request.RequestEntityId} has been set to pending for {request.RequestType.ToString().ToLower()}.",
+                                    $"{request.RequestType.ToString()}"
+                                );
+                            }
+
                             actionSuccessful = true;
-                    }
-                    break;
+                        }
+                        break;
                     case RequestType.AssignTrainee:
                         if (approver == null || approver.RoleId != 2)
                         {
@@ -829,6 +829,10 @@ namespace OCMS_Services.Service
 
                             if (traineeAssign.RequestStatus != RequestStatus.Pending)
                                 throw new Exception("TraineeAssign is not in a pending state.");
+                            traineeAssign.RequestStatus = RequestStatus.Approved;
+                            traineeAssign.ApproveByUserId = approvedByUserId;
+                            traineeAssign.ApprovalDate = DateTime.UtcNow;
+                            await _unitOfWork.TraineeAssignRepository.UpdateAsync(traineeAssign);
                             actionSuccessful = true;
                             break;
                         }
@@ -950,28 +954,28 @@ namespace OCMS_Services.Service
                     default:
                         // Handle default case
                         actionSuccessful = true;
-                    break;
+                        break;
                 }
-                
+
                 // Chỉ cập nhật status sau khi tất cả các hoạt động đã hoàn thành thành công
                 if (actionSuccessful)
                 {
                     request.Status = RequestStatus.Approved;
-                    
+
                     // Notify the requester about the approval
-                        await _notificationService.SendNotificationAsync(
-                        request.RequestUserId,
-                        "Request Approved",
-                        $"Your request ({request.RequestType}) has been approved.",
-                        "Request"
-                    );
-                    
+                    await _notificationService.SendNotificationAsync(
+                    request.RequestUserId,
+                    "Request Approved",
+                    $"Your request ({request.RequestType}) has been approved.",
+                    "Request"
+                );
+
                     await _unitOfWork.RequestRepository.UpdateAsync(request);
                     await _unitOfWork.SaveChangesAsync();
                     return true;
                 }
-                
-                        return false;
+
+                return false;
             }
             catch (Exception ex)
             {
@@ -982,7 +986,7 @@ namespace OCMS_Services.Service
                 {
                     Console.WriteLine($"Inner Exception: {ex.InnerException.Message}");
                 }
-                
+
                 // Re-throw the exception to be handled by the API controller
                 throw;
             }
@@ -993,7 +997,7 @@ namespace OCMS_Services.Service
         public async Task<bool> RejectRequestAsync(string requestId, string rejectionReason, string rejectByUserId)
         {
             var request = await _unitOfWork.RequestRepository.GetByIdAsync(requestId);
-            
+
             request.UpdatedAt = DateTime.Now;
             request.ApproveByUserId = rejectByUserId;
             request.ApprovedDate = DateTime.Now;
@@ -1014,7 +1018,7 @@ namespace OCMS_Services.Service
             string notificationTitle = "Request Rejected";
             string notificationMessage;
             var rejecter = await _userRepository.GetByIdAsync(rejectByUserId);
-            
+
 
             switch (request.RequestType)
             {
@@ -1033,35 +1037,35 @@ namespace OCMS_Services.Service
 
                         // ❌ Reject all associated courses
                         var course = await _courseRepository.GetCourseByTrainingPlanIdAsync(plan.PlanId);
-                        
-                            course.Status = CourseStatus.Rejected;
-                            await _unitOfWork.CourseRepository.UpdateAsync(course);
 
-                            // Load CourseSubjectSpecialties for the course
-                            var courseSubjectSpecialties = await _unitOfWork.CourseSubjectSpecialtyRepository
-                                .GetAllAsync(css => css.CourseId == course.CourseId,
-                                    css => css.Schedules,
-                                    css => css.Trainees);
-                            foreach (var css in courseSubjectSpecialties)
+                        course.Status = CourseStatus.Rejected;
+                        await _unitOfWork.CourseRepository.UpdateAsync(course);
+
+                        // Load CourseSubjectSpecialties for the course
+                        var courseSubjectSpecialties = await _unitOfWork.CourseSubjectSpecialtyRepository
+                            .GetAllAsync(css => css.CourseId == course.CourseId,
+                                css => css.Schedules,
+                                css => css.Trainees);
+                        foreach (var css in courseSubjectSpecialties)
+                        {
+                            // Reject all schedules
+                            foreach (var schedule in css.Schedules)
                             {
-                                // Reject all schedules
-                                foreach (var schedule in css.Schedules)
-                                {
-                                    schedule.Status = ScheduleStatus.Canceled;
-                                    schedule.ModifiedDate = DateTime.UtcNow;
-                                    await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
-                                }
-
-                                // Reject all trainee assignments
-                                foreach (var trainee in css.Trainees)
-                                {
-                                    trainee.RequestStatus = RequestStatus.Rejected;
-                                    trainee.ApprovalDate = null;
-                                    trainee.ApproveByUserId = null;
-                                    await _unitOfWork.TraineeAssignRepository.UpdateAsync(trainee);
-                                }
+                                schedule.Status = ScheduleStatus.Canceled;
+                                schedule.ModifiedDate = DateTime.UtcNow;
+                                await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
                             }
-                        
+
+                            // Reject all trainee assignments
+                            foreach (var trainee in css.Trainees)
+                            {
+                                trainee.RequestStatus = RequestStatus.Rejected;
+                                trainee.ApprovalDate = null;
+                                trainee.ApproveByUserId = null;
+                                await _unitOfWork.TraineeAssignRepository.UpdateAsync(trainee);
+                            }
+                        }
+
 
                         // ❌ Reject all instructor assignments
                         var instructorAssignments = await _instructorAssignmentRepository.GetAssignmentsByTrainingPlanIdAsync(plan.PlanId);
@@ -1091,31 +1095,31 @@ namespace OCMS_Services.Service
 
                             // Reject associated entities
                             var course = await _courseRepository.GetCourseByTrainingPlanIdAsync(trainingPlan.PlanId);
-                            
-                                // If course was pending update, revert to previous state
-                                course.Status = CourseStatus.Approved;
-                                await _unitOfWork.CourseRepository.UpdateAsync(course);
 
-                                var courseSubjectSpecialties = await _unitOfWork.CourseSubjectSpecialtyRepository
-                                    .GetAllAsync(css => css.CourseId == course.CourseId,
-                                        css => css.Schedules,
-                                        css => css.Trainees);
-                                foreach (var css in courseSubjectSpecialties)
+                            // If course was pending update, revert to previous state
+                            course.Status = CourseStatus.Approved;
+                            await _unitOfWork.CourseRepository.UpdateAsync(course);
+
+                            var courseSubjectSpecialties = await _unitOfWork.CourseSubjectSpecialtyRepository
+                                .GetAllAsync(css => css.CourseId == course.CourseId,
+                                    css => css.Schedules,
+                                    css => css.Trainees);
+                            foreach (var css in courseSubjectSpecialties)
+                            {
+                                foreach (var schedule in css.Schedules)
                                 {
-                                    foreach (var schedule in css.Schedules)
-                                    {
-                                        schedule.Status = ScheduleStatus.Approved;
-                                        schedule.ModifiedDate = DateTime.UtcNow;
-                                        await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
-                                    }
-
-                                    foreach (var trainee in css.Trainees)
-                                    {
-                                        trainee.RequestStatus = RequestStatus.Approved;
-                                        await _unitOfWork.TraineeAssignRepository.UpdateAsync(trainee);
-                                    }
+                                    schedule.Status = ScheduleStatus.Approved;
+                                    schedule.ModifiedDate = DateTime.UtcNow;
+                                    await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
                                 }
-                            
+
+                                foreach (var trainee in css.Trainees)
+                                {
+                                    trainee.RequestStatus = RequestStatus.Approved;
+                                    await _unitOfWork.TraineeAssignRepository.UpdateAsync(trainee);
+                                }
+                            }
+
 
                             var instructorAssignments = await _instructorAssignmentRepository.GetAssignmentsByTrainingPlanIdAsync(trainingPlan.PlanId);
                             foreach (var assignment in instructorAssignments)
@@ -1145,30 +1149,30 @@ namespace OCMS_Services.Service
                             _trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Approved;
 
                             var course = await _courseRepository.GetCourseByTrainingPlanIdAsync(_trainingPlan.PlanId);
-                            
-                                course.Status = CourseStatus.Approved;
-                                await _unitOfWork.CourseRepository.UpdateAsync(course);
 
-                                var courseSubjectSpecialties = await _unitOfWork.CourseSubjectSpecialtyRepository
-                                    .GetAllAsync(css => css.CourseId == course.CourseId,
-                                        css => css.Schedules,
-                                        css => css.Trainees);
-                                foreach (var css in courseSubjectSpecialties)
+                            course.Status = CourseStatus.Approved;
+                            await _unitOfWork.CourseRepository.UpdateAsync(course);
+
+                            var courseSubjectSpecialties = await _unitOfWork.CourseSubjectSpecialtyRepository
+                                .GetAllAsync(css => css.CourseId == course.CourseId,
+                                    css => css.Schedules,
+                                    css => css.Trainees);
+                            foreach (var css in courseSubjectSpecialties)
+                            {
+                                foreach (var schedule in css.Schedules)
                                 {
-                                    foreach (var schedule in css.Schedules)
-                                    {
-                                        schedule.Status = ScheduleStatus.Approved;
-                                        schedule.ModifiedDate = DateTime.UtcNow;
-                                        await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
-                                    }
-
-                                    foreach (var trainee in css.Trainees)
-                                    {
-                                        trainee.RequestStatus = RequestStatus.Approved;
-                                        await _unitOfWork.TraineeAssignRepository.UpdateAsync(trainee);
-                                    }
+                                    schedule.Status = ScheduleStatus.Approved;
+                                    schedule.ModifiedDate = DateTime.UtcNow;
+                                    await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
                                 }
-                            
+
+                                foreach (var trainee in css.Trainees)
+                                {
+                                    trainee.RequestStatus = RequestStatus.Approved;
+                                    await _unitOfWork.TraineeAssignRepository.UpdateAsync(trainee);
+                                }
+                            }
+
 
                             var instructorAssignments = await _instructorAssignmentRepository.GetAssignmentsByTrainingPlanIdAsync(_trainingPlan.PlanId);
                             foreach (var assignment in instructorAssignments)
@@ -1279,9 +1283,9 @@ namespace OCMS_Services.Service
 
                     break;
                 default:
-                    
+
                     notificationMessage = $"Your request ({request.RequestType}) has been rejected. Reason: {rejectionReason}";
-                    
+
                     break;
             }
 
@@ -1305,7 +1309,7 @@ namespace OCMS_Services.Service
                         await _unitOfWork.CandidateRepository.UpdateAsync(candidate);
                     }
                 }
-                
+
                 var hrs = await _userRepository.GetUsersByRoleAsync("HR");
                 foreach (var hr in hrs)
                 {
