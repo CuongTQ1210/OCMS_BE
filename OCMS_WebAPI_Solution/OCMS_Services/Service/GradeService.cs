@@ -393,6 +393,13 @@ namespace OCMS_Services.Service
                         return result;
                     }
 
+                    var user = await _unitOfWork.UserRepository.FirstOrDefaultAsync(u => u.UserId == importedByUserId);
+                    if (user == null)
+                    {
+                        result.Errors.Add("Unauthorized.");
+                        return result;
+                    }
+
                     string subjectName = worksheet.Cells[1, 2].GetValue<string>();
                     if (string.IsNullOrEmpty(subjectName))
                     {
@@ -429,7 +436,7 @@ namespace OCMS_Services.Service
 
                     var css = cssList.First();
                     var course = css.Course;
-                    var courseSpecialty = css.Specialty;
+                    var courseSpecialty = await _unitOfWork.SpecialtyRepository.FirstOrDefaultAsync(s => s.SpecialtyId == user.SpecialtyId);
 
                     if (courseSpecialty == null)
                     {
@@ -442,12 +449,12 @@ namespace OCMS_Services.Service
                         return result;
                     }
 
-                    if (course.Status == CourseStatus.Pending || course.Status == CourseStatus.Rejected ||
-                        course.Progress == Progress.NotYet || course.Progress == Progress.Completed)
-                    {
-                        result.Errors.Add("Course isn't suitable to create grades.");
-                        return result;
-                    }
+                    //if (course.Status == CourseStatus.Pending || course.Status == CourseStatus.Rejected ||
+                    //    course.Progress == Progress.NotYet || course.Progress == Progress.Completed)
+                    //{
+                    //    result.Errors.Add("Course isn't suitable to create grades.");
+                    //    return result;
+                    //}
 
                     var schedule = await _trainingScheduleRepository.GetSchedulesByCourseSubjectIdAsync(css.Id);
                     if (schedule == null)
@@ -469,8 +476,7 @@ namespace OCMS_Services.Service
                         t => t.Trainee);  // Explicitly include Trainee to access User data
 
                     var assignMap = existingTraineeAssigns
-                         .Where(a => a.CourseSubjectSpecialty.CourseId == course.CourseId &&
-                                a.CourseSubjectSpecialty.SpecialtyId == courseSpecialty.SpecialtyId)
+                         .Where(a => a.CourseSubjectSpecialty.SubjectId == subject.SubjectId && a.CourseSubjectSpecialty.SpecialtyId == courseSpecialty.SpecialtyId)
                          .ToDictionary(a => a.TraineeId, a => (a.TraineeAssignId, a.TraineeId, a.Trainee));
 
                     var newGrades = new List<Grade>();
