@@ -33,7 +33,6 @@ namespace OCMS_Services.Service
         private readonly IMemoryCache _memoryCache;
         private readonly IMapper _mapper;
 
-        // Cache keys
         private const string TEMPLATE_HTML_CACHE_KEY = "template_html_{0}";
         private const int TEMPLATE_CACHE_MINUTES = 60;
 
@@ -61,14 +60,7 @@ namespace OCMS_Services.Service
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
-        #region Auto Generate Certificates for Passed Trainees
-        /// <summary>
-        /// Automatically generates certificates for all trainees who have passed all subjects in a course
-        /// and sends notifications to the HeadMaster for digital signature approval
-        /// </summary>
-        /// <param name="courseId">The ID of the course</param>
-        /// <param name="issuedByUserId">The ID of the user issuing the certificates (typically a training staff)</param>
-        /// <returns>A list of created certificate models</returns>
+        #region Auto Generate Certificates
         public async Task<List<CertificateModel>> AutoGenerateCertificatesForPassedTraineesAsync(string courseId, string issuedByUserId)
         {
             if (string.IsNullOrEmpty(courseId) || string.IsNullOrEmpty(issuedByUserId))
@@ -78,7 +70,6 @@ namespace OCMS_Services.Service
 
             try
             {
-                // 1. Get course data efficiently
                 var course = await _courseRepository.GetCourseWithDetailsAsync(courseId);
                 if (course == null || !course.CourseSubjectSpecialties.Any() || course.Status != CourseStatus.Approved)
                 {
@@ -87,7 +78,6 @@ namespace OCMS_Services.Service
 
                 int subjectCount = course.CourseSubjectSpecialties.Count;
 
-                // 2. Get template data with caching
                 var templateId = await GetTemplateIdByCourseLevelAsync(course.CourseLevel);
                 if (string.IsNullOrEmpty(templateId))
                 {
@@ -104,40 +94,64 @@ namespace OCMS_Services.Service
                 var templateHtml = await GetCachedTemplateHtmlAsync(certificateTemplate.TemplateFile);
                 var templateType = GetTemplateTypeFromName(certificateTemplate.TemplateName);
 
-                // 3. Get all data needed for certificate generation in bulk
                 var traineeAssignments = await _traineeAssignRepository.GetTraineeAssignmentsByCourseIdAsync(course.CourseId);
                 var existingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.CourseId == courseId);
                 var allGrades = await _gradeRepository.GetGradesByCourseIdAsync(courseId);
 
-                // 4. Process data
                 var traineeWithCerts = new HashSet<string>(existingCertificates.Select(c => c.UserId));
                 var traineeIds = traineeAssignments.Select(ta => ta.TraineeId).Distinct().ToList();
 
                 _logger.LogInformation($"Found {traineeIds.Count()} trainees enrolled in course, {traineeWithCerts.Count} already have certificates");
 
-                // 5. Get trainee data efficiently
                 var trainees = await _userRepository.GetUsersByIdsAsync(traineeIds);
                 var traineeDict = trainees.ToDictionary(t => t.UserId);
 
-                // 6. Process grades
                 var gradesByTraineeAssign = allGrades
                     .GroupBy(g => g.TraineeAssignID)
                     .ToDictionary(g => g.Key, g => g.ToList());
 
                 var issueDate = DateTime.Now;
 
-                // 7. Find eligible trainees efficiently using parallel processing
-                var eligibleTrainees = traineeAssignments
-                    .Where(ta => !traineeWithCerts.Contains(ta.TraineeId))
-                    .AsParallel()
-                    .Where(ta =>
-                    {
-                        if (!gradesByTraineeAssign.TryGetValue(ta.TraineeAssignId, out var grades))
-                            return false;
+                // Group trainee assignments by trainee and specialty
+                var traineeAssignmentsByTrainee = traineeAssignments
+                    .GroupBy(ta => ta.TraineeId)
+                    .ToDictionary(g => g.Key, g => g.ToList());
 
-                        return grades.Count() == subjectCount && grades.All(g => g.gradeStatus == GradeStatus.Pass);
-                    })
-                    .ToList();
+                var courseSubjectSpecialtiesBySpecialty = course.CourseSubjectSpecialties
+                    .GroupBy(css => css.SpecialtyId)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+
+                var eligibleTrainees = new List<(string TraineeId, string SpecialtyId)>();
+
+                foreach (var traineeGroup in traineeAssignmentsByTrainee)
+                {
+                    var traineeId = traineeGroup.Key;
+                    var assignments = traineeGroup.Value;
+
+                    var specialtyId = assignments.First().CourseSubjectSpecialty.SpecialtyId;
+                    if (assignments.Any(ta => ta.CourseSubjectSpecialty.SpecialtyId != specialtyId))
+                    {
+                        _logger.LogWarning($"Trainee {traineeId} has assignments for multiple specialties in course {courseId}");
+                        continue;
+                    }
+
+                    if (!courseSubjectSpecialtiesBySpecialty.TryGetValue(specialtyId, out var requiredCss))
+                    {
+                        _logger.LogWarning($"Specialty {specialtyId} not found in course {courseId}");
+                        continue;
+                    }
+
+                    var traineeGrades = assignments.SelectMany(ta => gradesByTraineeAssign.GetValueOrDefault(ta.TraineeAssignId, new List<Grade>()));
+                    var passedCssIds = traineeGrades.Where(g => g.gradeStatus == GradeStatus.Pass)
+                                                    .Select(g => g.TraineeAssign.CourseSubjectSpecialtyId)
+                                                    .ToHashSet();
+                    var requiredCssIds = requiredCss.Select(css => css.Id).ToHashSet();
+
+                    if (requiredCssIds.All(id => passedCssIds.Contains(id)) && !traineeWithCerts.Contains(traineeId))
+                    {
+                        eligibleTrainees.Add((traineeId, specialtyId));
+                    }
+                }
 
                 _logger.LogInformation($"Found {eligibleTrainees.Count()} eligible trainees for new certificates");
 
@@ -146,17 +160,19 @@ namespace OCMS_Services.Service
                     return createdCertificates;
                 }
 
-                // 8. Generate certificates in batch with efficient processing
                 var certToCreate = new List<Certificate>();
                 var certToUpdate = new List<Certificate>();
-                var generationTasks = eligibleTrainees.Select(async ta =>
+                var generationTasks = eligibleTrainees.Select(async tuple =>
                 {
-                    if (!traineeDict.TryGetValue(ta.TraineeId, out var trainee))
+                    var (traineeId, specialtyId) = tuple;
+                    if (!traineeDict.TryGetValue(traineeId, out var trainee))
                         return null;
 
                     try
                     {
-                        var grades = gradesByTraineeAssign[ta.TraineeAssignId];
+                        var grades = traineeAssignmentsByTrainee[traineeId]
+                            .SelectMany(ta => gradesByTraineeAssign.GetValueOrDefault(ta.TraineeAssignId, new List<Grade>()))
+                            .ToList();
 
                         if (course.CourseLevel == CourseLevel.Recurrent)
                         {
@@ -177,15 +193,16 @@ namespace OCMS_Services.Service
                                     initialCert.IssueByUserId = issuedByUserId;
                                     initialCert.IssueDate = DateTime.Now;
                                     initialCert.Status = CertificateStatus.Pending;
+                                    initialCert.SpecialtyId = specialtyId; // Set SpecialtyId for recurrent course
 
-                                    lock (certToUpdate)  // for thread safety in parallel
+                                    lock (certToUpdate)
                                     {
                                         certToUpdate.Add(initialCert);
                                     }
 
                                     await _unitOfWork.CertificateRepository.UpdateAsync(initialCert);
 
-                                    return initialCert; // not new, but added to report
+                                    return initialCert;
                                 }
                                 else
                                 {
@@ -201,14 +218,13 @@ namespace OCMS_Services.Service
                         }
                         else
                         {
-                            // Generate new certificate (Initial case)
                             return await GenerateCertificateAsync(
-                                trainee, course, templateId, templateHtml, templateType, grades, issuedByUserId, issueDate);
+                                trainee, course, templateId, templateHtml, templateType, grades, issuedByUserId, issueDate, specialtyId);
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, $"Failed to process certificate for trainee {ta.TraineeId}");
+                        _logger.LogError(ex, $"Failed to process certificate for trainee {traineeId}");
                         return null;
                     }
                 });
@@ -217,7 +233,6 @@ namespace OCMS_Services.Service
                     .Where(c => c != null)
                     .ToList();
 
-                // Thêm các certificate mới vào danh sách cần tạo
                 foreach (var cert in certificates)
                 {
                     if (!certToUpdate.Contains(cert))
@@ -226,7 +241,6 @@ namespace OCMS_Services.Service
                     }
                 }
 
-                // 9. Save to database with transaction - xử lý cả certToCreate và certToUpdate
                 await _unitOfWork.ExecuteWithStrategyAsync(async () =>
                 {
                     await _unitOfWork.BeginTransactionAsync();
@@ -238,18 +252,15 @@ namespace OCMS_Services.Service
                             await _unitOfWork.CertificateRepository.AddRangeAsync(certToCreate);
                         }
 
-                        // Lưu tất cả thay đổi (bao gồm cả certificate đã cập nhật thông qua UpdateAsync)
                         await _unitOfWork.SaveChangesAsync();
                         await _unitOfWork.CommitTransactionAsync();
 
-                        // Gộp cả certificate mới và certificate cập nhật để trả về kết quả
                         var allProcessedCertificates = new List<Certificate>();
                         allProcessedCertificates.AddRange(certToCreate);
                         allProcessedCertificates.AddRange(certToUpdate);
 
                         createdCertificates = _mapper.Map<List<CertificateModel>>(allProcessedCertificates);
 
-                        // 10. Notify HeadMasters efficiently
                         await NotifyTrainingStaffsAsync(createdCertificates.Count, course.CourseName);
 
                         _logger.LogInformation($"Successfully processed {createdCertificates.Count} certificates for course {courseId} ({certToCreate.Count} new, {certToUpdate.Count} renewed)");
@@ -273,13 +284,6 @@ namespace OCMS_Services.Service
         #endregion
 
         #region Create Certificate Manually
-        /// <summary>
-        /// Manually generates a certificate for a specific trainee in a course
-        /// </summary>
-        /// <param name="userId">The ID of the trainee receiving the certificate</param>
-        /// <param name="courseId">The ID of the course</param>
-        /// <param name="issuedByUserId">The ID of the user issuing the certificate</param>
-        /// <returns>The created certificate model or null if failed</returns>
         public async Task<CertificateModel> CreateCertificateManuallyAsync(string userId, string courseId, string issuedByUserId)
         {
             if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(courseId) || string.IsNullOrEmpty(issuedByUserId))
@@ -287,7 +291,6 @@ namespace OCMS_Services.Service
 
             try
             {
-                // Check if trainee already has a certificate for this course
                 var existingCertificate = await _unitOfWork.CertificateRepository.GetAllAsync(c =>
                     c.UserId == userId && c.CourseId == courseId && c.Status == CertificateStatus.Active);
 
@@ -296,22 +299,18 @@ namespace OCMS_Services.Service
                     throw new InvalidOperationException($"Trainee already has an active certificate for this course");
                 }
 
-
-                // Get course data
                 var course = await _courseRepository.GetCourseWithDetailsAsync(courseId);
                 if (course == null || !course.CourseSubjectSpecialties.Any() || course.Status != CourseStatus.Approved)
                 {
                     throw new Exception($"Course with ID {courseId} not found or not active or has no subjects!");
                 }
 
-                // Verify trainee is enrolled in this course
                 var traineeAssignment = await _traineeAssignRepository.GetTraineeAssignmentAsync(courseId, userId);
                 if (traineeAssignment == null)
                 {
                     throw new InvalidOperationException($"Trainee is not enrolled in this course");
                 }
 
-                // Get all grades for this trainee in this course
                 var grades = await _gradeRepository.GetGradesByTraineeAssignIdAsync(traineeAssignment.TraineeAssignId);
                 if (!grades.Any() || grades.Count() < course.CourseSubjectSpecialties.Count)
                 {
@@ -323,14 +322,12 @@ namespace OCMS_Services.Service
                     throw new InvalidOperationException($"Trainee has not passed all subjects in this course");
                 }
 
-                // Get trainee data
                 var trainee = await _userRepository.GetByIdAsync(userId);
                 if (trainee == null)
                 {
                     throw new Exception($"Trainee with ID {userId} not found");
                 }
 
-                // Get template data
                 var templateId = await GetTemplateIdByCourseLevelAsync(course.CourseLevel);
                 if (string.IsNullOrEmpty(templateId))
                 {
@@ -346,9 +343,11 @@ namespace OCMS_Services.Service
                 var templateHtml = await GetCachedTemplateHtmlAsync(certificateTemplate.TemplateFile);
                 var templateType = GetTemplateTypeFromName(certificateTemplate.TemplateName);
 
-                // Handle recurrent course differently
                 var issueDate = DateTime.Now;
                 Certificate certificate;
+
+                // Get SpecialtyId from TraineeAssign
+                var specialtyId = traineeAssignment.CourseSubjectSpecialty.SpecialtyId;
 
                 if (course.CourseLevel == CourseLevel.Recurrent)
                 {
@@ -370,6 +369,7 @@ namespace OCMS_Services.Service
                             initialCert.IssueDate = issueDate;
                             initialCert.Status = CertificateStatus.Pending;
                             initialCert.CourseId = course.CourseId;
+                            initialCert.SpecialtyId = specialtyId; // Set SpecialtyId for recurrent course
                             await _unitOfWork.CertificateRepository.UpdateAsync(initialCert);
                             await _unitOfWork.SaveChangesAsync();
 
@@ -389,16 +389,13 @@ namespace OCMS_Services.Service
                 }
                 else
                 {
-                    // Generate new certificate (Initial case)
                     certificate = await GenerateCertificateAsync(
-                        trainee, course, templateId, templateHtml, templateType, grades.ToList(), issuedByUserId, issueDate);
+                        trainee, course, templateId, templateHtml, templateType, grades.ToList(), issuedByUserId, issueDate, specialtyId);
 
-                    // Save to database
                     await _unitOfWork.CertificateRepository.AddAsync(certificate);
                     await _unitOfWork.SaveChangesAsync();
                 }
 
-                // Send notification to HeadMaster
                 var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
                 foreach (var director in directors)
                 {
@@ -410,7 +407,6 @@ namespace OCMS_Services.Service
                     );
                 }
 
-                // Return the certificate with SAS URL
                 var certificateModel = _mapper.Map<CertificateModel>(certificate);
                 certificateModel.CertificateURLwithSas = await _blobService.GetBlobUrlWithSasTokenAsync(certificate.CertificateURL, TimeSpan.FromHours(1));
 
@@ -424,25 +420,22 @@ namespace OCMS_Services.Service
         }
         #endregion
 
-        #region Get all certificate with Pending status
+        #region Get All Pending Certificates
         public async Task<List<CertificateModel>> GetPendingCertificatesWithSasUrlAsync()
         {
             var pendingCertificates = await GetAllPendingCertificatesAsync();
-
             var updateTasks = pendingCertificates
                 .Where(c => !string.IsNullOrEmpty(c.CertificateURL))
                 .Select(async certificate =>
                 {
                     certificate.CertificateURLwithSas = await _blobService.GetBlobUrlWithSasTokenAsync(certificate.CertificateURL, TimeSpan.FromHours(1));
                 });
-
             await Task.WhenAll(updateTasks);
-
             return pendingCertificates;
         }
         #endregion
 
-        #region Get certificate by ID
+        #region Get Certificate By Id
         public async Task<CertificateModel> GetCertificateByIdAsync(string certificateId)
         {
             var certificate = await _unitOfWork.CertificateRepository.GetByIdAsync(certificateId);
@@ -454,7 +447,7 @@ namespace OCMS_Services.Service
         }
         #endregion
 
-        #region Get all certificates by user ID with SAS URL
+        #region Get All Certificates By UserId
         public async Task<List<CertificateModel>> GetCertificatesByUserIdWithSasUrlAsync(string userId)
         {
             var certificates = await GetCertificatesByUserIdAsync(userId);
@@ -469,7 +462,7 @@ namespace OCMS_Services.Service
         }
         #endregion
 
-        #region Get all active certificates
+        #region Get All Active Certificates
         public async Task<List<CertificateModel>> GetActiveCertificatesWithSasUrlAsync()
         {
             var activeCertificates = await GetActiveCertificatesAsync();
@@ -484,7 +477,7 @@ namespace OCMS_Services.Service
         }
         #endregion
 
-        #region revoke certificate
+        #region Revoke Certificate
         public async Task<(bool success, string message)> RevokeCertificateAsync(string certificateId, RevokeCertificateDTO dto)
         {
             var certificate = await _unitOfWork.CertificateRepository.GetByIdAsync(certificateId);
@@ -514,18 +507,15 @@ namespace OCMS_Services.Service
                                 $"Revoke certificate."
                             );
             await _unitOfWork.SaveChangesAsync();
-            
+
             return (true, "Certificate revoked successfully");
         }
         #endregion
 
-        #region Get all revoked certificates with SAS URL
+        #region Get All Revoked Certificates
         public async Task<List<CertificateModel>> GetRevokedCertificatesWithSasUrlAsync()
         {
-            // Step 1: Get all revoked certificates
             var revokedCertificates = await GetAllRevokeCertificatesAsync();
-
-            // Step 2: Generate SAS URLs for each certificate
             var updateTasks = revokedCertificates
                 .Where(c => !string.IsNullOrEmpty(c.CertificateURL))
                 .Select(async certificate =>
@@ -535,19 +525,12 @@ namespace OCMS_Services.Service
                         TimeSpan.FromHours(1)
                     );
                 });
-
             await Task.WhenAll(updateTasks);
-
             return revokedCertificates;
         }
         #endregion
 
         #region Get Certificate Renewal History
-        /// <summary>
-        /// Lấy lịch sử gia hạn của một chứng chỉ dựa trên ID chứng chỉ
-        /// </summary>
-        /// <param name="certificateId">ID của chứng chỉ cần xem lịch sử</param>
-        /// <returns>Thông tin lịch sử gia hạn của chứng chỉ</returns>
         public async Task<CertificateRenewalHistoryModel> GetCertificateRenewalHistoryAsync(string certificateId)
         {
             if (string.IsNullOrEmpty(certificateId))
@@ -555,32 +538,25 @@ namespace OCMS_Services.Service
 
             try
             {
-                // 1. Lấy chứng chỉ hiện tại
                 var currentCertificate = await _unitOfWork.CertificateRepository.GetByIdAsync(certificateId);
                 if (currentCertificate == null)
                 {
                     throw new KeyNotFoundException($"Certificate with ID {certificateId} not found");
                 }
 
-                // Kiểm tra trạng thái chứng chỉ
                 if (currentCertificate.Status != CertificateStatus.Active &&
                     currentCertificate.Status != CertificateStatus.Pending)
                 {
                     _logger.LogWarning($"Certificate with ID {certificateId} is not active or pending (Status: {currentCertificate.Status})");
                 }
 
-                // 2. Lấy thông tin khóa học
                 var course = await _unitOfWork.CourseRepository.GetByIdAsync(currentCertificate.CourseId);
                 if (course == null)
                 {
                     throw new KeyNotFoundException($"Course with ID {currentCertificate.CourseId} not found");
                 }
 
-                // 3. Xác định khóa học gốc và các khóa học tái cấp chứng chỉ liên quan
                 var isRecurrentCourse = course.CourseLevel == CourseLevel.Recurrent;
-
-                // Khóa học ban đầu là khóa học hiện tại nếu là khóa Initial,
-                // hoặc là khóa học được liên kết nếu là khóa Recurrent
                 var originalCourseId = isRecurrentCourse ? course.RelatedCourseId : course.CourseId;
 
                 if (isRecurrentCourse && string.IsNullOrEmpty(originalCourseId))
@@ -588,18 +564,13 @@ namespace OCMS_Services.Service
                     _logger.LogWarning($"Recurrent course {course.CourseId} has no related initial course specified");
                 }
 
-                // Lấy danh sách tất cả các chứng chỉ liên quan 
-                // (chứng chỉ ban đầu và các chứng chỉ tái cấp)
                 var relatedCertificates = new List<Certificate>();
-
-                // Thêm chứng chỉ từ khóa học hiện tại - loại bỏ chứng chỉ đã thu hồi
                 var currentCourseCerts = await _unitOfWork.CertificateRepository.GetAllAsync(c =>
                     c.UserId == currentCertificate.UserId &&
                     c.CourseId == currentCertificate.CourseId &&
                     c.Status != CertificateStatus.Revoked);
                 relatedCertificates.AddRange(currentCourseCerts);
 
-                // Nếu là khóa tái cấp, thêm chứng chỉ từ khóa ban đầu
                 if (isRecurrentCourse && !string.IsNullOrEmpty(originalCourseId))
                 {
                     var initialCourseCerts = await _unitOfWork.CertificateRepository.GetAllAsync(c =>
@@ -608,10 +579,8 @@ namespace OCMS_Services.Service
                         c.Status != CertificateStatus.Revoked);
                     relatedCertificates.AddRange(initialCourseCerts);
                 }
-                // Nếu là khóa ban đầu, tìm các chứng chỉ từ khóa tái cấp
                 else if (!isRecurrentCourse)
                 {
-                    // Lấy các khóa học tái cấp liên quan đến khóa học hiện tại
                     var recurrentCourses = await _unitOfWork.CourseRepository.GetAllAsync(c =>
                         c.RelatedCourseId == course.CourseId && c.CourseLevel == CourseLevel.Recurrent);
 
@@ -625,10 +594,7 @@ namespace OCMS_Services.Service
                     }
                 }
 
-                // Loại bỏ các phiên bản trùng lặp
                 relatedCertificates = relatedCertificates.Distinct().ToList();
-
-                // 4. Sắp xếp theo thời gian để tìm chứng chỉ gốc và các lần gia hạn
                 var orderedCertificates = relatedCertificates
                     .OrderBy(c => c.IssueDate)
                     .ToList();
@@ -636,16 +602,12 @@ namespace OCMS_Services.Service
                 if (!orderedCertificates.Any())
                 {
                     _logger.LogWarning($"No certificates found for user {currentCertificate.UserId} related to course {course.CourseId}");
-
-                    // Fallback: Sử dụng chứng chỉ hiện tại làm đối tượng duy nhất
                     if (currentCertificate.Status != CertificateStatus.Revoked)
                     {
                         orderedCertificates.Add(currentCertificate);
                     }
                     else
                     {
-                        _logger.LogWarning($"Current certificate with ID {certificateId} is revoked");
-                        // Nếu chứng chỉ hiện tại đã bị thu hồi, trả về lịch sử trống
                         return new CertificateRenewalHistoryModel
                         {
                             CertificateId = currentCertificate.CertificateId,
@@ -657,10 +619,7 @@ namespace OCMS_Services.Service
                     }
                 }
 
-                // Chứng chỉ gốc là chứng chỉ đầu tiên theo thời gian
                 var originalCertificate = orderedCertificates.First();
-
-                // 5. Lấy thông tin người cấp chứng chỉ
                 var allUserIds = orderedCertificates
                     .Select(c => c.IssueByUserId)
                     .Where(id => !string.IsNullOrEmpty(id))
@@ -670,7 +629,6 @@ namespace OCMS_Services.Service
                 var users = await _userRepository.GetUsersByIdsAsync(allUserIds);
                 var userDict = users.ToDictionary(u => u.UserId);
 
-                // 6. Tạo đối tượng lịch sử gia hạn
                 var renewalHistory = new CertificateRenewalHistoryModel
                 {
                     CertificateId = currentCertificate.CertificateId,
@@ -686,44 +644,29 @@ namespace OCMS_Services.Service
                         : "Unknown User"
                 };
 
-                // 7. Xây dựng lịch sử gia hạn
-                // Chỉ xem xét certificate sau certificate gốc (từ index 1 trở đi)
-                // và đảm bảo rằng đây thực sự là renewal (dựa vào thời gian hết hạn)
                 for (int i = 1; i < orderedCertificates.Count; i++)
                 {
                     var currentCert = orderedCertificates[i];
                     var previousCert = orderedCertificates[i - 1];
 
-                    // Xác định một chứng chỉ là gia hạn khi:
-                    // 1. Nếu là chứng chỉ mới cho khóa học tái cấp liên quan đến khóa học gốc
-                    // 2. Thời gian cấp mới phải muộn hơn thời gian cấp trước đó đáng kể
-                    //    (ít nhất 3 tháng, tránh trường hợp sớm hơn khi chỉ là cấp lại)
                     bool isRenewal = false;
 
-                    // Trường hợp khóa học tái cấp liên quan đến khóa học ban đầu
                     if (currentCert.CourseId != previousCert.CourseId)
                     {
-                        // Kiểm tra xem currentCert có phải là chứng chỉ từ khóa tái cấp không
                         var currentCertCourse = await _unitOfWork.CourseRepository.GetByIdAsync(currentCert.CourseId);
                         if (currentCertCourse != null && currentCertCourse.CourseLevel == CourseLevel.Recurrent)
                         {
                             isRenewal = true;
                         }
                     }
-                    // Trường hợp cấp lại chứng chỉ trong cùng một khóa học (thường là gia hạn)
                     else
                     {
-                        // Kiểm tra nếu thời gian cấp mới gần với thời gian hết hạn của chứng chỉ cũ
-                        // hoặc sau thời gian hết hạn cũ, thì đây là gia hạn
                         var previousExpiryDate = previousCert.ExpirationDate ?? previousCert.IssueDate.AddYears(2);
                         var timeDiff = currentCert.IssueDate - previousCert.IssueDate;
-
-                        // Nếu đã qua ít nhất 1 năm kể từ lúc cấp ban đầu, hoặc gần đến thời gian hết hạn (trong vòng 6 tháng)
                         isRenewal = timeDiff.TotalDays > 365 ||
                                    (previousExpiryDate - currentCert.IssueDate).TotalDays <= 180;
                     }
 
-                    // Nếu là gia hạn, thêm vào lịch sử
                     if (isRenewal)
                     {
                         var previousExpiryDate = previousCert.ExpirationDate ?? previousCert.IssueDate.AddYears(2);
@@ -744,7 +687,6 @@ namespace OCMS_Services.Service
                     }
                 }
 
-                // Sắp xếp lịch sử gia hạn theo thời gian, mới nhất lên đầu
                 renewalHistory.RenewalHistory = renewalHistory.RenewalHistory
                     .OrderByDescending(r => r.RenewalDate)
                     .ToList();
@@ -760,11 +702,6 @@ namespace OCMS_Services.Service
         #endregion
 
         #region Get User Certificate Renewal History
-        /// <summary>
-        /// Lấy lịch sử gia hạn của tất cả chứng chỉ của một người dùng
-        /// </summary>
-        /// <param name="userId">ID của người dùng</param>
-        /// <returns>Danh sách lịch sử gia hạn chứng chỉ của người dùng</returns>
         public async Task<List<CertificateRenewalHistoryModel>> GetUserCertificateRenewalHistoryAsync(string userId)
         {
             if (string.IsNullOrEmpty(userId))
@@ -772,7 +709,6 @@ namespace OCMS_Services.Service
 
             try
             {
-                // Lấy tất cả các chứng chỉ của người dùng - loại bỏ chứng chỉ đã thu hồi
                 var certificates = await _unitOfWork.CertificateRepository.GetAllAsync(
                     c => c.UserId == userId && c.Status != CertificateStatus.Revoked);
 
@@ -787,7 +723,6 @@ namespace OCMS_Services.Service
                     .Distinct()
                     .ToList();
 
-                // Chỉ lấy các chứng chỉ mới nhất (theo từng mã chứng chỉ)
                 foreach (var code in uniqueCertificateCodes)
                 {
                     var latestCertificate = certificates
@@ -821,8 +756,6 @@ namespace OCMS_Services.Service
             {
                 _logger.LogInformation($"Template cache miss for {templateFileUrl}, loading from blob storage");
                 templateHtml = await GetTemplateHtmlFromBlobAsync(templateFileUrl);
-
-                // Cache the template HTML for future use
                 _memoryCache.Set(cacheKey, templateHtml, TimeSpan.FromMinutes(TEMPLATE_CACHE_MINUTES));
             }
 
@@ -833,13 +766,11 @@ namespace OCMS_Services.Service
         {
             try
             {
-                // Parse URL to get account endpoint
                 Uri blobUri = new Uri(templateFileUrl);
                 string accountUrl = $"{blobUri.Scheme}://{blobUri.Host}";
                 string containerName = blobUri.Segments[1].TrimEnd('/');
                 string blobName = blobUri.AbsolutePath.Substring(blobUri.AbsolutePath.IndexOf(containerName) + containerName.Length + 1);
 
-                // Use DefaultAzureCredential (will use Managed Identity when running on Azure)
                 BlobServiceClient blobServiceClient = new BlobServiceClient(
                     new Uri(accountUrl),
                     new DefaultAzureCredential());
@@ -874,7 +805,6 @@ namespace OCMS_Services.Service
                     return null;
                 }
 
-                // Filter templates based on course level
                 var matchingTemplates = new List<CertificateTemplate>();
 
                 switch (courseLevel)
@@ -896,11 +826,9 @@ namespace OCMS_Services.Service
                 if (!matchingTemplates.Any())
                     return null;
 
-                // If multiple matching templates exist, select the one with the highest sequence number
                 templateId = matchingTemplates
                     .OrderByDescending(t =>
                     {
-                        // Extract the sequence number (last 3 digits after last dash)
                         var parts = t.CertificateTemplateId.Split('-');
                         if (parts.Length >= 3 && int.TryParse(parts[2], out int sequenceNumber))
                             return sequenceNumber;
@@ -908,7 +836,6 @@ namespace OCMS_Services.Service
                     })
                     .FirstOrDefault()?.CertificateTemplateId;
 
-                // Cache the template ID for 30 minutes
                 if (templateId != null)
                     _memoryCache.Set(cacheKey, templateId, TimeSpan.FromMinutes(30));
             }
@@ -923,6 +850,23 @@ namespace OCMS_Services.Service
             return "Standard";
         }
 
+        private string GenerateCertificateCode(Course course, User trainee)
+        {
+            string courseLevel = course.CourseLevel.ToString().Substring(0, 3).ToUpper();
+            string year = DateTime.Now.Year.ToString();
+            string month = DateTime.Now.Month.ToString("D2");
+
+            string hash = (trainee.UserId + course.CourseId).GetHashCode().ToString("X").Substring(0, 5);
+
+            return $"OCMS-{courseLevel}-{year}-{month}-{hash}";
+        }
+
+        private async Task<string> SaveCertificateToBlob(string htmlContent, string fileName)
+        {
+            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(htmlContent));
+            var blobUrl = await _blobService.UploadFileAsync("certificates", fileName, stream, "text/html");
+            return _blobService.GetBlobUrlWithoutSasToken(blobUrl);
+        }
         private async Task<Certificate> GenerateCertificateAsync(
             User trainee,
             Course course,
@@ -931,7 +875,8 @@ namespace OCMS_Services.Service
             string templateType,
             List<Grade> grades,
             string issuedByUserId,
-            DateTime issueDate)
+            DateTime issueDate,
+            string specialtyId)
         {
             string certificateCode = GenerateCertificateCode(course, trainee);
             string modifiedHtml = await PopulateTemplateAsync(templateHtml, trainee, course, issueDate, certificateCode, grades, templateType);
@@ -965,31 +910,10 @@ namespace OCMS_Services.Service
                 IsRevoked = false,
                 Course = courseExist,
                 User = userExist,
-                SignDate = DateTime.Now
+                SignDate = DateTime.Now,
+                SpecialtyId = specialtyId // Set SpecialtyId here
             };
         }
-
-        private string GenerateCertificateCode(Course course, User trainee)
-        {
-            // Create a unique code format like: OCMS-{CourseLevel}-{Year}-{Month}-{Hash}
-            string courseLevel = course.CourseLevel.ToString().Substring(0, 3).ToUpper();
-            string year = DateTime.Now.Year.ToString();
-            string month = DateTime.Now.Month.ToString("D2");
-
-            // Generate a hash from trainee ID + course ID
-            string hash = (trainee.UserId + course.CourseId).GetHashCode().ToString("X").Substring(0, 5);
-
-            return $"OCMS-{courseLevel}-{year}-{month}-{hash}";
-        }
-
-        private async Task<string> SaveCertificateToBlob(string htmlContent, string fileName)
-        {
-            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(htmlContent));
-            var blobUrl = await _blobService.UploadFileAsync("certificates", fileName, stream, "text/html");
-            // Trả về URL gốc không có SAS token
-            return _blobService.GetBlobUrlWithoutSasToken(blobUrl);
-        }
-
         private async Task<string> PopulateTemplateAsync(
             string templateHtml,
             User trainee,
@@ -999,14 +923,12 @@ namespace OCMS_Services.Service
             IEnumerable<Grade> grades,
             string templateType)
         {
-            // Get general info
             var startDate = issueDate.ToString("dd/MM/yyyy");
             var endDate = issueDate.AddYears(3).ToString("dd/MM/yyyy");
             double averageScore = grades.Average(g => g.TotalScore);
             string gradeResult = DetermineGradeResult(averageScore);
             string avatarBase64 = await GetBase64AvatarAsync(trainee.AvatarUrl);
 
-            // Replace common placeholders
             var result = templateHtml
                 .Replace("[HỌ VÀ TÊN]", trainee.FullName)
                 .Replace("[Họ tên]", trainee.FullName)
@@ -1022,19 +944,16 @@ namespace OCMS_Services.Service
                 .Replace("[MÃ CHỨNG CHỈ]", certificateCode)
                 .Replace("[Mã chứng chỉ]", certificateCode);
 
-            // Replace template-specific placeholders
             if (templateType == "Initial")
             {
                 result = result.Replace("[LOẠI TỐT NGHIỆP]", gradeResult);
             }
 
-            // Update date in signature
             var currentDate = DateTime.Now;
             result = Regex.Replace(result,
                 @"ngày\s+\d+\s+tháng\s+\d+\s+năm\s+\d+",
                 $"ngày {currentDate.Day} tháng {currentDate.Month} năm {currentDate.Year}");
 
-            // Replace the image tag with appropriate 3x4 aspect ratio dimensions
             result = Regex.Replace(result,
                 "<img src=\"placeholder-photo.jpg\".*?>",
                 $"<img src=\"{avatarBase64}\" alt=\"{trainee.FullName}\" style=\"width: 150px; height: 204.8px; object-fit: cover;\">");
@@ -1058,17 +977,14 @@ namespace OCMS_Services.Service
 
             try
             {
-                // Check cache first
                 string cacheKey = $"avatar_base64_{avatarUrl.GetHashCode()}";
                 if (_memoryCache.TryGetValue(cacheKey, out string cachedAvatar))
                 {
                     return cachedAvatar;
                 }
 
-                // Đảm bảo URL có SAS token cập nhật
                 var urlWithSasToken = await _blobService.GetBlobUrlWithSasTokenAsync(avatarUrl, TimeSpan.FromMinutes(5));
 
-                // Sử dụng HttpClient để tải avatar từ URL với SAS token
                 using (var httpClient = new HttpClient())
                 {
                     var response = await httpClient.GetAsync(urlWithSasToken);
@@ -1079,7 +995,6 @@ namespace OCMS_Services.Service
                     string base64String = Convert.ToBase64String(bytes);
                     string result = $"data:{contentType};base64,{base64String}";
 
-                    // Cache và trả về kết quả
                     _memoryCache.Set(cacheKey, result, TimeSpan.FromMinutes(60));
                     return result;
                 }
@@ -1100,7 +1015,6 @@ namespace OCMS_Services.Service
                 return cachedAvatar;
             }
 
-            // Create a default avatar in Base64 format
             string defaultAvatarPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "default-avatar.jpg");
 
             if (File.Exists(defaultAvatarPath))
@@ -1109,13 +1023,11 @@ namespace OCMS_Services.Service
                 string base64String = Convert.ToBase64String(bytes);
                 string result = $"data:image/jpeg;base64,{base64String}";
 
-                // Cache the result indefinitely (it won't change)
                 _memoryCache.Set(cacheKey, result, TimeSpan.FromDays(365));
 
                 return result;
             }
 
-            // If no default file exists, return a simple SVG image in Base64
             string svgBase64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNlMGUwZTAiLz48Y2lyY2xlIGN4PSI1MCIgY3k9IjM1IiByPSIyMCIgZmlsbD0iIzlFOUU5RSIvPjxwYXRoIGQ9Ik0yNSw4NSBDMjUsNjAgNzUsNjAgNzUsODUgWiIgZmlsbD0iIzlFOUU5RSIvPjwvc3ZnPg==";
             _memoryCache.Set(cacheKey, svgBase64, TimeSpan.FromDays(365));
 
@@ -1137,7 +1049,6 @@ namespace OCMS_Services.Service
                     return;
                 }
 
-                // Create a more detailed notification message
                 string title = "Certificates Pending Digital Signature";
                 string message = $"{certificateCount} new certificate(s) for course '{courseName}' have been generated and require to sign with digital signature. " +
                                  $"Please review and request HeadMaster to sign these certificates at your earliest convenience.";
@@ -1155,7 +1066,6 @@ namespace OCMS_Services.Service
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error sending notifications to HeadMasters");
-                // We don't throw here as notification failure shouldn't break certificate generation
             }
         }
 
@@ -1172,13 +1082,12 @@ namespace OCMS_Services.Service
         private async Task<List<CertificateModel>> GetAllPendingCertificatesAsync()
         {
             var pendingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.Status == CertificateStatus.Pending);
-
             return _mapper.Map<List<CertificateModel>>(pendingCertificates);
         }
+
         private async Task<List<CertificateModel>> GetAllRevokeCertificatesAsync()
         {
             var pendingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.Status == CertificateStatus.Revoked);
-
             return _mapper.Map<List<CertificateModel>>(pendingCertificates);
         }
 

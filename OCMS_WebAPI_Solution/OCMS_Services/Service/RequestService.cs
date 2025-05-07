@@ -812,11 +812,7 @@ namespace OCMS_Services.Service
                                 await _unitOfWork.TraineeAssignRepository.UpdateAsync(traineeAssign);
                             }
 
-                            request.Status = RequestStatus.Approved;
-                            await _unitOfWork.RequestRepository.UpdateAsync(request);
-
-                            await _unitOfWork.SaveChangesAsync();
-
+                            actionSuccessful = true;
                             break;
                         }
                     case RequestType.AddTraineeAssign:
@@ -833,20 +829,124 @@ namespace OCMS_Services.Service
 
                             if (traineeAssign.RequestStatus != RequestStatus.Pending)
                                 throw new Exception("TraineeAssign is not in a pending state.");
-
-                            traineeAssign.RequestStatus = RequestStatus.Approved;
-                            traineeAssign.ApproveByUserId = approvedByUserId;
-                            traineeAssign.ApprovalDate = DateTime.UtcNow;
-
-                            request.Status = RequestStatus.Approved;
-
-                            // Save changes
-                            await _unitOfWork.TraineeAssignRepository.UpdateAsync(traineeAssign);
-                            await _unitOfWork.RequestRepository.UpdateAsync(request);
-                            await _unitOfWork.SaveChangesAsync();
-
+                            actionSuccessful = true;
                             break;
                         }
+                    case RequestType.CandidateImport:
+                        if (approver == null || approver.RoleId != 3)
+                        {
+                            throw new UnauthorizedAccessException("Only Training Staff can approve candidate import requests.");
+                        }
+                        var candidates = await _candidateRepository.GetCandidatesByImportRequestIdAsync(requestId);
+                        if (candidates != null && candidates.Any())
+                        {
+                            foreach (var candidate in candidates)
+                            {
+                                candidate.CandidateStatus = CandidateStatus.Approved;
+                                await _unitOfWork.CandidateRepository.UpdateAsync(candidate);
+                            }
+                        }
+
+                        var admins = await _userRepository.GetUsersByRoleAsync("Admin");
+                        foreach (var admin in admins)
+                        {
+                            await _notificationService.SendNotificationAsync(
+                                admin.UserId,
+                                "Candidate Import Approved",
+                                "The candidate import request has been approved. Please create user accounts for the new candidates.",
+                                "CandidateImport"
+                            );
+                        }
+                        actionSuccessful = true;
+                        break;
+
+                    case RequestType.PlanChange:
+
+                        if (approver == null || approver.RoleId != 2)
+                        {
+                            throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
+                        }
+                        var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
+                        if (trainingPlan != null && trainingPlan.TrainingPlanStatus == TrainingPlanStatus.Approved)
+                        {
+                            // Extract proposed changes from Notes
+                            if (request.Notes != null && request.Notes.Contains("Proposed changes:"))
+                            {
+                                var jsonStart = request.Notes.IndexOf("{");
+                                var jsonEnd = request.Notes.LastIndexOf("}") + 1;
+                                if (jsonStart >= 0 && jsonEnd > jsonStart)
+                                {
+                                    var json = request.Notes.Substring(jsonStart, jsonEnd - jsonStart);
+                                    var dto = JsonSerializer.Deserialize<TrainingPlanDTO>(json);
+
+                                    // Apply the changes
+                                    trainingPlan.PlanName = dto.PlanName;
+                                    trainingPlan.Description = dto.Description;
+                                    trainingPlan.ModifyDate = DateTime.Now;
+                                    trainingPlan.CreateByUserId = request.RequestUserId; // Or approvedByUserId
+                                    trainingPlan.TrainingPlanStatus = TrainingPlanStatus.Approved;
+                                    await _unitOfWork.TrainingPlanRepository.UpdateAsync(trainingPlan);
+                                }
+                            }
+                        }
+                        actionSuccessful = true;
+                        break;
+
+                    case RequestType.PlanDelete:
+
+                        if (approver == null || approver.RoleId != 2)
+                        {
+                            throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
+                        }
+                        var trainingPlanToDelete = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(request.RequestEntityId);
+                        if (trainingPlanToDelete != null)
+                        {
+                            await _trainingPlanService.Value.DeleteTrainingPlanAsync(request.RequestEntityId);
+                        }
+                        actionSuccessful = true;
+                        break;
+                    case RequestType.DecisionTemplate:
+                        if (approver == null || approver.RoleId != 2)
+                        {
+                            throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
+                        }
+                        var template = await _unitOfWork.DecisionTemplateRepository.GetByIdAsync(request.RequestEntityId);
+                        if (template != null)
+                        {
+                            template.TemplateStatus = (int)TemplateStatus.Active;
+                            await _unitOfWork.DecisionTemplateRepository.UpdateAsync(template);
+                        }
+                        actionSuccessful = true;
+                        break;
+                    case RequestType.CertificateTemplate:
+                        if (approver == null || approver.RoleId != 2)
+                        {
+                            throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
+                        }
+                        var certificateTemplate = await _unitOfWork.CertificateTemplateRepository.GetByIdAsync(request.RequestEntityId);
+                        if (certificateTemplate != null)
+                        {
+                            certificateTemplate.templateStatus = TemplateStatus.Active;
+                            await _unitOfWork.CertificateTemplateRepository.UpdateAsync(certificateTemplate);
+                        }
+                        actionSuccessful = true;
+                        break;
+
+                    case RequestType.Revoke:
+                        if (approver == null || approver.RoleId != 3)
+                        {
+                            throw new UnauthorizedAccessException("Only TrainingStaff can approve this request.");
+                        }
+                        var certificate = await _unitOfWork.CertificateRepository.GetByIdAsync(request.RequestEntityId);
+                        if (certificate != null)
+                        {
+                            certificate.Status = CertificateStatus.Revoked;
+                            certificate.RevocationDate = DateTime.Now;
+                            certificate.RevocationReason = request.Notes;
+                            await _unitOfWork.CertificateRepository.UpdateAsync(certificate);
+                        }
+                        actionSuccessful = true;
+                        break;
                     default:
                         // Handle default case
                         actionSuccessful = true;
