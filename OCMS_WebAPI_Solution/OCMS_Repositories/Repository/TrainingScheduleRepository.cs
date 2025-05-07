@@ -35,8 +35,10 @@ namespace OCMS_Repositories.Repository
             return await _context.TraineeAssignments
                 .Where(ta => ta.TraineeId == traineeId)
                 .Include(ta => ta.CourseSubjectSpecialty)
+                    .ThenInclude(css => css.Subject)
+                .Include(ta => ta.CourseSubjectSpecialty)
                     .ThenInclude(css => css.Schedules)
-                        .ThenInclude(s => s.Instructor)
+                    .ThenInclude(s => s.Instructor)
                 .ToListAsync();
         }
         public async Task<List<TrainingSchedule>> GetSchedulesByCourseSubjectIdAsync(string courseSubjectId)

@@ -129,7 +129,7 @@ namespace OCMS_Services.Service
             }
 
             await _unitOfWork.SaveChangesAsync();
-            //await _progressTrackingService.CheckAndUpdateCourseSubjectStatus(traineeAssign.CourseSubjectSpecialtyId);
+            await _progressTrackingService.CheckAndUpdateCourseSubjectSpecialtyStatus(traineeAssign.CourseSubjectSpecialtyId);
 
             return grade.GradeId;
         }
@@ -232,7 +232,7 @@ namespace OCMS_Services.Service
             }
 
             await _unitOfWork.SaveChangesAsync();
-            //await _progressTrackingService.CheckAndUpdateCourseSubjectStatus(assignTrainee.CourseSubjectSpecialtyId);
+            await _progressTrackingService.CheckAndUpdateCourseSubjectSpecialtyStatus(assignTrainee.CourseSubjectSpecialtyId);
 
             return true;
         }

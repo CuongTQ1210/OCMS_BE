@@ -10,6 +10,7 @@ namespace OCMS_BOs.ViewModel
     {
         public string ScheduleID { get; set; }
         public string CourseSubjectSpecialtyId { get; set; }
+        public string SubjectId {  get; set; }
         public string SubjectName { get; set; }
         public string InstructorID { get; set; }
         public string InstructorName { get; set; }
