@@ -829,6 +829,10 @@ namespace OCMS_Services.Service
 
                             if (traineeAssign.RequestStatus != RequestStatus.Pending)
                                 throw new Exception("TraineeAssign is not in a pending state.");
+                            traineeAssign.RequestStatus = RequestStatus.Approved;
+                            traineeAssign.ApproveByUserId = approvedByUserId;
+                            traineeAssign.ApprovalDate = DateTime.UtcNow;
+                            await _unitOfWork.TraineeAssignRepository.UpdateAsync(traineeAssign);
                             actionSuccessful = true;
                             break;
                         }
