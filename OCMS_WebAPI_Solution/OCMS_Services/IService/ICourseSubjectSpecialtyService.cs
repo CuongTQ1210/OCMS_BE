@@ -13,7 +13,7 @@ namespace OCMS_Services.IService
         Task<CourseSubjectSpecialtyModel> CreateCourseSubjectSpecialtyAsync(CourseSubjectSpecialtyDTO dto, string createdByUserId);
         Task<bool> DeleteCourseSubjectSpecialtyAsync(string id, string deletedByUserId);
         Task<bool> DeleteSubjectsbyCourseIdandSpecialtyId(DeleteAllSubjectInCourseSpecialty dto, string deletedByUserId);
-        Task<List<SubjectModel>> GetSubjectsByCourseIdAndSpecialtyIdAsync(string courseId, string specialtyId);
-        Task<List<CourseSubjectSpecialtyModel>> GetAllCourseSubjectSpecialtiesAsync();
+        Task<List<SubjectSimpleModel>> GetSubjectsByCourseIdAndSpecialtyIdAsync(string courseId, string specialtyId);
+        Task<List<CourseSubjectSpecialtySimpleModel>> GetAllCourseSubjectSpecialtiesAsync();
     }
 }
