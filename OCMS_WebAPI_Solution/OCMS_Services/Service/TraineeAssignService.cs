@@ -251,7 +251,7 @@ namespace OCMS_Services.Service
             lastIdNumber++;
             string newTraineeAssignId = $"TA{lastIdNumber:D5}";
 
-            // ✅ Create a new Request for approval
+            //Create a new Request for approval
             var newRequest = new Request
             {
                 RequestId = $"REQ-{Guid.NewGuid().ToString("N")[..6].ToUpper()}",
@@ -263,7 +263,7 @@ namespace OCMS_Services.Service
                 Notes = $"Request to assign Trainee {dto.TraineeId} to CourseSubjectSpecialty {dto.CourseSubjectSpecialtyId}."
             };
 
-            // ✅ Create TraineeAssign object with RequestId
+            //Create TraineeAssign object with RequestId
             var traineeAssign = new TraineeAssign
             {
                 TraineeAssignId = newTraineeAssignId,
@@ -286,12 +286,12 @@ namespace OCMS_Services.Service
                 await _unitOfWork.SaveChangesAsync();
             }
 
-            // ✅ Save both Request & TraineeAssign in a single transaction
+            //Save both Request & TraineeAssign in a single transaction
             await _unitOfWork.RequestRepository.AddAsync(newRequest);
             await _unitOfWork.TraineeAssignRepository.AddAsync(traineeAssign);
             await _unitOfWork.SaveChangesAsync();
 
-            // ✅ Return TraineeAssignModel
+            //Return TraineeAssignModel
             return _mapper.Map<TraineeAssignModel>(traineeAssign);
         }
         #endregion
@@ -345,7 +345,7 @@ namespace OCMS_Services.Service
                         result.Errors.Add($"Invalid or missing CourseId '{courseId}' in cell B1.");
                         return result;
                     }
-                    var courses = _unitOfWork.CourseRepository.FirstOrDefaultAsync(css => css.CourseId == courseId);
+                    var courses = await _unitOfWork.CourseRepository.FirstOrDefaultAsync(css => css.CourseId == courseId);
                     if(courses == null)    
                     {
                         result.Errors.Add($"Dont have Course that have CourseID: '{courseId}' in cell B1.");
@@ -358,7 +358,7 @@ namespace OCMS_Services.Service
                         result.Errors.Add($"Invalid or missing SubjectId '{subjectId}' in cell D1.");
                         return result;
                     }
-                    var subjects = _unitOfWork.SubjectRepository.FirstOrDefaultAsync(css => css.SubjectId == subjectId);
+                    var subjects = await _unitOfWork.SubjectRepository.FirstOrDefaultAsync(css => css.SubjectId == subjectId);
 
                     if (subjects == null)
                     {
@@ -372,7 +372,7 @@ namespace OCMS_Services.Service
                         result.Errors.Add($"Invalid or missing SpecialtyId '{SpecialtyId}' in cell F1.");
                         return result;
                     }
-                    var Specialtys = _unitOfWork.SpecialtyRepository.FirstOrDefaultAsync(css => css.SpecialtyId == SpecialtyId);
+                    var Specialtys = await _unitOfWork.SpecialtyRepository.FirstOrDefaultAsync(css => css.SpecialtyId == SpecialtyId);
 
                     if (Specialtys == null)
                     {
