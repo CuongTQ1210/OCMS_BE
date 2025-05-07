@@ -24,12 +24,12 @@ namespace OCMS_Repositories.Repository
             return await _context.TrainingPlans.AnyAsync(tp => tp.PlanId == id);
         }
 
-        public async Task<TraineeAssign> GetTraineeAssignmentAsync(string courseSubjectId, string traineeId)
+        public async Task<TraineeAssign> GetTraineeAssignmentAsync(string courseId, string traineeId)
         {
             return await _context.TraineeAssignments
                 .Include(ta => ta.CourseSubjectSpecialty)
                 .Include(ta => ta.Trainee)
-                .FirstOrDefaultAsync(ta => ta.CourseSubjectSpecialtyId == courseSubjectId && ta.TraineeId == traineeId);
+                .FirstOrDefaultAsync(ta => ta.CourseSubjectSpecialty.CourseId == courseId && ta.TraineeId == traineeId);
         }
 
         public async Task<IEnumerable<TraineeAssign>> GetTraineeAssignmentsByCourseSubjectIdAsync(string courseSubjectId)

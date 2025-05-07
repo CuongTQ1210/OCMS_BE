@@ -295,6 +295,7 @@ namespace OCMS_BOs.Helper
 
             // Training Schedule Mappings
             CreateMap<TrainingSchedule, TrainingScheduleModel>()
+                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.CourseSubjectSpecialty.Subject.SubjectId))
                 .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.CourseSubjectSpecialty.Subject.SubjectName))
                 .ForMember(dest => dest.InstructorName, opt => opt.MapFrom(src => src.Instructor != null ? src.Instructor.FullName : null))
                 .ForMember(dest => dest.StartDateTime, opt => opt.MapFrom(src => src.StartDateTime))

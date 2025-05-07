@@ -271,6 +271,7 @@ namespace OCMS_Services.Service
                 includes: new Expression<Func<InstructorAssignment, object>>[]
                 {
             i => i.CourseSubjectSpecialty,
+            i => i.CourseSubjectSpecialty.Subject,
             i => i.CourseSubjectSpecialty.Schedules
                 });
             if (assignments == null || !assignments.Any())
@@ -289,7 +290,12 @@ namespace OCMS_Services.Service
                             .Select(s => new TrainingScheduleModel
                             {
                                 ScheduleID = s.ScheduleID,
-                                DaysOfWeek = string.Join(",", s.DaysOfWeek), 
+                                CourseSubjectSpecialtyId = s.CourseSubjectSpecialtyId,
+                                SubjectId = s.CourseSubjectSpecialty.SubjectId,
+                                SubjectName = s.CourseSubjectSpecialty.Subject.SubjectName,
+                                DaysOfWeek = string.Join(",", s.DaysOfWeek),
+                                InstructorID = s.InstructorID,
+                                InstructorName = s.Instructor?.FullName,
                                 SubjectPeriod = s.SubjectPeriod,
                                 ClassTime = s.ClassTime,
                                 StartDateTime = s.StartDateTime,
@@ -329,6 +335,9 @@ namespace OCMS_Services.Service
                         .Select(s => new TrainingScheduleModel
                         {
                             ScheduleID = s.ScheduleID,
+                            CourseSubjectSpecialtyId = s.CourseSubjectSpecialtyId,
+                            SubjectId = s.CourseSubjectSpecialty.SubjectId,
+                            SubjectName = s.CourseSubjectSpecialty.Subject.SubjectName,
                             Notes = s.Notes,
                             DaysOfWeek = string.Join(",", s.DaysOfWeek),
                             InstructorID = s.InstructorID,

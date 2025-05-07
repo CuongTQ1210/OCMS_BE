@@ -54,6 +54,7 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
+
         #region Delete Course-Subject-Specialty
         [HttpDelete("{id}")]
         [CustomAuthorize("Admin", "Training staff")]
@@ -82,6 +83,7 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
+
         #region Delete Subjects by CourseId and SpecialtyId
         [HttpDelete("Allsubject")]
         [CustomAuthorize("Admin", "Training staff")]
