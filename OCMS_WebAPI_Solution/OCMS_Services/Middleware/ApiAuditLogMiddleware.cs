@@ -4,6 +4,7 @@ using OCMS_BOs;
 using OCMS_BOs.Entities;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Security.Claims;
 using System.Text;
@@ -23,31 +24,31 @@ namespace OCMS_Services.Middleware
 
         public async Task InvokeAsync(HttpContext context, OCMSDbContext dbContext)
         {
-            // Chỉ áp dụng cho các API requests
+            // Chỉ áp dụng middleware cho các yêu cầu API
             if (!context.Request.Path.StartsWithSegments("/api"))
             {
                 await _next(context);
                 return;
             }
 
-            // Lưu lại request body
+            // Lưu trữ body của request gốc
             var originalBodyStream = context.Response.Body;
 
-            // Cho phép đọc request body nhiều lần
+            // Cho phép đọc lại body của request
             context.Request.EnableBuffering();
 
-            // Đọc request body
+            // Đọc nội dung request
             string requestBody = "";
             if (context.Request.ContentLength > 0)
             {
                 using (var reader = new StreamReader(context.Request.Body, Encoding.UTF8, true, 1024, true))
                 {
                     requestBody = await reader.ReadToEndAsync();
-                    context.Request.Body.Position = 0; // Reset vị trí để đọc lại sau này
+                    context.Request.Body.Position = 0; // Đặt lại vị trí để đọc lại sau
                 }
             }
 
-            // Chuẩn bị để capture response
+            // Chuẩn bị để ghi lại response
             using var responseBody = new MemoryStream();
             context.Response.Body = responseBody;
 
@@ -61,32 +62,34 @@ namespace OCMS_Services.Middleware
             }
             finally
             {
-                // Sau khi request được xử lý, đọc response
+                // Đọc nội dung response
                 responseBody.Position = 0;
                 string responseContent = await new StreamReader(responseBody).ReadToEndAsync();
                 responseBody.Position = 0;
 
-                // Copy response lại cho client
+                // Gửi response về client
                 await responseBody.CopyToAsync(originalBodyStream);
 
-                // Lấy thông tin người dùng
+                // Lấy thông tin người dùng từ claims
                 var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
                 // Chỉ ghi log nếu người dùng đã đăng nhập
                 if (!string.IsNullOrEmpty(userId))
                 {
-                    // Loại bỏ thông tin nhạy cảm từ request và response
-                    var sanitizedRequestBody = SanitizeContent(requestBody);
-                    var sanitizedResponseContent = SanitizeContent(responseContent);
+                    // Lấy Content-Type của request và response
+                    string requestContentType = context.Request.ContentType;
+                    string responseContentType = context.Response.ContentType;
 
-                    // Xác định tên action từ route data
+                    // Làm sạch dữ liệu nhạy cảm
+                    var sanitizedRequestBody = SanitizeContent(requestBody, requestContentType);
+                    var sanitizedResponseContent = SanitizeContent(responseContent, responseContentType);
+
+                    // Xác định tên hành động từ route
                     var controllerName = context.Request.RouteValues["controller"]?.ToString() ?? "Unknown";
                     var actionName = context.Request.RouteValues["action"]?.ToString() ?? "Unknown";
-
-                    // Tạo action name theo định dạng thống nhất
                     var action = $"{context.Request.Method}_{controllerName}_{actionName}".ToLower();
 
-                    // Tạo chi tiết hành động
+                    // Tạo chi tiết hành động dưới dạng JSON
                     var actionDetails = JsonSerializer.Serialize(new
                     {
                         Path = context.Request.Path.Value,
@@ -100,7 +103,7 @@ namespace OCMS_Services.Middleware
                         UserAgent = context.Request.Headers["User-Agent"].ToString()
                     });
 
-                    // Tạo mới bản ghi AuditLog
+                    // Tạo bản ghi AuditLog
                     var auditLog = new AuditLog
                     {
                         UserId = userId,
@@ -109,35 +112,35 @@ namespace OCMS_Services.Middleware
                         Timestamp = startTime
                     };
 
-                    // Lưu vào database
+                    // Lưu vào cơ sở dữ liệu
                     await dbContext.AuditLogs.AddAsync(auditLog);
                     await dbContext.SaveChangesAsync();
                 }
             }
         }
 
-        private string SanitizeContent(string content)
+        private string SanitizeContent(string content, string contentType)
         {
-            // Đây là nơi bạn có thể thêm logic để lọc thông tin nhạy cảm như passwords, tokens, etc.
-            // Ví dụ đơn giản:
-            if (string.IsNullOrEmpty(content))
+            // Nếu nội dung hoặc Content-Type rỗng, hoặc không phải JSON, trả về nguyên bản
+            if (string.IsNullOrEmpty(content) || string.IsNullOrEmpty(contentType) ||
+                !contentType.Contains("json", StringComparison.OrdinalIgnoreCase))
+            {
                 return content;
+            }
 
             try
             {
-                // Xử lý nếu content là JSON
+                // Phân tích JSON và làm sạch dữ liệu nhạy cảm
                 var jsonDoc = JsonDocument.Parse(content);
                 using var stream = new MemoryStream();
                 using var writer = new Utf8JsonWriter(stream);
-
                 SanitizeJsonElement(jsonDoc.RootElement, writer);
-
                 writer.Flush();
                 return Encoding.UTF8.GetString(stream.ToArray());
             }
             catch
             {
-                // Nếu không phải JSON, trả về nguyên bản
+                // Nếu JSON không hợp lệ, trả về nội dung gốc
                 return content;
             }
         }
@@ -151,8 +154,7 @@ namespace OCMS_Services.Middleware
                     foreach (var property in element.EnumerateObject())
                     {
                         var propertyName = property.Name.ToLowerInvariant();
-
-                        // Kiểm tra các field nhạy cảm
+                        // Làm sạch các trường nhạy cảm
                         if (propertyName.Contains("password") ||
                             propertyName.Contains("token") ||
                             propertyName.Contains("secret") ||
@@ -169,7 +171,6 @@ namespace OCMS_Services.Middleware
                     }
                     writer.WriteEndObject();
                     break;
-
                 case JsonValueKind.Array:
                     writer.WriteStartArray();
                     foreach (var item in element.EnumerateArray())
@@ -178,23 +179,18 @@ namespace OCMS_Services.Middleware
                     }
                     writer.WriteEndArray();
                     break;
-
                 case JsonValueKind.String:
                     writer.WriteStringValue(element.GetString());
                     break;
-
                 case JsonValueKind.Number:
                     writer.WriteNumberValue(element.GetDecimal());
                     break;
-
                 case JsonValueKind.True:
                     writer.WriteBooleanValue(true);
                     break;
-
                 case JsonValueKind.False:
                     writer.WriteBooleanValue(false);
                     break;
-
                 case JsonValueKind.Null:
                     writer.WriteNullValue();
                     break;
@@ -202,7 +198,7 @@ namespace OCMS_Services.Middleware
         }
     }
 
-    // Extension method để dễ dàng đăng ký middleware
+    // Phương thức mở rộng để đăng ký middleware
     public static class ApiAuditLogMiddlewareExtensions
     {
         public static IApplicationBuilder UseApiAuditLogging(this IApplicationBuilder builder)

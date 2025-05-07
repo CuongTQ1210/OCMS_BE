@@ -305,27 +305,72 @@ namespace OCMS_Services.Service
                     throw new Exception($"Course with ID {courseId} not found or not active or has no subjects!");
                 }
 
-                var traineeAssignment = await _traineeAssignRepository.GetTraineeAssignmentAsync(courseId, userId);
-                if (traineeAssignment == null)
-                {
-                    throw new InvalidOperationException($"Trainee is not enrolled in this course");
-                }
-
-                var grades = await _gradeRepository.GetGradesByTraineeAssignIdAsync(traineeAssignment.TraineeAssignId);
-                if (!grades.Any() || grades.Count() < course.CourseSubjectSpecialties.Count)
-                {
-                    throw new InvalidOperationException($"Trainee has not completed all subjects in this course");
-                }
-
-                if (grades.Any(g => g.gradeStatus != GradeStatus.Pass))
-                {
-                    throw new InvalidOperationException($"Trainee has not passed all subjects in this course");
-                }
-
                 var trainee = await _userRepository.GetByIdAsync(userId);
                 if (trainee == null)
                 {
                     throw new Exception($"Trainee with ID {userId} not found");
+                }
+
+                // Lấy chuyên ngành của trainee từ thông tin user
+                string specialtyId = trainee.SpecialtyId;
+                if (string.IsNullOrEmpty(specialtyId))
+                {
+                    throw new InvalidOperationException($"Trainee does not have a specialty assigned");
+                }
+
+                // Danh sách các TraineeAssignment của trainee trong khóa học này với chuyên ngành tương ứng
+                var traineeAssignments = await _unitOfWork.TraineeAssignRepository.GetAllAsync(
+                    ta => ta.TraineeId == userId &&
+                          ta.CourseSubjectSpecialty.CourseId == courseId &&
+                          ta.CourseSubjectSpecialty.SpecialtyId == specialtyId &&
+                          ta.RequestStatus == RequestStatus.Approved);
+
+                if (!traineeAssignments.Any())
+                {
+                    throw new InvalidOperationException($"Trainee is not enrolled in this course with their specialty");
+                }
+
+                // Lấy các CourseSubjectSpecialty phù hợp với chuyên ngành của trainee
+                var courseSubjectSpecialties = course.CourseSubjectSpecialties
+                    .Where(css => css.SpecialtyId == specialtyId)
+                    .ToList();
+
+                if (!courseSubjectSpecialties.Any())
+                {
+                    throw new InvalidOperationException($"No subjects found for trainee's specialty {specialtyId} in this course");
+                }
+
+                // Kiểm tra xem trainee có đăng ký đủ tất cả các môn học thuộc specialty không
+                var assignedSubjectIds = traineeAssignments
+                    .Select(ta => ta.CourseSubjectSpecialty.SubjectId)
+                    .Distinct()
+                    .ToList();
+
+                var requiredSubjectIds = courseSubjectSpecialties
+                    .Select(css => css.SubjectId)
+                    .Distinct()
+                    .ToList();
+
+                var missingSubjects = requiredSubjectIds.Except(assignedSubjectIds).ToList();
+                if (missingSubjects.Any())
+                {
+                    throw new InvalidOperationException($"Trainee is not enrolled in all required subjects for their specialty");
+                }
+
+                // Kiểm tra điểm số cho tất cả các môn học trong specialty này
+                foreach (var traineeAssignment in traineeAssignments)
+                {
+                    var grades = await _gradeRepository.GetGradesByTraineeAssignIdAsync(traineeAssignment.TraineeAssignId);
+
+                    if (!grades.Any())
+                    {
+                        throw new InvalidOperationException($"Trainee has not completed subject '{traineeAssignment.CourseSubjectSpecialty.Subject?.SubjectName ?? traineeAssignment.CourseSubjectSpecialtyId}' in this course");
+                    }
+
+                    if (grades.Any(g => g.gradeStatus != GradeStatus.Pass))
+                    {
+                        throw new InvalidOperationException($"Trainee has not passed subject '{traineeAssignment.CourseSubjectSpecialty.Subject?.SubjectName ?? traineeAssignment.CourseSubjectSpecialtyId}' in this course");
+                    }
                 }
 
                 var templateId = await GetTemplateIdByCourseLevelAsync(course.CourseLevel);
@@ -346,8 +391,13 @@ namespace OCMS_Services.Service
                 var issueDate = DateTime.Now;
                 Certificate certificate;
 
-                // Get SpecialtyId from TraineeAssign
-                var specialtyId = traineeAssignment.CourseSubjectSpecialty.SpecialtyId;
+                // Lấy tất cả điểm số cho việc tạo chứng chỉ
+                var allGrades = new List<Grade>();
+                foreach (var traineeAssign in traineeAssignments)
+                {
+                    var assignGrades = await _gradeRepository.GetGradesByTraineeAssignIdAsync(traineeAssign.TraineeAssignId);
+                    allGrades.AddRange(assignGrades);
+                }
 
                 if (course.CourseLevel == CourseLevel.Recurrent)
                 {
@@ -390,7 +440,7 @@ namespace OCMS_Services.Service
                 else
                 {
                     certificate = await GenerateCertificateAsync(
-                        trainee, course, templateId, templateHtml, templateType, grades.ToList(), issuedByUserId, issueDate, specialtyId);
+                        trainee, course, templateId, templateHtml, templateType, allGrades, issuedByUserId, issueDate, specialtyId);
 
                     await _unitOfWork.CertificateRepository.AddAsync(certificate);
                     await _unitOfWork.SaveChangesAsync();
