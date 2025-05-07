@@ -455,9 +455,10 @@ namespace OCMS_Services.Service
                         t => t.Trainee);  // Explicitly include Trainee to access User data
 
                     var assignMap = existingTraineeAssigns
-                         .Where(a => a.CourseSubjectSpecialty.SubjectId == subject.SubjectId && a.CourseSubjectSpecialty.SpecialtyId == courseSpecialty.SpecialtyId)
-                         .ToDictionary(a => a.TraineeId, a => (a.TraineeAssignId, a.TraineeId, a.Trainee));
-
+                        .Where(a => a.CourseSubjectSpecialty.CourseId == course.CourseId &&
+                                    a.CourseSubjectSpecialty.SubjectId == subject.SubjectId &&
+                                    a.CourseSubjectSpecialty.SpecialtyId == courseSpecialty.SpecialtyId)
+                        .ToDictionary(a => a.TraineeId, a => (a.TraineeAssignId, a.TraineeId, a.Trainee));
                     var newGrades = new List<Grade>();
                     int rowCount = worksheet.Dimension.Rows;
                     result.TotalRecords = rowCount - 2;
