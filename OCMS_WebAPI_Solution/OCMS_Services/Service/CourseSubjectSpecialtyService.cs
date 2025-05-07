@@ -175,7 +175,7 @@ namespace OCMS_Services.Service
         #endregion
 
         #region Get Subjects By CourseId And SpecialtyId
-        public async Task<List<SubjectModel>> GetSubjectsByCourseIdAndSpecialtyIdAsync(string courseId, string specialtyId)
+        public async Task<List<SubjectSimpleModel>> GetSubjectsByCourseIdAndSpecialtyIdAsync(string courseId, string specialtyId)
         {
             // check if the course and specialty exist
             var course = await _unitOfWork.CourseRepository.GetByIdAsync(courseId);
@@ -198,21 +198,20 @@ namespace OCMS_Services.Service
             // get the subjects from CourseSubjectSpecialty
             var subjects = cssList.Select(css => css.Subject).ToList();
             
-            return _mapper.Map<List<SubjectModel>>(subjects);
+            return _mapper.Map<List<SubjectSimpleModel>>(subjects);
         }
         #endregion
 
         #region Get All CourseSubjectSpecialties
-        public async Task<List<CourseSubjectSpecialtyModel>> GetAllCourseSubjectSpecialtiesAsync()
+        public async Task<List<CourseSubjectSpecialtySimpleModel>> GetAllCourseSubjectSpecialtiesAsync()
         {
-            var courseSubjectSpecialties = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAllAsync(
-                css => css.Course,
-                css => css.Subject,
-                css => css.Specialty,
-                css => css.CreatedByUser
-            );
+             var courseSubjectSpecialties = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAllAsync(
+        css => css.Course,
+        css => css.Subject,
+        css => css.Specialty
+    );
 
-            return _mapper.Map<List<CourseSubjectSpecialtyModel>>(courseSubjectSpecialties);
+    return _mapper.Map<List<CourseSubjectSpecialtySimpleModel>>(courseSubjectSpecialties);
         }
         #endregion
 
