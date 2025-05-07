@@ -10,7 +10,7 @@ namespace OCMS_Services.IService
 {
     public interface ISubjectService
     {
-        Task<IEnumerable<SubjectModel>> GetAllSubjectsAsync();
+        Task<IEnumerable<GetAllSubjectModel>> GetAllSubjectsAsync();
         Task<SubjectModel> GetSubjectByIdAsync(string subjectId);
         Task<SubjectModel> CreateSubjectAsync(SubjectDTO dto, string createdByUserId);
         Task<SubjectModel> UpdateSubjectAsync(string subjectId, SubjectDTO dto);
