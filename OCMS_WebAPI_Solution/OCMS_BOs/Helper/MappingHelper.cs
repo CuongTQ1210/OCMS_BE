@@ -138,7 +138,6 @@ CreateMap<Subject, SubjectSimpleModel>();
             // Course Mapping
             CreateMap<Course, CourseModel>()
                 .ForMember(dest => dest.CourseId, opt => opt.MapFrom(src => src.CourseId))
-                // Remove TrainingPlanId mapping as Course doesn't have this property
                 .ForMember(dest => dest.CourseName, opt => opt.MapFrom(src => src.CourseName))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
                 .ForMember(dest => dest.CourseRelatedId, opt => opt.MapFrom(src => src.RelatedCourseId))
@@ -348,8 +347,15 @@ CreateMap<Subject, SubjectSimpleModel>();
                 .ForMember(dest => dest.SubjectPeriod, opt => opt.MapFrom(src => src.SubjectPeriod));
 
             // Grade Mappings
+            // Grade Mappings
             CreateMap<Grade, GradeModel>()
                 .ForMember(dest => dest.GradeStatus, opt => opt.MapFrom(src => src.gradeStatus.ToString()))
+                .ForMember(dest => dest.TraineeAssignId, opt => opt.MapFrom(src => src.TraineeAssignID))
+                .ForMember(dest => dest.TraineeId, opt => opt.MapFrom(src => src.TraineeAssign.TraineeId))
+                .ForMember(dest => dest.CourseSubjectSpecialtyId, opt => opt.MapFrom(src => src.TraineeAssign.CourseSubjectSpecialtyId))
+                .ForMember(dest => dest.Fullname, opt => opt.MapFrom(src => src.TraineeAssign.Trainee.FullName))
+                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.TraineeAssign.CourseSubjectSpecialty.SubjectId))
+                .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.TraineeAssign.CourseSubjectSpecialty.Subject.SubjectName))
                 .ReverseMap()
                 .ForMember(dest => dest.gradeStatus, opt => opt.MapFrom(src => Enum.Parse<GradeStatus>(src.GradeStatus)));
 
@@ -365,19 +371,19 @@ CreateMap<Subject, SubjectSimpleModel>();
             CreateMap<Grade, GradeDTO>();
 
             CreateMap<ExternalCertificateModel, ExternalCertificate>()
-    .ForMember(dest => dest.ExternalCertificateId, opt => opt.Ignore()) // ID is likely auto-generated
-    .ForMember(dest => dest.CertificateCode, opt => opt.MapFrom(src => src.CertificateCode))
-    .ForMember(dest => dest.CertificateName, opt => opt.MapFrom(src => src.CertificateName))
-    .ForMember(dest => dest.IssuingOrganization, opt => opt.MapFrom(src => src.CertificateProvider))
-    .ForMember(dest => dest.CandidateId, opt => opt.MapFrom(src => src.CandidateId))
-    .ForMember(dest => dest.CertificateFileURL, opt => opt.Ignore()) // You'll set this after upload
-    .ForMember(dest => dest.UserId, opt => opt.Ignore())
-    .ForMember(dest => dest.User, opt => opt.Ignore())
-    .ForMember(dest => dest.Candidate, opt => opt.Ignore())
-    .ForMember(dest => dest.VerifyByUserId, opt => opt.Ignore())
-    .ForMember(dest => dest.VerifyDate, opt => opt.MapFrom(_ => DateTime.UtcNow))
-    .ForMember(dest => dest.VerificationStatus, opt => opt.MapFrom(_ => VerificationStatus.Pending))
-    .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow));
+                .ForMember(dest => dest.ExternalCertificateId, opt => opt.Ignore()) // ID is likely auto-generated
+                .ForMember(dest => dest.CertificateCode, opt => opt.MapFrom(src => src.CertificateCode))
+                .ForMember(dest => dest.CertificateName, opt => opt.MapFrom(src => src.CertificateName))
+                .ForMember(dest => dest.IssuingOrganization, opt => opt.MapFrom(src => src.CertificateProvider))
+                .ForMember(dest => dest.CandidateId, opt => opt.MapFrom(src => src.CandidateId))
+                .ForMember(dest => dest.CertificateFileURL, opt => opt.Ignore()) // You'll set this after upload
+                .ForMember(dest => dest.UserId, opt => opt.Ignore())
+                .ForMember(dest => dest.User, opt => opt.Ignore())
+                .ForMember(dest => dest.Candidate, opt => opt.Ignore())
+                .ForMember(dest => dest.VerifyByUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.VerifyDate, opt => opt.MapFrom(_ => DateTime.UtcNow))
+                .ForMember(dest => dest.VerificationStatus, opt => opt.MapFrom(_ => VerificationStatus.Pending))
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow));
 
             CreateMap<ExternalCertificate, ExternalCertificateModel>()
                 .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.ExternalCertificateId.ToString()))
