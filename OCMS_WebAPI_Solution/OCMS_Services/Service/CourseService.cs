@@ -11,6 +11,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 
 public class CourseService : ICourseService
 {
@@ -98,19 +99,34 @@ public class CourseService : ICourseService
         }
         else
         {
-            // For Professional, Recurrent, Relearn, use CourseRelatedId with suffix
-            courseId = courseLevel switch
+            string suffix = courseLevel switch
             {
-                CourseLevel.Professional => $"{dto.CourseRelatedId}-PRO",
-                CourseLevel.Recurrent => $"{dto.CourseRelatedId}-REC",
-                CourseLevel.Relearn => $"{dto.CourseRelatedId}-REL",
+                CourseLevel.Professional => "PRO",
+                CourseLevel.Recurrent => "REC",
+                CourseLevel.Relearn => "REL",
                 _ => throw new InvalidOperationException("Invalid CourseLevel for CourseId generation.")
             };
 
-            // Validate uniqueness of generated CourseId
-            var existingCourse = await _unitOfWork.CourseRepository.GetByIdAsync(courseId);
-            if (existingCourse != null)
-                throw new ArgumentException($"Generated CourseId {courseId} already exists.");
+            // Pattern to match: COURSEID-SUFFIX#
+            var baseCourseId = $"{dto.CourseRelatedId}-{suffix}";
+
+            // Fetch all courses with similar CourseId prefix
+            var existingCourses = await _unitOfWork.CourseRepository
+                .GetAllAsync(c => c.CourseId.StartsWith(baseCourseId));
+
+            // Extract numeric suffixes and find the max
+            int maxNumber = 0;
+            foreach (var Course in existingCourses)
+            {
+                var match = Regex.Match(Course.CourseId, $@"{Regex.Escape(baseCourseId)}(\d+)$");
+                if (match.Success && int.TryParse(match.Groups[1].Value, out int number))
+                {
+                    maxNumber = Math.Max(maxNumber, number);
+                }
+            }
+
+            // Generate new CourseId with incremented suffix
+            courseId = $"{baseCourseId}{maxNumber + 1}";
         }
 
         // Map DTO to Course entity
