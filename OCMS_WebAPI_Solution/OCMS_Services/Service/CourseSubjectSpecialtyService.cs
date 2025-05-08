@@ -49,11 +49,11 @@ namespace OCMS_Services.Service
             if (!await _unitOfWork.UserRepository.ExistsAsync(u => u.UserId == createdByUserId))
                 throw new ArgumentException("The specified User ID does not exist.");
             // Check for that specialty has already have subject
-            if (course.CourseLevel == CourseLevel.Initial)
+            if ((course.CourseLevel == CourseLevel.Initial )||(course.CourseLevel == CourseLevel.Professional) )
             {
                 if (await _unitOfWork.CourseSubjectSpecialtyRepository.ExistsAsync(
                     css => css.SubjectId == dto.SubjectId && css.SpecialtyId == dto.SpecialtyId))
-                    throw new ArgumentException("Specialty: " + dto.SpecialtyId + " has already exist Subject: " + dto.SubjectId);
+                    throw new ArgumentException("Course Initial or Professtional cant have same Subject: " + dto.SubjectId + " in 1 Specialty: " + dto.SpecialtyId);
             }
             else
             {
