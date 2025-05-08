@@ -12,6 +12,9 @@ namespace OCMS_BOs.ViewModel
         public string TraineeId { get; set; }
         public string Fullname { get; set; }
         public string CourseSubjectSpecialtyId { get; set; }
+        public string TraineeAssignId { get; set; }
+        public string SubjectId { get; set; }
+        public string SubjectName { get; set; }
 
         public double ParticipantScore { get; set; }
         public double AssignmentScore { get; set; }

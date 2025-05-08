@@ -45,17 +45,10 @@ namespace OCMS_Services.Service
             var grades = await _unitOfWork.GradeRepository.GetAllAsync(
                 g => g.TraineeAssign,
                 g => g.TraineeAssign.CourseSubjectSpecialty,
+                g => g.TraineeAssign.CourseSubjectSpecialty.Subject,
                 g => g.TraineeAssign.Trainee);
-            var gradeModels = new List<GradeModel>();
 
-            foreach (var grade in grades)
-            {
-                var gradeModel = _mapper.Map<GradeModel>(grade);
-                gradeModel.Fullname = grade.TraineeAssign?.Trainee?.FullName;
-                gradeModels.Add(gradeModel);
-            }
-
-            return gradeModels;
+            return _mapper.Map<IEnumerable<GradeModel>>(grades);
         }
         #endregion
 
@@ -66,13 +59,12 @@ namespace OCMS_Services.Service
                 g => g.GradeId == id,
                 g => g.TraineeAssign,
                 g => g.TraineeAssign.CourseSubjectSpecialty,
+                g => g.TraineeAssign.CourseSubjectSpecialty.Subject,
                 g => g.TraineeAssign.Trainee);
             if (grade == null)
                 throw new KeyNotFoundException($"Grade with ID '{id}' not found.");
 
-            var gradeModel = _mapper.Map<GradeModel>(grade);
-            gradeModel.Fullname = grade.TraineeAssign?.Trainee?.FullName;
-            return gradeModel;
+            return _mapper.Map<GradeModel>(grade);
         }
         #endregion
 
@@ -289,11 +281,10 @@ namespace OCMS_Services.Service
                 g => g.TraineeAssign.CourseSubjectSpecialty.SubjectId == subjectId,
                 include => include.TraineeAssign,
                 include => include.TraineeAssign.Trainee,
-                include => include.TraineeAssign.CourseSubjectSpecialty);
+                include => include.TraineeAssign.CourseSubjectSpecialty,
+                include => include.TraineeAssign.CourseSubjectSpecialty.Subject);
 
-            // Use AutoMapper to project the grades to GradeModel, including Fullname
-            var gradeModels = _mapper.Map<List<GradeModel>>(grades);
-            return gradeModels;
+            return _mapper.Map<List<GradeModel>>(grades);
         }
         #endregion
 
@@ -303,14 +294,11 @@ namespace OCMS_Services.Service
             var grades = await _unitOfWork.GradeRepository.FindIncludeAsync(
                 g => g.TraineeAssign.TraineeId == userId,
                 include => include.TraineeAssign,
-                include => include.TraineeAssign.Trainee);
-            var gradeModels = _mapper.Map<List<GradeModel>>(grades);
-            foreach (var gradeModel in gradeModels)
-            {
-                var grade = grades.First(g => g.GradeId == gradeModel.GradeId);
-                gradeModel.Fullname = grade.TraineeAssign?.Trainee?.FullName;
-            }
-            return gradeModels;
+                include => include.TraineeAssign.Trainee,
+                include => include.TraineeAssign.CourseSubjectSpecialty,
+                include => include.TraineeAssign.CourseSubjectSpecialty.Subject);
+
+            return _mapper.Map<List<GradeModel>>(grades);
         }
         #endregion
 
@@ -320,14 +308,11 @@ namespace OCMS_Services.Service
             var grades = await _unitOfWork.GradeRepository.FindAsync(
                 g => g.gradeStatus == status,
                 g => g.TraineeAssign,
-                g => g.TraineeAssign.Trainee);
-            var gradeModels = _mapper.Map<List<GradeModel>>(grades);
-            foreach (var gradeModel in gradeModels)
-            {
-                var grade = grades.First(g => g.GradeId == gradeModel.GradeId);
-                gradeModel.Fullname = grade.TraineeAssign?.Trainee?.FullName;
-            }
-            return gradeModels;
+                g => g.TraineeAssign.Trainee,
+                g => g.TraineeAssign.CourseSubjectSpecialty,
+                g => g.TraineeAssign.CourseSubjectSpecialty.Subject);
+
+            return _mapper.Map<List<GradeModel>>(grades);
         }
         #endregion
 
@@ -355,17 +340,11 @@ namespace OCMS_Services.Service
             var grades = await _unitOfWork.GradeRepository.FindIncludeAsync(
                 g => g.TraineeAssign.CourseSubjectSpecialtyId != null && cssIds.Contains(g.TraineeAssign.CourseSubjectSpecialtyId),
                 include => include.TraineeAssign,
-                include => include.TraineeAssign.Trainee);
+                include => include.TraineeAssign.Trainee,
+                include => include.TraineeAssign.CourseSubjectSpecialty,
+                include => include.TraineeAssign.CourseSubjectSpecialty.Subject);
 
-            var gradeModels = new List<GradeModel>();
-            foreach (var grade in grades)
-            {
-                var gradeModel = _mapper.Map<GradeModel>(grade);
-                gradeModel.Fullname = grade.TraineeAssign?.Trainee?.FullName;
-                gradeModels.Add(gradeModel);
-            }
-
-            return gradeModels;
+            return _mapper.Map<List<GradeModel>>(grades);
         }
         #endregion
 
@@ -464,12 +443,12 @@ namespace OCMS_Services.Service
                         return result;
                     }
 
-                    //if (course.Status == CourseStatus.Pending || course.Status == CourseStatus.Rejected ||
-                    //    course.Progress == Progress.NotYet || course.Progress == Progress.Completed)
-                    //{
-                    //    result.Errors.Add("Course isn't suitable to create grades.");
-                    //    return result;
-                    //}
+                    if (course.Status == CourseStatus.Pending || course.Status == CourseStatus.Rejected ||
+                        course.Progress == Progress.NotYet || course.Progress == Progress.Completed)
+                    {
+                        result.Errors.Add("Course isn't suitable to create grades.");
+                        return result;
+                    }
 
                     var schedule = await _trainingScheduleRepository.GetSchedulesByCourseSubjectIdAsync(css.Id);
                     if (schedule == null)

@@ -362,7 +362,6 @@ namespace OCMS_Services.Service
                     {
                         throw new InvalidOperationException($"Course '{plan.Course.CourseName}' must have at least one subject for specialty '{plan.SpecialtyId}'.");
                     }
-
                     return true;
                 case RequestType.Update:
                 case RequestType.Delete:
@@ -690,7 +689,7 @@ namespace OCMS_Services.Service
                             {
                                 await _notificationService.SendNotificationAsync(
                                     request.RequestUserId,
-                                    "Training Plan Approved",
+                                    "Trainee Plan Approved",
                                     $"Your request for {request.RequestEntityId} has been approved.",
                                     $"{request.RequestType.ToString()}"
                                 );
@@ -800,7 +799,7 @@ namespace OCMS_Services.Service
                             var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(subjectId);
                             var specialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(specialtyId);
 
-                            if (courses == null)
+                            if (course == null)
                             {
                                 throw new KeyNotFoundException($"Course with ID '{courseId}' not found.");
                             }
@@ -861,7 +860,6 @@ namespace OCMS_Services.Service
                             trainingplan.ApproveByUserId = approvedByUserId;
                             trainingplan.ApproveDate = DateTime.UtcNow;
                             await _unitOfWork.TrainingPlanRepository.UpdateAsync(trainingplan);
-
                             var courses = await _courseRepository.GetCourseByTrainingPlanIdAsync(trainingplan.PlanId);
                             var courseSubjectSpecialties = await _unitOfWork.CourseSubjectSpecialtyRepository
                                 .GetAllAsync(css => css.CourseId == courses.CourseId && css.SpecialtyId == trainingplan.SpecialtyId,
@@ -1325,7 +1323,6 @@ namespace OCMS_Services.Service
                         plan.ApproveByUserId = null;
                         plan.ApproveDate = null;
                         await _unitOfWork.TrainingPlanRepository.UpdateAsync(plan);
-
                         // Lấy thời gian bắt đầu và kết thúc của plan
                         var planStartDate = plan.StartDate;
                         var planEndDate = plan.EndDate;
@@ -1371,7 +1368,36 @@ namespace OCMS_Services.Service
                                     await _unitOfWork.TraineeAssignRepository.UpdateAsync(trainee);
                                 }
                             }
+                        // ❌ Reject all associated courses
+                        var course = await _courseRepository.GetCourseByTrainingPlanIdAsync(plan.PlanId);
 
+                        course.Status = CourseStatus.Rejected;
+                        await _unitOfWork.CourseRepository.UpdateAsync(course);
+
+                        // Load CourseSubjectSpecialties for the course
+                        var courseSubjectSpecialties = await _unitOfWork.CourseSubjectSpecialtyRepository
+                            .GetAllAsync(css => css.CourseId == course.CourseId,
+                                css => css.Schedules,
+                                css => css.Trainees);
+                        foreach (var css in courseSubjectSpecialties)
+                        {
+                            // Reject all schedules
+                            foreach (var schedule in css.Schedules)
+                            {
+                                schedule.Status = ScheduleStatus.Canceled;
+                                schedule.ModifiedDate = DateTime.UtcNow;
+                                await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
+                            }
+
+                            // Reject all trainee assignments
+                            foreach (var trainee in css.Trainees)
+                            {
+                                trainee.RequestStatus = RequestStatus.Rejected;
+                                trainee.ApprovalDate = null;
+                                trainee.ApproveByUserId = null;
+                                await _unitOfWork.TraineeAssignRepository.UpdateAsync(trainee);
+                            }
+                        }
                             // Chỉ từ chối các instructor assignments trong thời gian plan
                             var instructorAssignments = await _unitOfWork.InstructorAssignmentRepository.GetAllAsync(
                                 ia => ia.CourseSubjectSpecialty.CourseId == courses.CourseId &&
@@ -1417,6 +1443,7 @@ namespace OCMS_Services.Service
 
                             var courseSubjectSpecialties = await _unitOfWork.CourseSubjectSpecialtyRepository
                                 .GetAllAsync(css => css.CourseId == courses.CourseId && css.SpecialtyId == trainingPlan.SpecialtyId,
+
                                     css => css.Schedules,
                                     css => css.Trainees);
                             foreach (var css in courseSubjectSpecialties)
