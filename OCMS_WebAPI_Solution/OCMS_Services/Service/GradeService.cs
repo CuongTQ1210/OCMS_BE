@@ -434,7 +434,22 @@ namespace OCMS_Services.Service
                         return result;
                     }
 
-                    var css = cssList.First();
+                    // Đọc CourseId từ file Excel (dòng B2)
+                    string courseId = worksheet.Cells[1, 4].GetValue<string>();
+                    if (string.IsNullOrEmpty(courseId))
+                    {
+                        result.Errors.Add("Course ID is missing in cell D1.");
+                        return result;
+                    }
+
+                    // Tìm CourseSubjectSpecialty đúng dựa trên cả CourseId, SubjectId và SpecialtyId
+                    var css = cssList.FirstOrDefault(c => c.CourseId == courseId && c.SubjectId == subject.SubjectId && c.SpecialtyId == user.SpecialtyId);
+                    if (css == null)
+                    {
+                        result.Errors.Add($"No CourseSubjectSpecialty found for Course '{courseId}', Subject '{subjectName}' and Specialty '{user?.SpecialtyId}'.");
+                        return result;
+                    }
+
                     var course = css.Course;
                     var courseSpecialty = await _unitOfWork.SpecialtyRepository.FirstOrDefaultAsync(s => s.SpecialtyId == user.SpecialtyId);
 
@@ -473,10 +488,11 @@ namespace OCMS_Services.Service
                         t => t.CourseSubjectSpecialty,
                         t => t.CourseSubjectSpecialty.Course,
                         t => t.CourseSubjectSpecialty.Specialty,
+                        t => t.CourseSubjectSpecialty.Subject,
                         t => t.Trainee);  // Explicitly include Trainee to access User data
 
                     var assignMap = existingTraineeAssigns
-                        .Where(a => a.CourseSubjectSpecialty.CourseId == course.CourseId &&
+                        .Where(a => a.CourseSubjectSpecialty.CourseId == courseId &&
                                     a.CourseSubjectSpecialty.SubjectId == subject.SubjectId &&
                                     a.CourseSubjectSpecialty.SpecialtyId == courseSpecialty.SpecialtyId)
                         .ToDictionary(a => a.TraineeId, a => (a.TraineeAssignId, a.TraineeId, a.Trainee));
@@ -581,11 +597,11 @@ namespace OCMS_Services.Service
                                 {
                                     var traineeAssign = await _unitOfWork.TraineeAssignRepository.GetByIdAsync(grade.TraineeAssignID);
                                     if (traineeAssign == null) continue;
-
+                                    
                                     // Check if all subjects in this course are completed for this trainee
                                     await CheckAndProcessCourseCompletion(traineeAssign.CourseSubjectSpecialty.CourseId, traineeAssign.TraineeId, importedByUserId);
                                 }
-
+                                
                                 result.AdditionalInfo = $"Successfully processed {passingGrades.Count} passing grades. Certificates will be generated after all subjects in a course are completed.";
                             }
                         }
@@ -659,7 +675,7 @@ namespace OCMS_Services.Service
             
             // 3. Get all failed subjects in the original course
             var failedSubjects = new List<string>();
-            foreach(var css in originalCSSList)
+            foreach (var css in originalCSSList)
             {
                 var traineeAssign = await _unitOfWork.TraineeAssignRepository.GetAsync(
                     ta => ta.CourseSubjectSpecialtyId == css.Id && ta.TraineeId == traineeId);
@@ -710,7 +726,7 @@ namespace OCMS_Services.Service
             
             // 9. Check if all failed subjects are passed in the relearn course
             bool allRelearnSubjectsPassed = true;
-            foreach(var subjectId in failedSubjects)
+            foreach (var subjectId in failedSubjects)
             {
                 var cssForSubject = relearnCSSList.FirstOrDefault(css => 
                     css.SubjectId == subjectId && css.SpecialtyId == relearnCSS.SpecialtyId);
@@ -747,7 +763,7 @@ namespace OCMS_Services.Service
             // 10. No processing in this method - aftermath handling is done in calling methods
         }
         
-        // Handle aftermath for Professional course after relearn
+        
         private async Task HandleProfessionalAfterRelearn(Course relearnCourse, Course rootCourse, string traineeId, string userId)
         {
             // Special handling for professional courses
@@ -759,22 +775,27 @@ namespace OCMS_Services.Service
             await _decisionService.CreateDecisionForCourseAsync(decisionRequest, userId);
         }
 
-        // Helper method to find the root course (Initial, Recurrent, or Professional)
-        private async Task<Course> FindRootCourse(Course course)
+        // Tìm khóa không phải relearn gần nhất, không phải lúc nào cũng là khóa "gốc"
+        private async Task<Course> FindFirstNonRelearnCourse(Course course)
         {
             if (course == null) 
                 throw new InvalidOperationException("Course not found");
             
-            // If not a relearn course, this is already a root course
+            // Nếu không phải khóa học Relearn, đây là khóa học cần tìm
             if (course.CourseLevel != CourseLevel.Relearn)
                 return course;
             
-            // Recursively trace back to find the root course
+            // Tìm khóa học liên quan trực tiếp
             var relatedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(course.RelatedCourseId);
             if (relatedCourse == null)
-                throw new InvalidOperationException($"Related course not found for course: {course.CourseId}");
-                
-            return await FindRootCourse(relatedCourse);
+                return null;
+
+            // Kiểm tra xem khóa học liên quan có phải Relearn không
+            if (relatedCourse.CourseLevel != CourseLevel.Relearn)
+                return relatedCourse; // Trả về ngay nếu không phải Relearn
+
+            // Nếu vẫn là Relearn, tiếp tục tìm
+            return await FindFirstNonRelearnCourse(relatedCourse);
         }
 
         // Handle aftermath for Initial course after relearn
@@ -791,10 +812,10 @@ namespace OCMS_Services.Service
         // Handle aftermath for Recurrent course after relearn
         private async Task HandleRecurrentAfterRelearn(Course relearnCourse, Course rootCourse, string traineeId, string userId)
         {
-            // Generate new certificates for passed trainees
-            await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(relearnCourse.CourseId, userId);
+            // Tìm và cập nhật chứng chỉ hiện có
+            await UpdateExistingCertificate(relearnCourse, traineeId, userId);
             
-            // Check if decision already exists
+            // Tạo decision nếu chưa có
             var existingDecision = await _unitOfWork.DecisionRepository.GetAsync(
                 d => d.Certificate.CourseId == relearnCourse.CourseId);
                 
@@ -804,18 +825,6 @@ namespace OCMS_Services.Service
                 await _decisionService.CreateDecisionForCourseAsync(decisionRequest, userId);
             }
                     }
-
-        // Default aftermath handling for other course types
-        private async Task HandleDefaultAfterRelearn(Course relearnCourse, string traineeId, string userId)
-        {
-            // Basic certificate generation for passed trainees
-            await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(relearnCourse.CourseId, userId);
-            
-            // Create decision for the course
-            var decisionRequest = new CreateDecisionDTO { CourseId = relearnCourse.CourseId };
-            await _decisionService.CreateDecisionForCourseAsync(decisionRequest, userId);
-        }
-
         // Add new helper method to check course completion and process certificates
         private async Task CheckAndProcessCourseCompletion(string courseId, string traineeId, string processedByUserId)
         {
@@ -851,79 +860,247 @@ namespace OCMS_Services.Service
             // If all subjects are passed, process certificates based on course type
             if (allSubjectsPassed)
             {
-                // Check if certificate already exists
-                var existingCertificate = await _unitOfWork.CertificateRepository.GetAsync(
-                    c => c.UserId == traineeId && c.CourseId == courseId && c.Status == CertificateStatus.Active);
-                    
-                if (existingCertificate != null) return; // Certificate already exists
-                
-                // Handle special case for Relearn: Check if it's really a relearn situation
                 if (course.CourseLevel == CourseLevel.Relearn)
                 {
-                    // If it's Relearn but related course doesn't exist or trainee has no records in related course
-                    if (string.IsNullOrEmpty(course.RelatedCourseId))
-                    {
-                        // Treat as Initial course if no related course exists
-                        await HandleInitialAfterRelearn(course, traineeId, processedByUserId);
+                    // Tìm khóa gần nhất không phải Relearn
+                    var nearestNonRelearnCourse = await FindFirstNonRelearnCourse(course);
+                    
+                    if (nearestNonRelearnCourse == null)
                         return;
-                    }
-                    
-                    // Check if the trainee has records in the related course
-                    var relatedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(course.RelatedCourseId);
-                    if (relatedCourse == null)
-                    {
-                        // Treat as Initial course if related course doesn't exist in database
-                        await HandleInitialAfterRelearn(course, traineeId, processedByUserId);
+                        
+                    // Kiểm tra tất cả môn học yêu cầu đã pass
+                    bool allRequiredSubjectsPassed = await ValidateAllRequiredSubjectsPassedThroughRelearnChain(
+                        nearestNonRelearnCourse, traineeId);
+                        
+                    if (!allRequiredSubjectsPassed)
                         return;
-                    }
+                        
+                    // Thu thập điểm tốt nhất từ tất cả các khóa liên quan
+                    var bestGrades = await CollectBestGradesForAllSubjects(nearestNonRelearnCourse, traineeId);
                     
-                    // Get all subjects in the related course
-                    var relatedSubjects = await _unitOfWork.CourseSubjectSpecialtyRepository.FindAsync(
-                        css => css.CourseId == relatedCourse.CourseId);
-                    
-                    // Check if trainee has assignments in related course
-                    var traineeRelatedAssignments = await _unitOfWork.TraineeAssignRepository.FindAsync(
-                        ta => ta.TraineeId == traineeId && 
-                              relatedSubjects.Select(cs => cs.Id).Contains(ta.CourseSubjectSpecialtyId));
-                    
-                    if (!traineeRelatedAssignments.Any())
+                    // Nếu đã có chứng chỉ hiện có từ khóa này, chỉ tạo Decision
+                    var existingCertificate = await _unitOfWork.CertificateRepository.GetFirstOrDefaultAsync(
+                        c => c.UserId == traineeId && 
+                             c.CourseId == nearestNonRelearnCourse.CourseId && 
+                             c.Status == CertificateStatus.Active);
+                             
+                    if (existingCertificate == null)
                     {
-                        // No record of trainee in related course - treat as Initial course
-                        await HandleInitialAfterRelearn(course, traineeId, processedByUserId);
-                        return;
+                        // Nếu chưa có chứng chỉ, tạo mới với điểm tốt nhất
+                        await _certificateService.CreateCertificateWithCustomGradesAsync(
+                            nearestNonRelearnCourse.CourseId, traineeId, processedByUserId, bestGrades);
                     }
                     
-                    // Continue with normal Relearn processing as trainee has records in related course
-                    var rootCourse = await FindRootCourse(course);
-                    switch (rootCourse.CourseLevel)
-                    {
-                        case CourseLevel.Initial:
-                            await HandleInitialAfterRelearn(course, traineeId, processedByUserId);
-                            break;
-                        case CourseLevel.Recurrent:
-                            await HandleRecurrentAfterRelearn(course, rootCourse, traineeId, processedByUserId);
-                            break;
-                        case CourseLevel.Professional:
-                            await HandleProfessionalAfterRelearn(course, rootCourse, traineeId, processedByUserId);
-                            break;
-                        default:
-                            await HandleDefaultAfterRelearn(course, traineeId, processedByUserId);
-                            break;
-                    }
+                    // Luôn tạo Decision cho khóa hiện tại
+                    var decisionReq = new CreateDecisionDTO { CourseId = course.CourseId };
+                    await _decisionService.CreateDecisionForCourseAsync(decisionReq, processedByUserId);
                 }
-                else if (course.CourseLevel == CourseLevel.Initial)
+                else if (course.CourseLevel == CourseLevel.Initial || course.CourseLevel == CourseLevel.Professional)
                 {
-                    await HandleInitialAfterRelearn(course, traineeId, processedByUserId);
+                    // Tạo chứng chỉ mới
+                    await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(
+                        course.CourseId, processedByUserId);
+                        
+                    // Tạo decision
+                    var decisionRequest = new CreateDecisionDTO { CourseId = course.CourseId };
+                    await _decisionService.CreateDecisionForCourseAsync(decisionRequest, processedByUserId);
                 }
                 else if (course.CourseLevel == CourseLevel.Recurrent)
                 {
-                    await HandleRecurrentAfterRelearn(course, await FindRootCourse(course), traineeId, processedByUserId);
-                }
-                else if (course.CourseLevel == CourseLevel.Professional)
-                {
-                    await HandleProfessionalAfterRelearn(course, await FindRootCourse(course), traineeId, processedByUserId);
+                    // Giao cho CertificateService xử lý gia hạn chứng chỉ
+                    await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(
+                        course.CourseId, processedByUserId);
+                        
+                    // Tạo decision
+                    var decisionRequest = new CreateDecisionDTO { CourseId = course.CourseId };
+                    await _decisionService.CreateDecisionForCourseAsync(decisionRequest, processedByUserId);
                 }
             }
+        }
+
+        private async Task UpdateExistingCertificate(Course course, string traineeId, string processedByUserId)
+        {
+            if (course.CourseLevel == CourseLevel.Recurrent)
+            {
+                // Tìm khóa học gốc (Initial hoặc Professional)
+                var rootCourse = await FindRootCourse(course);
+                if (rootCourse == null)
+                    return;
+
+                // Nếu đã có chứng chỉ, không xử lý ở đây (để CertificateService lo)
+                // Chỉ tạo decision và thông báo cho người dùng
+                
+                // Tạo decision cho course
+                var decisionRequest = new CreateDecisionDTO { CourseId = course.CourseId };
+                await _decisionService.CreateDecisionForCourseAsync(decisionRequest, processedByUserId);
+            }
+            else 
+            {
+                // Tạo decision cho course khác Recurrent
+                var decisionRequest = new CreateDecisionDTO { CourseId = course.CourseId };
+                await _decisionService.CreateDecisionForCourseAsync(decisionRequest, processedByUserId);
+            }
+        }
+
+        // Tìm khóa học gốc (Initial hoặc Professional)
+        private async Task<Course> FindRootCourse(Course course)
+        {
+            if (course == null)
+                return null;
+            
+            if (course.CourseLevel == CourseLevel.Initial || course.CourseLevel == CourseLevel.Professional)
+                return course;
+            
+            if (string.IsNullOrEmpty(course.RelatedCourseId))
+                return null;
+            
+            var relatedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(course.RelatedCourseId);
+            if (relatedCourse == null)
+                return null;
+            
+            return await FindRootCourse(relatedCourse);
+        }
+
+        private async Task<bool> ValidateAllRequiredSubjectsPassedThroughRelearnChain(Course originalCourse, string traineeId)
+        {
+            // Lấy tất cả môn học của khóa gốc
+            var originalSubjects = await _unitOfWork.CourseSubjectSpecialtyRepository.FindAsync(
+                css => css.CourseId == originalCourse.CourseId);
+            
+            var requiredSubjectIds = originalSubjects.Select(css => css.SubjectId).Distinct().ToList();
+            var passedSubjectIds = new HashSet<string>();
+            
+            // Tìm tất cả khóa học relearn liên quan
+            var relatedCourses = new List<Course> { originalCourse };
+            var currentCourse = originalCourse;
+            
+            // Tìm các khóa relearn liên quan đến khóa gốc
+            var relearnCourses = await _unitOfWork.CourseRepository.FindAsync(
+                c => c.RelatedCourseId == originalCourse.CourseId && c.CourseLevel == CourseLevel.Relearn);
+            relatedCourses.AddRange(relearnCourses);
+            
+            // Tìm các khóa relearn liên quan đến khóa relearn
+            foreach (var relearn in relearnCourses)
+            {
+                var subRelearnCourses = await _unitOfWork.CourseRepository.FindAsync(
+                    c => c.RelatedCourseId == relearn.CourseId && c.CourseLevel == CourseLevel.Relearn);
+                relatedCourses.AddRange(subRelearnCourses);
+            }
+            
+            // Kiểm tra điểm của tất cả các môn học trong tất cả các khóa liên quan
+            foreach (var course in relatedCourses)
+            {
+                var courseSubjects = await _unitOfWork.CourseSubjectSpecialtyRepository.FindAsync(
+                    css => css.CourseId == course.CourseId);
+                    
+                foreach (var css in courseSubjects)
+                {
+                    if (requiredSubjectIds.Contains(css.SubjectId))
+                    {
+                        var traineeAssigns = await _unitOfWork.TraineeAssignRepository.FindAsync(
+                            ta => ta.CourseSubjectSpecialtyId == css.Id && ta.TraineeId == traineeId);
+                            
+                        foreach (var ta in traineeAssigns)
+                        {
+                            var grade = await _unitOfWork.GradeRepository.GetAsync(
+                                g => g.TraineeAssignID == ta.TraineeAssignId && g.gradeStatus == GradeStatus.Pass);
+                                
+                            if (grade != null)
+                            {
+                                passedSubjectIds.Add(css.SubjectId);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Kiểm tra xem tất cả môn học yêu cầu đã được pass chưa
+            return requiredSubjectIds.All(id => passedSubjectIds.Contains(id));
+        }
+
+        // Thêm phương thức mới để kiểm tra xem root course đã pass chưa
+        private async Task<bool> IsRootCoursePassed(Course rootCourse, string traineeId)
+        {
+            // Kiểm tra xem trainee đã có chứng chỉ active cho khóa học này chưa
+            var existingCertificate = await _unitOfWork.CertificateRepository.GetFirstOrDefaultAsync(
+                c => c.UserId == traineeId && 
+                     c.CourseId == rootCourse.CourseId && 
+                     c.Status == CertificateStatus.Active);
+             
+            return existingCertificate != null;
+        }
+
+        private async Task<List<Course>> GetAllRelatedCourses(Course rootCourse)
+        {
+            var result = new List<Course> { rootCourse };
+            
+            // Tìm tất cả khóa Relearn có RelatedCourseId là rootCourse.CourseId
+            var directRelearns = await _unitOfWork.CourseRepository.FindAsync(
+                c => c.RelatedCourseId == rootCourse.CourseId && c.CourseLevel == CourseLevel.Relearn);
+        
+            result.AddRange(directRelearns);
+            
+            // Đệ quy tìm các khóa Relearn của các khóa Relearn
+            foreach (var relearn in directRelearns)
+            {
+                var subRelearns = await GetAllRelatedCourses(relearn);
+                result.AddRange(subRelearns.Where(c => c.CourseId != relearn.CourseId)); // Tránh trùng lặp
+            }
+            
+            return result.Distinct().ToList(); // Đảm bảo không trùng lặp
+        }
+
+        private async Task<List<string>> GetAllRequiredSubjects(Course course)
+        {
+            var courseSubjects = await _unitOfWork.CourseSubjectSpecialtyRepository.FindAsync(
+                css => css.CourseId == course.CourseId);
+                
+            return courseSubjects.Select(css => css.SubjectId).Distinct().ToList();
+        }
+
+        private async Task<List<Grade>> CollectBestGradesForAllSubjects(Course rootCourse, string traineeId)
+        {
+            // Lấy tất cả môn học của khóa gốc
+            var allSubjects = await GetAllRequiredSubjects(rootCourse);
+            
+            // Dictionary lưu điểm tốt nhất cho mỗi môn học
+            var bestGradesBySubject = new Dictionary<string, Grade>();
+            
+            // Danh sách tất cả các khóa liên quan (gốc và các relearn)
+            var relatedCourses = await GetAllRelatedCourses(rootCourse);
+            
+            foreach (var course in relatedCourses)
+            {
+                var courseSubjects = await _unitOfWork.CourseSubjectSpecialtyRepository.FindAsync(
+                    css => css.CourseId == course.CourseId);
+                    
+                foreach (var css in courseSubjects)
+                {
+                    if (allSubjects.Contains(css.SubjectId))
+                    {
+                        var traineeAssigns = await _unitOfWork.TraineeAssignRepository.FindAsync(
+                            ta => ta.CourseSubjectSpecialtyId == css.Id && ta.TraineeId == traineeId);
+                            
+                        foreach (var ta in traineeAssigns)
+                        {
+                            var grade = await _unitOfWork.GradeRepository.GetAsync(
+                                g => g.TraineeAssignID == ta.TraineeAssignId && g.gradeStatus == GradeStatus.Pass);
+                                
+                            if (grade != null)
+                            {
+                                // Cập nhật điểm tốt nhất cho môn học này
+                                if (!bestGradesBySubject.ContainsKey(css.SubjectId) || 
+                                    grade.TotalScore > bestGradesBySubject[css.SubjectId].TotalScore)
+                                {
+                                    bestGradesBySubject[css.SubjectId] = grade;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return bestGradesBySubject.Values.ToList();
         }
         #endregion
     }

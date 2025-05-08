@@ -189,7 +189,7 @@ namespace OCMS_Services.Service
 
                                 if (initialCert != null)
                                 {
-                                    initialCert.ExpirationDate = (initialCert.ExpirationDate ?? DateTime.Now).AddYears(2);
+                                    initialCert.ExpirationDate = DateTime.Now.AddYears(2);
                                     initialCert.IssueByUserId = issuedByUserId;
                                     initialCert.IssueDate = DateTime.Now;
                                     initialCert.Status = CertificateStatus.Pending;
@@ -414,7 +414,7 @@ namespace OCMS_Services.Service
 
                         if (initialCert != null)
                         {
-                            initialCert.ExpirationDate = (initialCert.ExpirationDate ?? DateTime.Now).AddYears(2);
+                            initialCert.ExpirationDate = DateTime.Now.AddYears(2);
                             initialCert.IssueByUserId = issuedByUserId;
                             initialCert.IssueDate = issueDate;
                             initialCert.Status = CertificateStatus.Pending;
@@ -1145,6 +1145,80 @@ namespace OCMS_Services.Service
         {
             var pendingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.Status == CertificateStatus.Active);
             return _mapper.Map<List<CertificateModel>>(pendingCertificates);
+        }
+
+        public async Task<CertificateModel> CreateCertificateWithCustomGradesAsync(
+            string courseId, string userId, string issuedByUserId, List<Grade> customGrades)
+        {
+            if (string.IsNullOrEmpty(courseId) || string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(issuedByUserId))
+                throw new ArgumentException("CourseId, UserId and IssuedByUserId are required");
+            
+            try
+            {
+                var course = await _courseRepository.GetCourseWithDetailsAsync(courseId);
+                if (course == null || !course.CourseSubjectSpecialties.Any() || course.Status != CourseStatus.Approved)
+                {
+                    throw new Exception($"Course with ID {courseId} not found or not active or has no subjects!");
+                }
+                
+                var trainee = await _userRepository.GetByIdAsync(userId);
+                if (trainee == null)
+                {
+                    throw new Exception($"Trainee with ID {userId} not found");
+                }
+                
+                string specialtyId = trainee.SpecialtyId;
+                if (string.IsNullOrEmpty(specialtyId))
+                {
+                    throw new InvalidOperationException($"Trainee does not have a specialty assigned");
+                }
+                
+                var templateId = await GetTemplateIdByCourseLevelAsync(course.CourseLevel);
+                if (string.IsNullOrEmpty(templateId))
+                {
+                    throw new Exception($"No active template for course level {course.CourseLevel}");
+                }
+                
+                var certificateTemplate = await _unitOfWork.CertificateTemplateRepository.GetByIdAsync(templateId);
+                if (certificateTemplate == null || certificateTemplate.templateStatus != TemplateStatus.Active)
+                {
+                    throw new Exception($"Certificate template with ID {templateId} not found or not active");
+                }
+                
+                var templateHtml = await GetCachedTemplateHtmlAsync(certificateTemplate.TemplateFile);
+                var templateType = GetTemplateTypeFromName(certificateTemplate.TemplateName);
+                
+                var issueDate = DateTime.Now;
+                
+                // Sử dụng customGrades trực tiếp thay vì lấy từ database
+                var certificate = await GenerateCertificateAsync(
+                    trainee, course, templateId, templateHtml, templateType, 
+                    customGrades, issuedByUserId, issueDate, specialtyId);
+                    
+                await _unitOfWork.CertificateRepository.AddAsync(certificate);
+                await _unitOfWork.SaveChangesAsync();
+                
+                var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
+                foreach (var director in directors)
+                {
+                    await _notificationService.SendNotificationAsync(
+                        director.UserId,
+                        "New Certificate Request",
+                        $"A new certificate request for {trainee.FullName} in course '{course.CourseName}' needs your signature.",
+                        "CertificateSignature"
+                    );
+                }
+                
+                var certificateModel = _mapper.Map<CertificateModel>(certificate);
+                certificateModel.CertificateURLwithSas = await _blobService.GetBlobUrlWithSasTokenAsync(certificate.CertificateURL, TimeSpan.FromHours(1));
+                
+                return certificateModel;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error in CreateCertificateWithCustomGradesAsync for user {userId} in course {courseId}");
+                throw new Exception("Failed to create certificate with custom grades", ex);
+            }
         }
         #endregion
     }
