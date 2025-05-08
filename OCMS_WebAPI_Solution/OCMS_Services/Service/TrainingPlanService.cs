@@ -44,6 +44,17 @@ namespace OCMS_Services.Service
                 throw new ArgumentException("Plan name is required.");
             }
 
+            // Kiểm tra có subjects phù hợp trong course và specialty không
+            var courseSubjectSpecialties = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAllAsync(
+                css => css.CourseId == dto.CourseId && css.SpecialtyId == dto.SpecialtyId,
+                css => css.Subject
+            );
+
+            if (courseSubjectSpecialties == null || !courseSubjectSpecialties.Any())
+            {
+                throw new ArgumentException($"can't create training plan because course '{dto.CourseId}' doesn't have any subjects in specialty '{dto.SpecialtyId}'.");
+            }
+
             var trainingPlan = _mapper.Map<TrainingPlan>(dto);
             trainingPlan.PlanId = await GenerateTrainingPlanId(dto.StartDate);
             trainingPlan.Description = dto.Description;
