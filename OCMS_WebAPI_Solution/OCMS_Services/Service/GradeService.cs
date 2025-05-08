@@ -444,7 +444,7 @@ namespace OCMS_Services.Service
                     }
 
                     if (course.Status == CourseStatus.Pending || course.Status == CourseStatus.Rejected ||
-                        course.Progress == Progress.NotYet || course.Progress == Progress.Completed)
+                         course.Progress == Progress.Completed)
                     {
                         result.Errors.Add("Course isn't suitable to create grades.");
                         return result;
