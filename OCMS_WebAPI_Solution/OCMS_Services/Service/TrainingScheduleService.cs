@@ -95,6 +95,7 @@ namespace OCMS_Services.Service
                 css => css.Specialty,
                 css => css.Course.TrainingPlans
             );
+
             if (css == null)
                 throw new ArgumentException($"CourseSubjectSpecialty with ID '{dto.CourseSubjectSpecialtyId}' not found.");
 
@@ -107,9 +108,9 @@ namespace OCMS_Services.Service
 
             if (dto.StartDay >= dto.EndDay)
                 throw new ArgumentException("StartDay must be before EndDay.");
-
+            await ValidateTrainingScheduleAsync(dto);
             var schedule = _mapper.Map<TrainingSchedule>(dto);
-            schedule.ScheduleID = Guid.NewGuid().ToString();
+            schedule.ScheduleID = GenerateScheduleId();
             schedule.CourseSubjectSpecialtyId = dto.CourseSubjectSpecialtyId; // Ensure this is explicitly set
             schedule.CreatedByUserId = createdByUserId;
             schedule.CreatedDate = DateTime.UtcNow;
