@@ -231,13 +231,17 @@ namespace OCMS_Services.Service
                 .Where(x => x.TraineeId == traineeId)
                 .Include(x => x.Trainee)
                 .Include(x => x.CourseSubjectSpecialty)
+                    .ThenInclude(css => css.Course)
+                .Include(x => x.CourseSubjectSpecialty)
+                    .ThenInclude(css => css.Subject)
                 .ToListAsync();
 
             var grades = await _unitOfWork.GradeRepository
-                        .GetQueryable()
-                        .Include(g => g.TraineeAssign) // Include subject to access PassingScore
-                         .Where(g => g.TraineeAssign.TraineeId == traineeId)
-                         .ToListAsync();
+                .GetQueryable()
+                .Include(g => g.TraineeAssign)
+                .Where(g => g.TraineeAssign.TraineeId == traineeId)
+                .ToListAsync();
+
             var report = (from assign in traineeAssigns
                           join grade in grades on assign.TraineeAssignId equals grade.TraineeAssignID into gj
                           from subGrade in gj.DefaultIfEmpty()
@@ -247,13 +251,13 @@ namespace OCMS_Services.Service
                               TraineeName = assign.Trainee?.FullName,
                               Email = assign.Trainee?.Email,
                               CourseId = assign.CourseSubjectSpecialty.CourseId,
-                              CourseName = assign.CourseSubjectSpecialty.Course?.CourseName,
+                              CourseName = assign.CourseSubjectSpecialty.Course?.CourseName ?? "Unknown",
                               AssignDate = assign.AssignDate,
                               SubjectId = assign.CourseSubjectSpecialty.SubjectId,
                               TotalGrade = subGrade?.TotalScore,
                               Status = subGrade == null
-        ? "N/A"
-        : (subGrade.TotalScore >= (assign.CourseSubjectSpecialty.Subject?.PassingScore ?? 5) ? "Pass" : "Fail")
+                                  ? "N/A"
+                                  : (subGrade.TotalScore >= (assign.CourseSubjectSpecialty.Subject?.PassingScore ?? 5) ? "Pass" : "Fail")
                           }).ToList();
 
             return report;
@@ -261,36 +265,41 @@ namespace OCMS_Services.Service
 
         public async Task<List<CourseResultReportDto>> GenerateAllCourseResultReportAsync()
         {
-            // Step 1: Get all TraineeAssigns with Course & Grade info
             var traineeAssigns = await _unitOfWork.TraineeAssignRepository
                 .GetQueryable()
                 .Include(x => x.CourseSubjectSpecialty)
+                    .ThenInclude(css => css.Course)
+                .Include(x => x.CourseSubjectSpecialty)
+                    .ThenInclude(css => css.Subject)
                 .ToListAsync();
 
             var traineeAssignIds = traineeAssigns.Select(x => x.TraineeAssignId).ToList();
 
             var grades = await _unitOfWork.GradeRepository
                 .GetQueryable()
-                .Include(g => g.TraineeAssign.CourseSubjectSpecialty)
+                .Include(g => g.TraineeAssign)
+                    .ThenInclude(ta => ta.CourseSubjectSpecialty)
+                        .ThenInclude(css => css.Course)
+                .Include(g => g.TraineeAssign)
+                    .ThenInclude(ta => ta.CourseSubjectSpecialty)
+                        .ThenInclude(css => css.Subject)
                 .Where(g => traineeAssignIds.Contains(g.TraineeAssignID))
                 .ToListAsync();
 
-            // Step 2: Join Grades with their CourseId via TraineeAssign
             var report = (from assign in traineeAssigns
                           join grade in grades on assign.TraineeAssignId equals grade.TraineeAssignID
                           where grade.TraineeAssign.CourseSubjectSpecialty != null
                           select new
                           {
-                              assign.CourseSubjectSpecialty.CourseId,
-                              grade.TraineeAssign.CourseSubjectSpecialty.SubjectId,
-                              grade.TotalScore,
-                              grade.TraineeAssign.CourseSubjectSpecialty.Subject.PassingScore
+                              CourseId = assign.CourseSubjectSpecialty.CourseId,
+                              TotalScore = grade.TotalScore,
+                              PassingScore = assign.CourseSubjectSpecialty.Subject.PassingScore
                           })
-                          .GroupBy(x => new { x.CourseId, x.SubjectId })
+                          .GroupBy(x => x.CourseId)
                           .Select(g => new CourseResultReportDto
                           {
-                              CourseId = g.Key.CourseId,
-                              SubjectId = g.Key.SubjectId,
+                              CourseId = g.Key,
+                              SubjectId = null, // Not grouping by SubjectId anymore
                               TotalTrainees = g.Count(),
                               PassCount = g.Count(x => x.TotalScore >= x.PassingScore),
                               FailCount = g.Count(x => x.TotalScore < x.PassingScore),
@@ -310,14 +319,13 @@ namespace OCMS_Services.Service
 
             // Header
             worksheet.Cells[1, 1].Value = "Course ID";
-            worksheet.Cells[1, 2].Value = "Subject ID";
-            worksheet.Cells[1, 3].Value = "Total Trainees";
-            worksheet.Cells[1, 4].Value = "Pass Count";
-            worksheet.Cells[1, 5].Value = "Fail Count";
-            worksheet.Cells[1, 6].Value = "Average Score";
+            worksheet.Cells[1, 2].Value = "Total Trainees";
+            worksheet.Cells[1, 3].Value = "Pass Count";
+            worksheet.Cells[1, 4].Value = "Fail Count";
+            worksheet.Cells[1, 5].Value = "Average Score";
 
             // Style the header
-            using (var range = worksheet.Cells[1, 1, 1, 6])
+            using (var range = worksheet.Cells[1, 1, 1, 5])
             {
                 range.Style.Font.Bold = true;
                 range.Style.Fill.PatternType = ExcelFillStyle.Solid;
@@ -329,11 +337,10 @@ namespace OCMS_Services.Service
             foreach (var item in reportData)
             {
                 worksheet.Cells[row, 1].Value = item.CourseId;
-                worksheet.Cells[row, 2].Value = item.SubjectId;
-                worksheet.Cells[row, 3].Value = item.TotalTrainees;
-                worksheet.Cells[row, 4].Value = item.PassCount;
-                worksheet.Cells[row, 5].Value = item.FailCount;
-                worksheet.Cells[row, 6].Value = item.AverageScore;
+                worksheet.Cells[row, 2].Value = item.TotalTrainees;
+                worksheet.Cells[row, 3].Value = item.PassCount;
+                worksheet.Cells[row, 4].Value = item.FailCount;
+                worksheet.Cells[row, 5].Value = item.AverageScore;
                 row++;
             }
 

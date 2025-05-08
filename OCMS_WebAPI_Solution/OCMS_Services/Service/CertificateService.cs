@@ -190,6 +190,7 @@ namespace OCMS_Services.Service
                                 if (initialCert != null)
                                 {
                                     initialCert.ExpirationDate = DateTime.Now.AddYears(2);
+                                    initialCert.CourseId = course.CourseId; // Update to recurrent course ID
                                     initialCert.IssueByUserId = issuedByUserId;
                                     initialCert.IssueDate = DateTime.Now;
                                     initialCert.Status = CertificateStatus.Pending;
@@ -1172,7 +1173,53 @@ namespace OCMS_Services.Service
                 {
                     throw new InvalidOperationException($"Trainee does not have a specialty assigned");
                 }
-                
+
+                var certToCreate = new List<Certificate>();
+                var certToUpdate = new List<Certificate>();
+                if (course.CourseLevel == CourseLevel.Recurrent)
+                {
+                    var initialCourseId = course.RelatedCourseId;
+
+                    if (!string.IsNullOrEmpty(initialCourseId))
+                    {
+                        var initialCert = (await _unitOfWork.CertificateRepository.GetAllAsync(c =>
+                            c.UserId == trainee.UserId &&
+                            c.CourseId == initialCourseId &&
+                            c.Status == CertificateStatus.Active))
+                            .OrderByDescending(c => c.IssueDate)
+                            .FirstOrDefault();
+
+                        if (initialCert != null)
+                        {
+                            initialCert.ExpirationDate = DateTime.Now.AddYears(2);
+                            initialCert.CourseId = course.CourseId; // Update to recurrent course ID
+                            initialCert.IssueByUserId = issuedByUserId;
+                            initialCert.IssueDate = DateTime.Now;
+                            initialCert.Status = CertificateStatus.Pending;
+                            initialCert.SpecialtyId = specialtyId; // Set SpecialtyId for recurrent course
+
+                            lock (certToUpdate)
+                            {
+                                certToUpdate.Add(initialCert);
+                            }
+
+                            await _unitOfWork.CertificateRepository.UpdateAsync(initialCert);
+
+                            return _mapper.Map<CertificateModel>(initialCert);
+                        }
+                        else
+                        {
+                            _logger.LogWarning($"No Initial certificate found for recurrent trainee {trainee.UserId} in course {course.CourseName}");
+                            return null;
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"Recurrent course {course.CourseId} has no related initial course specified");
+                        return null;
+                    }
+                }
+
                 var templateId = await GetTemplateIdByCourseLevelAsync(course.CourseLevel);
                 if (string.IsNullOrEmpty(templateId))
                 {
