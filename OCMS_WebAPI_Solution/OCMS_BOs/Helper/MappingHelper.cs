@@ -16,6 +16,7 @@ namespace OCMS_BOs.Helper
     {
         public MappingHelper()
         {
+            CreateMap<Subject, GetAllSubjectModel>();
             CreateMap<User, UserModel>()
                 .ForMember(dest => dest.RoleId, opt => opt.MapFrom(src => src.RoleId))
                 .ForMember(dest => dest.RoleName, opt => opt.MapFrom(src => src.Role.RoleName))
@@ -31,7 +32,15 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.Address, opt => opt.MapFrom(src => src.Address))
                 .ForMember(dest => dest.PhoneNumber, opt => opt.MapFrom(src => src.PhoneNumber));
             CreateMap<CreateUserDTO, User>();
-
+            CreateMap<CourseSubjectSpecialty, CourseSubjectSpecialtySimpleModel>()
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+                .ForMember(dest => dest.CourseId, opt => opt.MapFrom(src => src.CourseId))
+                .ForMember(dest => dest.CourseName, opt => opt.MapFrom(src => src.Course != null ? src.Course.CourseName : string.Empty))
+                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.SubjectId))
+                .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.Subject != null ? src.Subject.SubjectName : string.Empty))
+                .ForMember(dest => dest.SpecialtyId, opt => opt.MapFrom(src => src.SpecialtyId))
+                .ForMember(dest => dest.SpecialtyName, opt => opt.MapFrom(src => src.Specialty != null ? src.Specialty.SpecialtyName : string.Empty))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Notes));
             CreateMap<CandidateUpdateDTO, Candidate>()
                 .ForMember(dest => dest.CandidateId, opt => opt.Ignore()) // Bỏ qua CandidateId
                 .ForMember(dest => dest.CreatedAt, opt => opt.Ignore()) // Bỏ qua CreatedAt
@@ -39,7 +48,7 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.ImportByUserID, opt => opt.Ignore()) // Bỏ qua ImportByUserID
                 .ForMember(dest => dest.CandidateStatus, opt => opt.Ignore()) // Bỏ qua CandidateStatus
                 .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore()); // Bỏ qua UpdatedAt
-
+CreateMap<Subject, SubjectSimpleModel>();
             CreateMap<ExternalCertificateCreateDTO, ExternalCertificate>()
             .ForMember(dest => dest.VerifyByUserId, opt => opt.Ignore())
             .ForMember(dest => dest.UserId, opt => opt.Ignore())
@@ -146,8 +155,7 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.Subjects, opt => opt.MapFrom(src => src.CourseSubjectSpecialties != null ?
                     src.CourseSubjectSpecialties.Where(css => css.Subject != null)
                     .Select(css => css.Subject).ToList() : new List<Subject>()))
-                .ForMember(dest => dest.CourseSubjectSpecialties, opt => opt.Ignore())
-                .ForMember(dest => dest.TrainingPlans, opt => opt.MapFrom(src => src.TrainingPlans));
+                .ForMember(dest => dest.CourseSubjectSpecialties, opt => opt.Ignore());
 
 
             CreateMap<CourseDTO, Course>()
@@ -294,7 +302,6 @@ namespace OCMS_BOs.Helper
 
             // Training Schedule Mappings
             CreateMap<TrainingSchedule, TrainingScheduleModel>()
-                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.CourseSubjectSpecialty.Subject.SubjectId))
                 .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.CourseSubjectSpecialty.Subject.SubjectName))
                 .ForMember(dest => dest.InstructorName, opt => opt.MapFrom(src => src.Instructor != null ? src.Instructor.FullName : null))
                 .ForMember(dest => dest.StartDateTime, opt => opt.MapFrom(src => src.StartDateTime))

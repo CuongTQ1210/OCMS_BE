@@ -229,22 +229,6 @@ public class CourseService : ICourseService
         if (course == null)
             throw new Exception("Course Id does not exist!");
 
-        // Check if course is approved
-        if (course.Status == CourseStatus.Approved)
-        {
-            // Create a request for update
-            var proposedChanges = JsonSerializer.Serialize(dto);
-            var requestDto = new RequestDTO
-            {
-                RequestType = RequestType.Update, // Updated to match CreateCourseAsync
-                RequestEntityId = id,
-                Description = $"Request to update course {id}",
-                Notes = $"Proposed changes: {proposedChanges}"
-            };
-            await _requestService.CreateRequestAsync(requestDto, updatedByUserId);
-            return _mapper.Map<CourseModel>(course); // Return unchanged course
-        }
-
         // Convert empty CourseRelatedId to null
         if (string.IsNullOrEmpty(dto.CourseRelatedId))
         {

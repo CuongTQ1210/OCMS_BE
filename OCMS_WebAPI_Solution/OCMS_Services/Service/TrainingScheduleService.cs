@@ -105,19 +105,6 @@ namespace OCMS_Services.Service
             if (css.SpecialtyId != instructor.SpecialtyId)
                 throw new ArgumentException($"Instructor's specialty does not match the specialty of CourseSubjectSpecialty '{dto.CourseSubjectSpecialtyId}' or its training plan.");
 
-            if (css.Course.Status == CourseStatus.Approved)
-            {
-                var requestDto = new RequestDTO
-                {
-                    RequestType = RequestType.Update,
-                    RequestEntityId = dto.CourseSubjectSpecialtyId,
-                    Description = $"Request to create schedule for CourseSubjectSpecialty {dto.CourseSubjectSpecialtyId}",
-                    Notes = "Awaiting HeadMaster approval"
-                };
-                await _requestService.CreateRequestAsync(requestDto, createdByUserId);
-                throw new InvalidOperationException($"Cannot create schedule for approved course. A request has been sent to the HeadMaster.");
-            }
-
             if (dto.StartDay >= dto.EndDay)
                 throw new ArgumentException("StartDay must be before EndDay.");
 
