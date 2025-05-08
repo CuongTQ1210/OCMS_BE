@@ -24,9 +24,18 @@ namespace OCMS_WebAPI.Controllers
         [CustomAuthorize]
         public async Task<IActionResult> GetAllSubjects()
         {
-            var subjects = await _subjectService.GetAllSubjectsAsync();
-            return Ok(new { message = "Subjects retrieved successfully.",  subjects });
-        }
+
+            try
+            {
+                var allSubjects = await _subjectService.GetAllSubjectsAsync();
+
+                return Ok(new { message = "Subject deleted successfully.", allSubjects }); 
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+           }
         #endregion
 
         #region Get Subject By Id

@@ -67,24 +67,10 @@ namespace OCMS_Services.Service
         #endregion
 
         #region Get All Subjects
-        public async Task<IEnumerable<SubjectModel>> GetAllSubjectsAsync()
+        public async Task<IEnumerable<GetAllSubjectModel>> GetAllSubjectsAsync()
         {
-            // First, get all subjects with their CourseSubjectSpecialties collection
-            var subjects = await _unitOfWork.SubjectRepository.GetAllAsync(
-                includes: s => s.CourseSubjectSpecialties
-            );
-
-            // Then, get all the CourseSubjectSpecialty entities with their related Course and Specialty
-            var cssIds = subjects.SelectMany(s => s.CourseSubjectSpecialties.Select(css => css.Id)).ToList();
-            var cssEntities = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAllAsync(
-                css => cssIds.Contains(css.Id),
-                css => css.Course,
-                css => css.Specialty
-            );
-
-            // Map and return the results
-            var subjectModels = _mapper.Map<IEnumerable<SubjectModel>>(subjects);
-            return subjectModels;
+               var subjects = await _unitOfWork.SubjectRepository.GetAllAsync();
+    return _mapper.Map<IEnumerable<GetAllSubjectModel>>(subjects);
         }
         #endregion
 
