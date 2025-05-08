@@ -268,7 +268,7 @@ namespace OCMS_Services.Service
             // Store token in Redis with 15-minute expiration
             await _redis.StringSetAsync(token, user.UserId, TimeSpan.FromMinutes(15));
 
-            var baseUrl = "https://ocms-teal.vercel.app"; // Có thể lấy từ cấu hình
+            var baseUrl = "https://ocms-teal.vercel.app";
             var resetLink = $"{baseUrl}/reset-password/{token}";
             string emailBody = $"Click the following link to reset your password: {resetLink}";
 
