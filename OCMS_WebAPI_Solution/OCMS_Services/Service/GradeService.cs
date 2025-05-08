@@ -871,7 +871,7 @@ namespace OCMS_Services.Service
                     }
                     
                     // Luôn tạo Decision cho khóa hiện tại
-                    var decisionReq = new CreateDecisionDTO { CourseId = course.CourseId };
+                    var decisionReq = new CreateDecisionDTO { CourseId = nearestNonRelearnCourse.CourseId };
                     await _decisionService.CreateDecisionForCourseAsync(decisionReq, processedByUserId);
                 }
                 else if (course.CourseLevel == CourseLevel.Initial || course.CourseLevel == CourseLevel.Professional)
