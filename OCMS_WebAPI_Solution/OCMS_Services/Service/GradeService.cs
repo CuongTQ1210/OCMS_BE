@@ -444,7 +444,7 @@ namespace OCMS_Services.Service
                     }
 
                     if (course.Status == CourseStatus.Pending || course.Status == CourseStatus.Rejected ||
-                        course.Progress == Progress.NotYet || course.Progress == Progress.Completed)
+                         course.Progress == Progress.Completed)
                     {
                         result.Errors.Add("Course isn't suitable to create grades.");
                         return result;
@@ -740,19 +740,7 @@ namespace OCMS_Services.Service
             }
             
             // 10. No processing in this method - aftermath handling is done in calling methods
-        }
-        
-        
-        private async Task HandleProfessionalAfterRelearn(Course relearnCourse, Course rootCourse, string traineeId, string userId)
-        {
-            // Special handling for professional courses
-            await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(
-                relearnCourse.CourseId, userId);
-                
-            // Create decision for the course
-            var decisionRequest = new CreateDecisionDTO { CourseId = relearnCourse.CourseId };
-            await _decisionService.CreateDecisionForCourseAsync(decisionRequest, userId);
-        }
+        }       
 
         // Tìm khóa không phải relearn gần nhất, không phải lúc nào cũng là khóa "gốc"
         private async Task<Course> FindFirstNonRelearnCourse(Course course)
@@ -777,33 +765,6 @@ namespace OCMS_Services.Service
             return await FindFirstNonRelearnCourse(relatedCourse);
         }
 
-        // Handle aftermath for Initial course after relearn
-        private async Task HandleInitialAfterRelearn(Course course, string traineeId, string userId)
-        {
-            // Generate certificates for passed trainees
-            await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(course.CourseId, userId);
-            
-            // Create decision for the course
-            var decisionRequest = new CreateDecisionDTO { CourseId = course.CourseId };
-            await _decisionService.CreateDecisionForCourseAsync(decisionRequest, userId);
-        }
-
-        // Handle aftermath for Recurrent course after relearn
-        private async Task HandleRecurrentAfterRelearn(Course relearnCourse, Course rootCourse, string traineeId, string userId)
-        {
-            // Tìm và cập nhật chứng chỉ hiện có
-            await UpdateExistingCertificate(relearnCourse, traineeId, userId);
-            
-            // Tạo decision nếu chưa có
-            var existingDecision = await _unitOfWork.DecisionRepository.GetAsync(
-                d => d.Certificate.CourseId == relearnCourse.CourseId);
-                
-            if (existingDecision == null)
-            {
-                var decisionRequest = new CreateDecisionDTO { CourseId = relearnCourse.CourseId };
-                await _decisionService.CreateDecisionForCourseAsync(decisionRequest, userId);
-            }
-                    }
         // Add new helper method to check course completion and process certificates
         private async Task CheckAndProcessCourseCompletion(string courseId, string traineeId, string processedByUserId)
         {
