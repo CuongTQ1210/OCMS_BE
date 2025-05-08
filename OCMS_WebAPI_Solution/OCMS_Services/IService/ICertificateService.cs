@@ -1,4 +1,5 @@
-﻿using OCMS_BOs.RequestModel;
+﻿using OCMS_BOs.Entities;
+using OCMS_BOs.RequestModel;
 using OCMS_BOs.ViewModel;
 using System;
 using System.Collections.Generic;
@@ -10,7 +11,6 @@ namespace OCMS_Services.IService
 {
     public interface ICertificateService
     {
-        
         Task<List<CertificateModel>> AutoGenerateCertificatesForPassedTraineesAsync(string courseId, string issuedByUserId);
         Task<CertificateModel> GetCertificateByIdAsync(string certificateId);
         Task<List<CertificateModel>> GetPendingCertificatesWithSasUrlAsync();
@@ -21,5 +21,6 @@ namespace OCMS_Services.IService
         Task<List<CertificateModel>> GetRevokedCertificatesWithSasUrlAsync();
         Task<CertificateRenewalHistoryModel> GetCertificateRenewalHistoryAsync(string certificateId);
         Task<List<CertificateRenewalHistoryModel>> GetUserCertificateRenewalHistoryAsync(string userId);
+        Task<CertificateModel> CreateCertificateWithCustomGradesAsync(string courseId, string userId, string issuedByUserId, List<Grade> customGrades);
     }
 }
