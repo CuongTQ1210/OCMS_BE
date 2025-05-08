@@ -340,7 +340,7 @@ namespace OCMS_Services.Service
 
                     // Read CourseSubjectSpecialtyId from cell B1
                     string courseId = worksheet.Cells[1, 2].GetValue<string>(); // B1 (row 1, column 2)
-                    if (string.IsNullOrEmpty(courseId) || !existingCssIds.Contains(courseId))
+                    if (string.IsNullOrEmpty(courseId))
                     {
                         result.Errors.Add($"Invalid or missing CourseId '{courseId}' in cell B1.");
                         return result;
@@ -353,7 +353,7 @@ namespace OCMS_Services.Service
 
                     }
                     string subjectId = worksheet.Cells[1, 4].GetValue<string>(); 
-                    if (string.IsNullOrEmpty(subjectId) || !existingCssIds.Contains(subjectId))
+                    if (string.IsNullOrEmpty(subjectId))
                     {
                         result.Errors.Add($"Invalid or missing SubjectId '{subjectId}' in cell D1.");
                         return result;
@@ -367,7 +367,7 @@ namespace OCMS_Services.Service
 
                     }
                     string SpecialtyId = worksheet.Cells[1, 6].GetValue<string>(); 
-                    if (string.IsNullOrEmpty(SpecialtyId) || !existingCssIds.Contains(SpecialtyId))
+                    if (string.IsNullOrEmpty(SpecialtyId))
                     {
                         result.Errors.Add($"Invalid or missing SpecialtyId '{SpecialtyId}' in cell F1.");
                         return result;
