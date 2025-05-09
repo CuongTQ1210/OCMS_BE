@@ -160,7 +160,23 @@ namespace OCMS_Services.Service
                 usernameSuffix++;
             }
             user.Username = userName;
+            var departmentid = userDto.DepartmentId ?? null;
+            if (!string.IsNullOrEmpty(departmentid))
+            {
+                if (userDto.RoleId == 8)
+                {
 
+                    var department = await _unitOfWork.DepartmentRepository.GetByIdAsync(departmentid);
+                    if (department.ManagerUserId != null)
+                        throw new Exception("Department already has a manager.");
+                    department.ManagerUserId = userId;
+                    user.DepartmentId = departmentid;
+                }
+            }
+            else
+            {
+                user.DepartmentId = null;
+            }
             // Tạo Password tự động (8 ký tự với chữ hoa, chữ thường, số và ký tự đặc biệt)
             string password = GenerateRandomPassword();
             user.PasswordHash = PasswordHasher.HashPassword(password);
@@ -236,7 +252,7 @@ namespace OCMS_Services.Service
             await _unitOfWork.SaveChangesAsync();
         }
         #endregion
-        
+
         #region Update Password
         public async Task UpdatePasswordAsync(string userId, PasswordUpdateDTO passwordDto)
         {
