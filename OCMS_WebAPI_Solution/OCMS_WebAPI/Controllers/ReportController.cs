@@ -20,7 +20,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Export Reports
         [HttpGet("export-expired-certificates")]
-        [CustomAuthorize("Admin", "HR", "Reviewer")]
+        [CustomAuthorize("Admin", "HR", "Reviewer", "AOC Manager")]
         public async Task<IActionResult> ExportExpiredCertificates()
         {
             var data = await _reportService.GetExpiredCertificatesAsync();
@@ -51,7 +51,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Export Trainee Info
         [HttpGet("export-trainee-info/{traineeId}")]
-        [CustomAuthorize("Admin", "HR", "Reviewer")]
+        [CustomAuthorize("Admin", "HR", "Reviewer","AOC Manager")]
         public async Task<IActionResult> ExportTraineeInfo(string traineeId)
         {
             try
@@ -78,7 +78,7 @@ namespace OCMS_WebAPI.Controllers
 
         #region Export Course Result
         [HttpGet("export-course-result")]
-        [CustomAuthorize("Admin", "HR", "Reviewer")]
+        [CustomAuthorize("Admin", "HR", "Reviewer", "AOC Manager")]
         public async Task<IActionResult> ExportCourseResult()
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -96,7 +96,7 @@ namespace OCMS_WebAPI.Controllers
         }
         #endregion
         // 4️⃣ View Saved Reports
-        [CustomAuthorize("Admin", "HR", "Reviewer")]
+        [CustomAuthorize("Admin", "HR", "Reviewer", "AOC Manager")]
         [HttpGet("saved-reports")]
         public async Task<IActionResult> GetSavedReports()
         {
