@@ -59,7 +59,7 @@ namespace OCMS_Services.Service
         }
         #endregion
 
-        #region Get All Training Schedules By Subject
+        #region Get All Training Schedules By Id
         /// <summary>
         /// Retrieves a training schedule by its ID, including related data.
         /// </summary>
