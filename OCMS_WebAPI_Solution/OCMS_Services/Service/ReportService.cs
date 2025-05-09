@@ -147,7 +147,7 @@ namespace OCMS_Services.Service
             var certificates = await _certificateService.GetActiveCertificatesWithSasUrlAsync();
 
             var expiredCerts = certificates
-                .Where(c => c.ExpirationDate.HasValue && c.ExpirationDate.Value <= fourMonthsLater)
+                .Where(c => c.ExpirationDate.HasValue && c.ExpirationDate.Value <= fourMonthsLater )
                 .Select(c => new ExpiredCertificateReportDto
                 {
                     UserId = c.UserId,

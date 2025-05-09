@@ -45,12 +45,21 @@ namespace OCMS_Services.Service
             {
                 throw new InvalidDataException($"User must be active to assign.");
             }
+            
             if (user.DepartmentId!=null)
                 throw new InvalidOperationException($"User already assigned to a department (ID: '{user.DepartmentId}').");
             var department = await _unitOfWork.DepartmentRepository.GetByIdAsync(departmentId);
             if (department == null)
                 throw new KeyNotFoundException($"Department with ID '{departmentId}' not found.");
-
+            if (user.RoleId == 8)
+            {
+                var manager = _unitOfWork.UserRepository.GetByIdAsync(department.ManagerUserId);
+                if (manager != null)
+                {
+                    throw new InvalidOperationException("There is already a manager in this department");
+                }
+                else department.ManagerUserId = user.UserId;
+            }
             if (department.Status == DepartmentStatus.Inactive)
                 throw new InvalidOperationException($"Cannot assign user to an inactive department (ID: '{departmentId}').");
             if(user.SpecialtyId !=department.SpecialtyId)
