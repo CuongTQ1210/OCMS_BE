@@ -12,6 +12,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using System.Text.RegularExpressions;
+using System.Runtime.CompilerServices;
 
 public class CourseService : ICourseService
 {
@@ -87,48 +88,12 @@ public class CourseService : ICourseService
             throw new ArgumentException("Unsupported CourseLevel provided.");
         }
 
-        // Generate CourseId
-        string courseId;
-        if (courseLevel == CourseLevel.Initial)
+        var courseId = await GenerateCourseId(dto.CourseName, dto.CourseLevel, dto.CourseRelatedId);
+        var existedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(courseId);
+        if(existedCourse!= null)
         {
-            courseId = string.IsNullOrEmpty(dto.CourseId) ? Guid.NewGuid().ToString() : dto.CourseId;
-            // Validate uniqueness of CourseId
-            var existingCourse = await _unitOfWork.CourseRepository.GetByIdAsync(courseId);
-            if (existingCourse != null)
-                throw new ArgumentException($"CourseId {courseId} already exists.");
+            throw new ArgumentException($"Course with this level {dto.CourseLevel} already existed for this course {dto.CourseRelatedId}");
         }
-        else
-        {
-            string suffix = courseLevel switch
-            {
-                CourseLevel.Professional => "PRO",
-                CourseLevel.Recurrent => "REC",
-                CourseLevel.Relearn => "REL",
-                _ => throw new InvalidOperationException("Invalid CourseLevel for CourseId generation.")
-            };
-
-            // Pattern to match: COURSEID-SUFFIX#
-            var baseCourseId = $"{dto.CourseRelatedId}-{suffix}";
-
-            // Fetch all courses with similar CourseId prefix
-            var existingCourses = await _unitOfWork.CourseRepository
-                .GetAllAsync(c => c.CourseId.StartsWith(baseCourseId));
-
-            // Extract numeric suffixes and find the max
-            int maxNumber = 0;
-            foreach (var Course in existingCourses)
-            {
-                var match = Regex.Match(Course.CourseId, $@"{Regex.Escape(baseCourseId)}(\d+)$");
-                if (match.Success && int.TryParse(match.Groups[1].Value, out int number))
-                {
-                    maxNumber = Math.Max(maxNumber, number);
-                }
-            }
-
-            // Generate new CourseId with incremented suffix
-            courseId = $"{baseCourseId}{maxNumber + 1}";
-        }
-
         // Map DTO to Course entity
         var course = _mapper.Map<Course>(dto);
         course.CourseId = courseId;
@@ -290,6 +255,52 @@ public class CourseService : ICourseService
         await _unitOfWork.SaveChangesAsync();
 
         return _mapper.Map<CourseModel>(course);
+    }
+    #endregion
+
+
+    #region Helper Method
+    public async Task<string> GenerateCourseId(string courseName, string level, string? relatedCourseId = null)
+    {
+        if (level == "Initial")
+        {
+            // Use your original initials extraction logic
+            string courseInitials = string.Concat(courseName
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Where(word => !string.IsNullOrWhiteSpace(word))
+                .Take(3)
+                .Select(word => char.ToUpper(word[0])));
+
+            // Always start Initial with 101
+            return $"{courseInitials}101";
+        }
+
+        if (string.IsNullOrEmpty(relatedCourseId))
+            throw new ArgumentException("Related course ID is required for non-initial levels.");
+
+        var relatedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(relatedCourseId);
+        if (relatedCourse == null)
+            throw new ArgumentException("The related course does not exist.");
+
+        // Extract initials (alphabetic part)
+        string initialsPart = new(relatedCourse.CourseId.TakeWhile(char.IsLetter).ToArray());
+
+        // Extract number (numeric part)
+        string numberPart = new(relatedCourse.CourseId.SkipWhile(char.IsLetter).ToArray());
+
+        if (!int.TryParse(numberPart, out int baseCode))
+            throw new InvalidOperationException("Related course ID does not contain a valid numeric part.");
+
+        // Determine new code based on level
+        int newCode = level switch
+        {
+            "Professional" => baseCode + 100,
+            "Recurrent" => baseCode + 10,
+            "Relearn" => baseCode + 1,
+            _ => throw new InvalidOperationException("Invalid CourseLevel.")
+        };
+
+        return $"{initialsPart}{newCode}";
     }
     #endregion
 }

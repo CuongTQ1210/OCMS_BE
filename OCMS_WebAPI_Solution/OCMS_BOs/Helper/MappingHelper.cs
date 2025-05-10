@@ -159,7 +159,6 @@ CreateMap<Subject, SubjectSimpleModel>();
 
 
             CreateMap<CourseDTO, Course>()
-                .ForMember(dest => dest.CourseId, opt => opt.MapFrom(src => src.CourseId))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
                 .ForMember(dest => dest.RelatedCourseId, opt => opt.MapFrom(src => src.CourseRelatedId))
                 .ForMember(dest => dest.CourseName, opt => opt.MapFrom(src => src.CourseName))
@@ -176,7 +175,6 @@ CreateMap<Subject, SubjectSimpleModel>();
                 .ForMember(dest => dest.RelatedCourses, opt => opt.Ignore());
 
             CreateMap<Course, CourseDTO>()
-                .ForMember(dest => dest.CourseId, opt => opt.MapFrom(src => src.CourseId))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
                 .ForMember(dest => dest.CourseRelatedId, opt => opt.MapFrom(src => src.RelatedCourseId))
                 .ForMember(dest => dest.CourseName, opt => opt.MapFrom(src => src.CourseName))

@@ -70,31 +70,30 @@ namespace OCMS_Services.Service
                 throw new Exception("Candidate must be approved first.");
             // Lấy Specialty
             var specialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(candidate.SpecialtyId);
-            string specialtyInitial = specialty.SpecialtyId;
-
-            // Tạo userId
-            string lastUserId = await GetLastUserIdAsync();
-            int nextNumber = lastUserId != null ? int.Parse(lastUserId.Substring(1)) + 1 : 1;
-            string userId = $"{specialtyInitial}{nextNumber:D6}";
-            while (await IsUserIdExists(userId))
+            var parentSpecialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(specialty.ParentSpecialtyId);
+            string specialtyInitial = specialty.SpecialtyId.Substring(0, 2).ToUpper();
+            if (parentSpecialty != null)
             {
-                nextNumber++;
-                userId = $"{specialtyInitial}{nextNumber:D6}";
+                 specialtyInitial = parentSpecialty.SpecialtyId.Substring(0, 2).ToUpper();
             }
+            // Tạo userId
+            Random random = new Random();
+            string userId;
+            do
+            {
+                int randomNumber = random.Next(0, 1000000); // 0 to 999999
+                string formattedNumber = randomNumber.ToString("D6"); // Pads with leading zeros
+                userId = $"{specialtyInitial}{formattedNumber}";
+            }
+            while (await IsUserIdExists(userId));
 
             // Tạo userName
             string fullNameWithoutDiacritics = RemoveDiacritics(candidate.FullName);
             string lastName = fullNameWithoutDiacritics.Split(' ').Last().ToLower();
-            string userName = $"{lastName}_{userId.ToLower()}";
 
-            // Đảm bảo Username là duy nhất
-            int usernameSuffix = 1;
-            string originalUserName = userName;
-            while (await IsUsernameExists(userName))
-            {
-                userName = $"{lastName}_{userId.ToLower()}";
-                usernameSuffix++;
-            }
+            string baseUserName = $"{lastName}{userId}";
+            string userName = baseUserName;
+
             // Tạo password ngẫu nhiên
             string password = GenerateRandomPassword();
 
