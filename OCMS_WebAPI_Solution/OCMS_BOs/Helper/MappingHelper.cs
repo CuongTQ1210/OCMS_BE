@@ -239,7 +239,6 @@ CreateMap<Subject, SubjectSimpleModel>();
                     src.CourseSubjectSpecialties : new List<CourseSubjectSpecialty>()));
 
             CreateMap<SubjectDTO, Subject>()
-                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.SubjectId))
                 .ForMember(dest => dest.CourseSubjectSpecialties, opt => opt.Ignore())
                 .ForMember(dest => dest.CreateByUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())

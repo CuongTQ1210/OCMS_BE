@@ -15,7 +15,7 @@ namespace OCMS_Services.IService
         Task<TrainingPlanModel> GetTrainingPlanByIdAsync(string id);
         Task<bool> DeleteTrainingPlanAsync(string id);
         Task<TrainingPlanModel> UpdateTrainingPlanAsync(string id, TrainingPlanDTO dto, string updateUserId);
-
+        Task<bool> SendTrainingPlanRequestForApprove(string trainingPlanId, string createdByUserId);
         Task<List<TrainingPlanModel>> GetTrainingPlansByTraineeIdAsync(string traineeId);
     }
 }

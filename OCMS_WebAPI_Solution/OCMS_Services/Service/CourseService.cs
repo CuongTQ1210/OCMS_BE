@@ -257,7 +257,28 @@ public class CourseService : ICourseService
         return _mapper.Map<CourseModel>(course);
     }
     #endregion
+    #region
+    public async Task<bool> SendCourseRequestForApprove(string courseId, string createdByUserId)
+    {
+        var course = await _unitOfWork.CourseRepository.GetByIdAsync(courseId);
+        if (course == null)
+        {
+            throw new KeyNotFoundException($"Course with id {courseId} does not exist!");
+        }
 
+        var requestDto = new RequestDTO
+        {
+            RequestEntityId = courseId,
+            RequestType = RequestType.NewCourse,
+            Description = $"Request to approve new course '{course.CourseName}'",
+            Notes = null 
+        };
+
+        await _requestService.CreateRequestAsync(requestDto, createdByUserId);
+        return true;
+    }
+
+    #endregion
 
     #region Helper Method
     public async Task<string> GenerateCourseId(string courseName, string level, string? relatedCourseId = null)
