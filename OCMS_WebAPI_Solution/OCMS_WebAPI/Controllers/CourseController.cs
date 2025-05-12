@@ -83,6 +83,33 @@ namespace OCMS_WebAPI.Controllers
         }
         #endregion
 
+
+        [HttpPost("send-request/{courseId}")]
+        [CustomAuthorize("Admin", "Training staff")]
+        public async Task<IActionResult> SendCourseRequest(string courseId)
+        {
+            // Get user ID from JWT or context
+            string userId = User.FindFirst("UserId")?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized("User ID not found in token.");
+
+            try
+            {
+                var result = await _courseService.SendCourseRequestForApprove(courseId, userId);
+                if (result)
+                    return Ok("Course request submitted successfully.");
+                return BadRequest("Failed to submit course request.");
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal error: {ex.Message}");
+            }
+        }
+
         #region Get Course By ID
         /// <summary>
         /// Get a course by ID

@@ -134,9 +134,6 @@ namespace OCMS_Services.Service
             if (dto.PassingScore < 0 || dto.PassingScore > 10)
                 throw new ArgumentException("Passing score must be between 0 and 10.");
 
-            // Validate SubjectId and SubjectName uniqueness
-            if (await _unitOfWork.SubjectRepository.ExistsAsync(s => s.SubjectId == dto.SubjectId))
-                throw new ArgumentException($"Subject with ID '{dto.SubjectId}' already exists.");
             if (await _unitOfWork.SubjectRepository.ExistsAsync(s => s.SubjectName == dto.SubjectName))
                 throw new ArgumentException($"Subject with name '{dto.SubjectName}' already exists.");
 
@@ -146,6 +143,7 @@ namespace OCMS_Services.Service
 
             // Map DTO to Subject entity
             var subject = _mapper.Map<Subject>(dto);
+            subject.SubjectId = GenerateSubjectId(dto.SubjectName);
             subject.CreateByUserId = createdByUserId;
             subject.CreatedAt = DateTime.Now;
             subject.UpdatedAt = DateTime.Now;
@@ -176,6 +174,7 @@ namespace OCMS_Services.Service
 
             // Map DTO to subject entity
             _mapper.Map(dto, subject);
+
             subject.UpdatedAt = DateTime.Now;
 
             // Update subject in repository
@@ -228,6 +227,40 @@ namespace OCMS_Services.Service
             await _unitOfWork.SaveChangesAsync();
 
             return true;
+        }
+        #endregion
+
+        #region helper
+        private string GenerateSubjectId(string subjectName)
+        {
+            // Split the name into words
+            var words = subjectName
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Where(word => !string.IsNullOrWhiteSpace(word))
+                .ToList();
+
+            string initials;
+
+            if (words.Count >= 3)
+            {
+                // Take the first letter of the first 3 words
+                initials = string.Concat(words.Take(3).Select(word => char.ToUpper(word[0])));
+            }
+            else
+            {
+                // If less than 3 words, take the first 3 letters of the first word
+                string firstWord = words.First();
+                initials = new string(firstWord
+                    .Where(char.IsLetter) // ignore non-letters
+                    .Take(3)
+                    .Select(char.ToUpper)
+                    .ToArray());
+            }
+            // Generate a random 3-digit number (you can adjust length if needed)
+            Random rnd = new Random();
+            int randomNumber = rnd.Next(1, 1000); // Generates number between 1 and 999
+            string formattedNumber = randomNumber.ToString("D3");
+            return $"{initials}{formattedNumber}";
         }
         #endregion
     }

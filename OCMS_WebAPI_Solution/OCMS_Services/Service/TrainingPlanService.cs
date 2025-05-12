@@ -247,6 +247,28 @@ namespace OCMS_Services.Service
         }
         #endregion
 
+        #region Send Training Plan Request
+        public async Task<bool> SendTrainingPlanRequestForApprove(string trainingPlanId, string createdByUserId)
+        {
+            var trainingPlan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(trainingPlanId);
+            if (trainingPlan == null)
+            {
+                throw new KeyNotFoundException($"Training plan with ID {trainingPlanId} does not exist!");
+            }
+
+            var requestDto = new RequestDTO
+            {
+                RequestEntityId = trainingPlanId,
+                RequestType = RequestType.NewPlan,
+                Description = $"Request to approve new training plan '{trainingPlan.PlanName}'",
+                Notes = null 
+            };
+
+            await _requestService.CreateRequestAsync(requestDto, createdByUserId);
+            return true;
+        }
+        #endregion
+
         #region Helper Methods
         private async Task<string> GenerateTrainingPlanId(DateTime trainingDate)
         {
