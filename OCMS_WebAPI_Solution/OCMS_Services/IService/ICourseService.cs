@@ -15,5 +15,7 @@ namespace OCMS_Services.IService
         Task<CourseModel?> GetCourseByIdAsync(string id);
         Task<bool> DeleteCourseAsync(string id);
         Task<CourseModel> UpdateCourseAsync(string id, CourseUpdateDTO dto, string updatedByUserId);
+
+        Task<bool> SendCourseRequestForApprove(string courseId, string createdByUserId);
     }
 }

@@ -59,6 +59,32 @@ namespace OCMS_WebAPI.Controllers
         }
         #endregion
 
+        [HttpPost("send-request/{trainingPlanId}")]
+        [CustomAuthorize("Admin", "Training staff")]
+        public async Task<IActionResult> SendTrainingPlanRequest(string trainingPlanId)
+        {
+            // You might get the userId from the JWT or identity context
+            string userId = User.FindFirst("UserId")?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized("User ID not found in token.");
+
+            try
+            {
+                var result = await _trainingPlanService.SendTrainingPlanRequestForApprove(trainingPlanId, userId);
+                if (result)
+                    return Ok("Training plan request submitted successfully.");
+                return BadRequest("Failed to submit training plan request.");
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal error: {ex.Message}");
+            }
+        }
+
         #region Get Training Plans Trainee Joined
         [HttpGet("joined")]
         [CustomAuthorize("Trainee")]

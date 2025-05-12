@@ -113,15 +113,14 @@ namespace OCMS_WebAPI.Controllers
         #endregion
 
         #region Update Subject
-        [HttpPut]
+        [HttpPut("subjectId")]
         [CustomAuthorize("Admin", "Training staff")]
-        public async Task<IActionResult> UpdateSubject([FromBody] SubjectDTO dto)
+        public async Task<IActionResult> UpdateSubject(string subjectId,[FromBody] SubjectDTO dto)
         {
             
             try
             {
-                var id = dto.SubjectId;
-                var subject = await _subjectService.UpdateSubjectAsync(id, dto);
+                var subject = await _subjectService.UpdateSubjectAsync(subjectId, dto);
                 return Ok(new { message = "Subject updated successfully.",  subject });
             }
             catch (KeyNotFoundException ex)
