@@ -31,7 +31,7 @@ namespace OCMS_BOs.Entities
         public int RoleId { get; set; }
 
         [ForeignKey("Specialty")]
-        public string SpecialtyId { get; set; }
+        public string? SpecialtyId { get; set; }
 
         [ForeignKey("Department")]
         public string? DepartmentId { get; set; }

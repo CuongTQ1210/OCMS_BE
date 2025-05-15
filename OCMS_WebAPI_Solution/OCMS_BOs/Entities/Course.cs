@@ -18,10 +18,8 @@ namespace OCMS_BOs.Entities
         public CourseStatus Status { get; set; } // pending, approved, rejected
         public Progress Progress { get; set; } // Ongoing, Completed
 
-        [ForeignKey("ApproveUser")]
-        public string? ApproveByUserId { get; set; }
-        public User? ApproveByUser { get; set; }
-        public DateTime? ApprovalDate { get; set; }
+        public DateTime StartDateTime { get; set; }
+        public DateTime EndDateTime { get; set; }
 
         [ForeignKey("CreateUser")]
         public string CreatedByUserId { get; set; }
@@ -36,10 +34,6 @@ namespace OCMS_BOs.Entities
         public Course? RelatedCourse { get; set; }
         public ICollection<Course> RelatedCourses { get; set; }
 
-        // Course can be referenced by multiple TrainingPlans (1-n)
-        public virtual ICollection<TrainingPlan> TrainingPlans { get; set; }
-
-        // Course can have multiple subject-specialty combinations
-        public List<CourseSubjectSpecialty> CourseSubjectSpecialties { get; set; }
+        public ICollection<SubjectSpecialty> SubjectSpecialties { get; set; }
     }
 }
