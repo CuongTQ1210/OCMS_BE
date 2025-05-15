@@ -25,8 +25,5 @@ namespace OCMS_BOs.Entities
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
-        // Add the many-to-many relationship through the join table
-        public List<CourseSubjectSpecialty> CourseSubjectSpecialties { get; set; }
-
     }
 }

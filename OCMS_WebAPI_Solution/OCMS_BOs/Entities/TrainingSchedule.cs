@@ -12,11 +12,9 @@ namespace OCMS_BOs.Entities
     {
         [Key]
         public string ScheduleID { get; set; }
-
-        [ForeignKey("CourseSubjectSpecialty")]
-        public string CourseSubjectSpecialtyId { get; set; }
-        public CourseSubjectSpecialty CourseSubjectSpecialty { get; set; }
-
+        [ForeignKey("ClassSubject")]
+        public string ClassSubjectId { get; set; }
+        public ClassSubject ClassSubject { get; set; }
         public List<DayOfWeek> DaysOfWeek { get; set; }
         public TimeSpan SubjectPeriod { get; set; }
 
@@ -26,10 +24,6 @@ namespace OCMS_BOs.Entities
 
         public string Location { get; set; }
         public string Room { get; set; }
-
-        [ForeignKey("InstructorUser")]
-        public string InstructorID { get; set; }
-        public User Instructor { get; set; }
 
         [ForeignKey("CreateByUser")]
         public string CreatedByUserId { get; set; }

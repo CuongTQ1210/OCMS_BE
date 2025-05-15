@@ -39,10 +39,6 @@ namespace OCMS_BOs.Entities
         public virtual User CreatedByUser { get; set; }
         public virtual User UpdatedByUser { get; set; }
 
-        // New relationship with CourseSubjectSpecialty join table
-        public virtual ICollection<CourseSubjectSpecialty> CourseSubjectSpecialties { get; set; }
-
-        // Still maintain direct relationship with TrainingPlan
-        public virtual ICollection<TrainingPlan> TrainingPlans { get; set; }
+        
     }
 }
