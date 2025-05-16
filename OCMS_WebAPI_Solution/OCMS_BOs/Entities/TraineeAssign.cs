@@ -19,10 +19,7 @@ namespace OCMS_BOs.Entities
         [ForeignKey("AssignUser")]
         public string? AssignByUserId { get; set; }
         public User? AssignByUser { get; set; }
-        public DateTime AssignDate { get; set; }= DateTime.Now;
-        [ForeignKey("Grade")]
-        public string GradeId { get; set; }
-        public Grade Grade { get; set; }
+        public DateTime AssignDate { get; set; }= DateTime.Now;        
         [ForeignKey("ApproveUser")]
         public string? ApproveByUserId { get; set; }
         public User? ApproveByUser { get; set; }

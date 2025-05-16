@@ -26,7 +26,7 @@ namespace OCMS_Services.Service
         public async Task<IEnumerable<InstructorAssignmentModel>> GetAllInstructorAssignmentsAsync()
         {
             var assignments = await _unitOfWork.InstructorAssignmentRepository.GetAllAsync(
-                a => a.CourseSubjectSpecialty,
+                a => a.Subject,
                 a => a.Instructor
             );
             return _mapper.Map<IEnumerable<InstructorAssignmentModel>>(assignments);
@@ -39,7 +39,7 @@ namespace OCMS_Services.Service
 
             var assignment = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
                 a => a.AssignmentId == assignmentId,
-                a => a.CourseSubjectSpecialty,
+                a => a.Subject,
                 a => a.Instructor
             );
             if (assignment == null)
@@ -55,9 +55,9 @@ namespace OCMS_Services.Service
             if (string.IsNullOrEmpty(assignByUserId))
                 throw new ArgumentException("AssignBy user ID cannot be null or empty.", nameof(assignByUserId));
 
-            var cssExists = await _unitOfWork.CourseSubjectSpecialtyRepository.ExistsAsync(css => css.Id == dto.CourseSubjectSpecialtyId);
-            if (!cssExists)
-                throw new ArgumentException($"CourseSubjectSpecialty with ID {dto.CourseSubjectSpecialtyId} does not exist.");
+            var subjectExists = await _unitOfWork.SubjectRepository.ExistsAsync(s => s.SubjectId == dto.SubjectId);
+            if (!subjectExists)
+                throw new ArgumentException($"Subject with ID {dto.SubjectId} does not exist.");
 
             var instructorExists = await _unitOfWork.UserRepository.ExistsAsync(i => i.UserId == dto.InstructorId);
             if (!instructorExists)
@@ -74,8 +74,9 @@ namespace OCMS_Services.Service
             } while (await _unitOfWork.InstructorAssignmentRepository.ExistsAsync(a => a.AssignmentId == assignmentId));
 
             var assignment = _mapper.Map<InstructorAssignment>(dto);
-            assignment.CourseSubjectSpecialtyId = dto.CourseSubjectSpecialtyId;
             assignment.AssignmentId = assignmentId;
+            assignment.SubjectId = dto.SubjectId;
+            assignment.InstructorId = dto.InstructorId;
             assignment.AssignByUserId = assignByUserId;
             assignment.AssignDate = DateTime.UtcNow;
             assignment.RequestStatus = RequestStatus.Pending;
@@ -92,7 +93,7 @@ namespace OCMS_Services.Service
 
             var createdAssignment = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
                 a => a.AssignmentId == assignmentId,
-                a => a.CourseSubjectSpecialty,
+                a => a.Subject,
                 a => a.Instructor
             );
             return _mapper.Map<InstructorAssignmentModel>(createdAssignment);
@@ -109,9 +110,9 @@ namespace OCMS_Services.Service
             if (assignment == null)
                 throw new KeyNotFoundException($"Instructor assignment with ID {assignmentId} not found.");
 
-            var cssExists = await _unitOfWork.CourseSubjectSpecialtyRepository.ExistsAsync(css => css.Id == dto.CourseSubjectSpecialtyId);
-            if (!cssExists)
-                throw new ArgumentException($"CourseSubjectSpecialty with ID {dto.CourseSubjectSpecialtyId} does not exist.");
+            var subjectExists = await _unitOfWork.SubjectRepository.ExistsAsync(s => s.SubjectId == dto.SubjectId);
+            if (!subjectExists)
+                throw new ArgumentException($"Subject with ID {dto.SubjectId} does not exist.");
 
             var instructorExists = await _unitOfWork.UserRepository.ExistsAsync(i => i.UserId == dto.InstructorId);
             if (!instructorExists)
@@ -123,6 +124,8 @@ namespace OCMS_Services.Service
             }
 
             _mapper.Map(dto, assignment);
+            assignment.SubjectId = dto.SubjectId;
+            assignment.InstructorId = dto.InstructorId;
 
             var user = await _unitOfWork.UserRepository.FirstOrDefaultAsync(u => u.UserId == dto.InstructorId);
             if (user != null)
@@ -136,7 +139,7 @@ namespace OCMS_Services.Service
 
             var updatedAssignment = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
                 a => a.AssignmentId == assignmentId,
-                a => a.CourseSubjectSpecialty,
+                a => a.Subject,
                 a => a.Instructor
             );
             return _mapper.Map<InstructorAssignmentModel>(updatedAssignment);

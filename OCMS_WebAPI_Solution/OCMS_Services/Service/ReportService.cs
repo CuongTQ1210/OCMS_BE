@@ -9,13 +9,13 @@ using OfficeOpenXml;
 using OfficeOpenXml.Style;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace OCMS_Services.Service
 {
-    public class ReportService :  IReportService
+    public class ReportService : IReportService
     {
         private readonly UnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
@@ -64,6 +64,7 @@ namespace OCMS_Services.Service
 
             return report;
         }
+
         public async Task<List<ReportModel>> GetSavedReportsAsync()
         {
             var reports = await _unitOfWork.ReportRepository
@@ -86,6 +87,7 @@ namespace OCMS_Services.Service
                 FileUrl = r.FileUrl
             }).ToList();
         }
+
         public async Task<(byte[] fileBytes, Report report)> GenerateExcelReport(List<ExpiredCertificateReportDto> data, string filePath, string generateByUserId)
         {
             using var package = new ExcelPackage();
@@ -139,6 +141,7 @@ namespace OCMS_Services.Service
 
             return (fileBytes, report);
         }
+
         public async Task<List<ExpiredCertificateReportDto>> GetExpiredCertificatesAsync()
         {
             var now = DateTime.Now;
@@ -147,7 +150,7 @@ namespace OCMS_Services.Service
             var certificates = await _certificateService.GetActiveCertificatesWithSasUrlAsync();
 
             var expiredCerts = certificates
-                .Where(c => c.ExpirationDate.HasValue && c.ExpirationDate.Value <= fourMonthsLater )
+                .Where(c => c.ExpirationDate.HasValue && c.ExpirationDate.Value <= fourMonthsLater)
                 .Select(c => new ExpiredCertificateReportDto
                 {
                     UserId = c.UserId,
@@ -161,6 +164,7 @@ namespace OCMS_Services.Service
 
             return expiredCerts;
         }
+
         public async Task<(byte[] fileBytes, Report report)> ExportTraineeInfoToExcelAsync(string traineeId, string generateByUserId)
         {
             var reportData = await GenerateTraineeInfoReportByTraineeIdAsync(traineeId);
@@ -224,16 +228,17 @@ namespace OCMS_Services.Service
 
             return (fileBytes, report);
         }
+
         public async Task<List<TraineeInfoReportDto>> GenerateTraineeInfoReportByTraineeIdAsync(string traineeId)
         {
             var traineeAssigns = await _unitOfWork.TraineeAssignRepository
                 .GetQueryable()
                 .Where(x => x.TraineeId == traineeId)
                 .Include(x => x.Trainee)
-                .Include(x => x.CourseSubjectSpecialty)
-                    .ThenInclude(css => css.Course)
-                .Include(x => x.CourseSubjectSpecialty)
-                    .ThenInclude(css => css.Subject)
+                .Include(x => x.ClassSubject)
+                    .ThenInclude(cs => cs.Class)
+                .Include(x => x.ClassSubject)
+                    .ThenInclude(cs => cs.Subject)
                 .ToListAsync();
 
             var grades = await _unitOfWork.GradeRepository
@@ -250,14 +255,14 @@ namespace OCMS_Services.Service
                               TraineeId = assign.TraineeId,
                               TraineeName = assign.Trainee?.FullName,
                               Email = assign.Trainee?.Email,
-                              CourseId = assign.CourseSubjectSpecialty.CourseId,
-                              CourseName = assign.CourseSubjectSpecialty.Course?.CourseName ?? "Unknown",
+                              CourseId = assign.ClassSubject.ClassId,
+                              CourseName = assign.ClassSubject.Class?.ClassName ?? "Unknown",
                               AssignDate = assign.AssignDate,
-                              SubjectId = assign.CourseSubjectSpecialty.SubjectId,
+                              SubjectId = assign.ClassSubject.SubjectId,
                               TotalGrade = subGrade?.TotalScore,
                               Status = subGrade == null
                                   ? "N/A"
-                                  : (subGrade.TotalScore >= (assign.CourseSubjectSpecialty.Subject?.PassingScore ?? 5) ? "Pass" : "Fail")
+                                  : (subGrade.TotalScore >= (assign.ClassSubject.Subject?.PassingScore ?? 5) ? "Pass" : "Fail")
                           }).ToList();
 
             return report;
@@ -267,10 +272,10 @@ namespace OCMS_Services.Service
         {
             var traineeAssigns = await _unitOfWork.TraineeAssignRepository
                 .GetQueryable()
-                .Include(x => x.CourseSubjectSpecialty)
-                    .ThenInclude(css => css.Course)
-                .Include(x => x.CourseSubjectSpecialty)
-                    .ThenInclude(css => css.Subject)
+                .Include(x => x.ClassSubject)
+                    .ThenInclude(cs => cs.Class)
+                .Include(x => x.ClassSubject)
+                    .ThenInclude(cs => cs.Subject)
                 .ToListAsync();
 
             var traineeAssignIds = traineeAssigns.Select(x => x.TraineeAssignId).ToList();
@@ -278,22 +283,22 @@ namespace OCMS_Services.Service
             var grades = await _unitOfWork.GradeRepository
                 .GetQueryable()
                 .Include(g => g.TraineeAssign)
-                    .ThenInclude(ta => ta.CourseSubjectSpecialty)
-                        .ThenInclude(css => css.Course)
+                    .ThenInclude(ta => ta.ClassSubject)
+                        .ThenInclude(cs => cs.Class)
                 .Include(g => g.TraineeAssign)
-                    .ThenInclude(ta => ta.CourseSubjectSpecialty)
-                        .ThenInclude(css => css.Subject)
+                    .ThenInclude(ta => ta.ClassSubject)
+                        .ThenInclude(cs => cs.Subject)
                 .Where(g => traineeAssignIds.Contains(g.TraineeAssignID))
                 .ToListAsync();
 
             var report = (from assign in traineeAssigns
                           join grade in grades on assign.TraineeAssignId equals grade.TraineeAssignID
-                          where grade.TraineeAssign.CourseSubjectSpecialty != null
+                          where grade.TraineeAssign.ClassSubject != null
                           select new
                           {
-                              CourseId = assign.CourseSubjectSpecialty.CourseId,
+                              CourseId = assign.ClassSubject.ClassId,
                               TotalScore = grade.TotalScore,
-                              PassingScore = assign.CourseSubjectSpecialty.Subject.PassingScore
+                              PassingScore = assign.ClassSubject.Subject.PassingScore
                           })
                           .GroupBy(x => x.CourseId)
                           .Select(g => new CourseResultReportDto
@@ -309,6 +314,7 @@ namespace OCMS_Services.Service
 
             return report;
         }
+
         public async Task<(byte[] fileBytes, Report report)> ExportCourseResultReportToExcelAsync(string generateByUserId)
         {
             var reportData = await GenerateAllCourseResultReportAsync();
@@ -366,6 +372,5 @@ namespace OCMS_Services.Service
 
             return (fileBytes, report);
         }
-
     }
 }
