@@ -83,7 +83,7 @@ namespace OCMS_BOs
                 entity.Property(u => u.Status)
                       .IsRequired()
                       .HasDefaultValue(AccountStatus.Active); // Default status is active
-                 
+
 
                 entity.Property(u => u.CreatedAt)
                       .IsRequired()
@@ -152,35 +152,35 @@ namespace OCMS_BOs
             });
 
             // Fluent API for CourseParticipants
-            
+
             modelBuilder.Entity<Department>(entity =>
-{
-    entity.HasKey(d => d.DepartmentId);
+            {
+                entity.HasKey(d => d.DepartmentId);
 
-    entity.Property(d => d.DepartmentName)
-          .IsRequired();
+                entity.Property(d => d.DepartmentName)
+                      .IsRequired();
 
-    entity.HasOne(d => d.Specialty)
-          .WithMany()
-          .HasForeignKey(d => d.SpecialtyId)
-          .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(d => d.Specialty)
+                      .WithMany()
+                      .HasForeignKey(d => d.SpecialtyId)
+                      .OnDelete(DeleteBehavior.Restrict);
 
-    entity.HasOne(d => d.Manager)
-          .WithMany() // If you want to add a collection of managed departments in User, change this to WithMany(u => u.ManagedDepartments)
-          .HasForeignKey(d => d.ManagerUserId)
-          .OnDelete(DeleteBehavior.Restrict);
-});
+                entity.HasOne(d => d.Manager)
+                      .WithMany() // If you want to add a collection of managed departments in User, change this to WithMany(u => u.ManagedDepartments)
+                      .HasForeignKey(d => d.ManagerUserId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
             modelBuilder.Entity<User>()
-    .Property(u => u.Status)
-    .HasDefaultValue(AccountStatus.Active) // Ensure this matches your intended default
-    .HasConversion<int>() // Store enum as an integer
-    .Metadata.SetBeforeSaveBehavior(Microsoft.EntityFrameworkCore.Metadata.PropertySaveBehavior.Ignore);
+                    .Property(u => u.Status)
+                    .HasDefaultValue(AccountStatus.Active) // Ensure this matches your intended default
+                    .HasConversion<int>() // Store enum as an integer
+                    .Metadata.SetBeforeSaveBehavior(Microsoft.EntityFrameworkCore.Metadata.PropertySaveBehavior.Ignore);
 
             // Update relationship between Grade and TraineeAssign
-            modelBuilder.Entity<TraineeAssign>()
-                    .HasOne(ta => ta.Grade)
-                    .WithMany(g => g.Assignees)
-                    .HasForeignKey(ta => ta.GradeId)
+            modelBuilder.Entity<Grade>()
+                    .HasOne(g => g.TraineeAssign)
+                    .WithOne()
+                    .HasForeignKey<Grade>(g => g.TraineeAssignID)
                     .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Grade>()

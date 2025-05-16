@@ -10,7 +10,9 @@ using OCMS_Repositories.IRepository;
 using OCMS_Services.IService;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -24,10 +26,10 @@ namespace OCMS_Services.Service
         private readonly ICourseRepository _courseRepository;
         private readonly INotificationService _notificationService;
         private readonly IMapper _mapper;
+        private readonly IDecisionTemplateService _templateService;
 
         public DecisionService(
             IDecisionTemplateService templateService,
-            IPdfSignerService pdfSignerService,
             IBlobService blobService,
             UnitOfWork unitOfWork,
             IUserRepository userRepository,
@@ -35,17 +37,24 @@ namespace OCMS_Services.Service
             INotificationService notificationService,
             IMapper mapper)
         {
+            _templateService = templateService ?? throw new ArgumentNullException(nameof(templateService));
             _blobService = blobService ?? throw new ArgumentNullException(nameof(blobService));
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
             _courseRepository = courseRepository ?? throw new ArgumentNullException(nameof(courseRepository));
             _notificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
-            _mapper = mapper;
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
         #region Create Decision
         public async Task<CreateDecisionResponse> CreateDecisionForCourseAsync(CreateDecisionDTO request, string issuedByUserId)
         {
+            if (string.IsNullOrEmpty(request?.CourseId))
+                throw new ArgumentException("CourseId is required", nameof(request));
+
+            if (string.IsNullOrEmpty(issuedByUserId))
+                throw new ArgumentException("IssuedByUserId is required", nameof(issuedByUserId));
+
             // Get the execution strategy from the DbContext
             var strategy = _unitOfWork.Context.Database.CreateExecutionStrategy();
 
@@ -65,7 +74,7 @@ namespace OCMS_Services.Service
                     {
                         IEnumerable<Certificate> certificates = new List<Certificate>();
                         IEnumerable<TraineeAssign> traineeAssigns = await _unitOfWork.TraineeAssignRepository
-                            .GetAllAsync(t => t.CourseSubjectSpecialty.CourseId == request.CourseId && t.RequestStatus == RequestStatus.Approved);
+                            .GetAllAsync(t => t.ClassSubject.Subject.SubjectId == request.CourseId && t.RequestStatus == RequestStatus.Approved);
 
                         if (!traineeAssigns.Any())
                             throw new InvalidOperationException("No approved trainees found for this course");
@@ -78,6 +87,10 @@ namespace OCMS_Services.Service
 
                             if (course.CourseLevel == CourseLevel.Recurrent)
                             {
+                                // Check if RelatedCourseId is not null for Recurrent courses
+                                if (string.IsNullOrEmpty(course.RelatedCourseId))
+                                    throw new InvalidOperationException($"Related course ID is missing for recurrent course {course.CourseId}");
+
                                 // Get the Initial certificate for this trainee
                                 cert = (await _unitOfWork.CertificateRepository.GetAllAsync(c =>
                                     c.UserId == trainee.TraineeId &&
@@ -99,8 +112,9 @@ namespace OCMS_Services.Service
                                 matchedCertificates.Add(cert);
                         }
 
-                        // Make sure we have certificates
-                        if (!matchedCertificates.Any())
+                        // Make sure we have certificates, but only if not an Initial course
+                        // For Initial courses, we might create decisions before certificates
+                        if (!matchedCertificates.Any() && course.CourseLevel != CourseLevel.Initial)
                             throw new InvalidOperationException("No matching certificates found for the course");
 
                         certificates = matchedCertificates;
@@ -121,11 +135,11 @@ namespace OCMS_Services.Service
                         }
 
                         // Tìm template phù hợp nhất theo tên
-                        var decisionTemplate = await _unitOfWork.DecisionTemplateRepository.GetAllAsync(
+                        var decisionTemplates = await _unitOfWork.DecisionTemplateRepository.GetAllAsync(
                             dt => dt.TemplateName.StartsWith(templateNamePrefix) && dt.TemplateStatus == 1);
 
                         // Lấy template mới nhất (giả sử CreatedAt là thời gian tạo)
-                        var latestTemplate = decisionTemplate
+                        var latestTemplate = decisionTemplates
                             .OrderByDescending(dt => dt.CreatedAt)
                             .FirstOrDefault();
 
@@ -144,17 +158,21 @@ namespace OCMS_Services.Service
 
                         // 3. Lấy template HTML từ blob
                         string templateHtml = "";
-                        if (latestTemplate.TemplateContent.StartsWith("https"))
+                        if (!string.IsNullOrEmpty(latestTemplate.TemplateContent) && latestTemplate.TemplateContent.StartsWith("https"))
                         {
-                            var sasUrl = await _blobService.GetBlobUrlWithSasTokenAsync(latestTemplate.TemplateContent, TimeSpan.FromHours(1), "r");
                             using (var httpClient = new HttpClient())
                             {
+                                var sasUrl = await _blobService.GetBlobUrlWithSasTokenAsync(latestTemplate.TemplateContent, TimeSpan.FromHours(1), "r");
                                 templateHtml = await httpClient.GetStringAsync(sasUrl);
                             }
                         }
-                        else
+                        else if (!string.IsNullOrEmpty(latestTemplate.TemplateContent))
                         {
                             templateHtml = latestTemplate.TemplateContent;
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException("Template content is empty");
                         }
 
                         // 4. Chuẩn bị dữ liệu
@@ -162,10 +180,11 @@ namespace OCMS_Services.Service
                         var issueDate = DateTime.Now;
 
                         // Generate student rows (dùng certificates nếu có, fallback to trainees)
-                        string studentRows = await GenerateStudentRowsAsync(certificates);
+                        string studentRows = await GenerateStudentRowsAsync(certificates.Any() ? certificates :
+                            traineeAssigns.Select(ta => new Certificate { UserId = ta.TraineeId, CourseId = request.CourseId }));
 
                         var courseSchedules = await _unitOfWork.TrainingScheduleRepository
-                            .GetAllAsync(ts => ts.CourseSubjectSpecialty.CourseId == request.CourseId);
+                            .GetAllAsync(ts => ts.ClassSubject.Subject.SubjectId == request.CourseId);
 
                         var startDate = courseSchedules.Any() ? courseSchedules.Min(s => s.StartDateTime) : issueDate;
                         var endDate = courseSchedules.Any() ? courseSchedules.Max(s => s.EndDateTime) : issueDate;
@@ -176,8 +195,8 @@ namespace OCMS_Services.Service
                             .Replace("{{Day}}", issueDate.Day.ToString())
                             .Replace("{{Month}}", issueDate.Month.ToString())
                             .Replace("{{Year}}", issueDate.Year.ToString())
-                            .Replace("{{CourseCode}}", course.CourseName)
-                            .Replace("{{CourseTitle}}", course.CourseName ?? $"Khóa {course.CourseName}")
+                            .Replace("{{CourseCode}}", course.CourseId)
+                            .Replace("{{CourseTitle}}", !string.IsNullOrEmpty(course.CourseName) ? course.CourseName : $"Khóa {course.CourseId}")
                             .Replace("{{StudentCount}}", certificates.Any() ? certificates.Count().ToString() : traineeAssigns.Count().ToString())
                             .Replace("{{StartDate}}", startDate.ToString("dd/MM/yyyy"))
                             .Replace("{{EndDate}}", endDate.ToString("dd/MM/yyyy"))
@@ -199,7 +218,7 @@ namespace OCMS_Services.Service
                             IssueDate = issueDate,
                             IssuedByUserId = issuedByUserId,
                             DecisionTemplateId = latestTemplate.DecisionTemplateId,
-                            DecisionStatus = 0, // Draft
+                            DecisionStatus = DecisionStatus.Draft, // Draft status as enum
                             CertificateId = certificates.FirstOrDefault()?.CertificateId // could be null for Initial if no certs
                         };
 
@@ -210,17 +229,32 @@ namespace OCMS_Services.Service
                         // 9. Update certificates with decision code
                         var courseCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(
                             c => c.CourseId == request.CourseId && c.Status == CertificateStatus.Active);
-                        using (var httpClient = new HttpClient())
+
+                        if (courseCertificates.Any())
                         {
-                            foreach (var cert in courseCertificates)
+                            using (var httpClient = new HttpClient())
                             {
-                                var sasUrl = await _blobService.GetBlobUrlWithSasTokenAsync(cert.CertificateURL, TimeSpan.FromMinutes(5), "r");
-                                string currentHtml = await httpClient.GetStringAsync(sasUrl);
-                                string updatedHtml = currentHtml.Replace("[MÃ QUYẾT ĐỊNH]", decision.DecisionCode);
-                                using var certStream = new MemoryStream(Encoding.UTF8.GetBytes(updatedHtml));
-                                var uri = new Uri(cert.CertificateURL);
-                                var blobNameCert = uri.Segments.Last();
-                                await _blobService.UploadFileAsync("certificates", blobNameCert, certStream, "text/html");
+                                foreach (var cert in courseCertificates)
+                                {
+                                    if (string.IsNullOrEmpty(cert.CertificateURL))
+                                        continue;
+
+                                    try
+                                    {
+                                        var sasUrl = await _blobService.GetBlobUrlWithSasTokenAsync(cert.CertificateURL, TimeSpan.FromMinutes(5), "r");
+                                        string currentHtml = await httpClient.GetStringAsync(sasUrl);
+                                        string updatedHtml = currentHtml.Replace("[MÃ QUYẾT ĐỊNH]", decision.DecisionCode);
+
+                                        using var certStream = new MemoryStream(Encoding.UTF8.GetBytes(updatedHtml));
+                                        var uri = new Uri(cert.CertificateURL);
+                                        var blobNameCert = uri.Segments.Last();
+                                        await _blobService.UploadFileAsync("certificates", blobNameCert, certStream, "text/html");
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Console.WriteLine($"Error updating certificate {cert.CertificateId}: {ex.Message}");
+                                    }
+                                }
                             }
                         }
 
@@ -228,15 +262,15 @@ namespace OCMS_Services.Service
                         await NotifyHeadMasterForSignatureAsync(decision.DecisionId, course.CourseName);
 
                         // 11. Commit the transaction
-                        await transaction.CommitAsync();
+                        await transaction.CommitAsync(cancellationToken);
 
                         // 12. Map to response
                         return _mapper.Map<CreateDecisionResponse>(decision);
                     }
                     catch (Exception ex)
                     {
-                        await transaction.RollbackAsync();
-                        throw new InvalidOperationException("Error creating decision", ex);
+                        await transaction.RollbackAsync(cancellationToken);
+                        throw new InvalidOperationException($"Error creating decision: {ex.Message}", ex);
                     }
                 },
                 verifySucceeded: null, // Optional verification logic (not needed here)
@@ -265,54 +299,92 @@ namespace OCMS_Services.Service
         #region Delete Decision
         public async Task<bool> DeleteDecisionAsync(string decisionId)
         {
+            if (string.IsNullOrEmpty(decisionId))
+                throw new ArgumentException("DecisionId is required", nameof(decisionId));
+
             var decision = await _unitOfWork.DecisionRepository.GetByIdAsync(decisionId);
             if (decision == null)
-                throw new InvalidOperationException("Decision not found");
-            // Xóa quyết định
-            await _unitOfWork.DecisionRepository.DeleteAsync(decisionId);
-            await _unitOfWork.SaveChangesAsync();
-            // Xóa file trên blob
-            await _blobService.DeleteFileAsync(decision.Content);
-            return true;
+                throw new InvalidOperationException($"Decision with ID {decisionId} not found");
+
+            // Check if this is a signed decision
+            if (decision.DecisionStatus == DecisionStatus.Signed)
+                throw new InvalidOperationException("Cannot delete a signed decision");
+
+            try
+            {
+                // Delete the decision
+                await _unitOfWork.DecisionRepository.DeleteAsync(decisionId);
+                await _unitOfWork.SaveChangesAsync();
+
+                // Delete the blob file if it exists
+                if (!string.IsNullOrEmpty(decision.Content))
+                {
+                    await _blobService.DeleteFileAsync(decision.Content);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to delete decision: {ex.Message}", ex);
+            }
         }
         #endregion
 
         #region Helper Methods
         private string GenerateDecisionCode()
         {
-            return $"QD-{DateTime.Now.Year}-{Guid.NewGuid().ToString().Substring(0, 4)}";
+            return $"QD-{DateTime.Now.Year}-{Guid.NewGuid().ToString("N").Substring(0, 4).ToUpper()}";
         }
 
         private async Task<string> GenerateStudentRowsAsync(IEnumerable<Certificate> certificates)
         {
             var studentRows = new StringBuilder();
             int index = 1;
+
             foreach (var cert in certificates)
             {
-                var trainee = await _userRepository.GetByIdAsync(cert.UserId);
-                if (trainee != null)
+                try
                 {
-                    string specialtyId = trainee.SpecialtyId ?? "Chưa xác định";
-                    var specialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(specialtyId);
-                    var course = await _unitOfWork.CourseRepository.GetByIdAsync(cert.CourseId);
-                    studentRows.AppendLine("<tr>");
-                    studentRows.AppendLine($"  <td>{index}</td>");
-                    studentRows.AppendLine($"  <td>{trainee.FullName}</td>");
-                    studentRows.AppendLine($"  <td>{trainee.Username}</td>");
-                    studentRows.AppendLine($"  <td>{specialty.SpecialtyName}</td>");
-                    // Thêm cột Ghi chú cho Recurrent_Decision nếu cần
-                    if (course.CourseLevel != CourseLevel.Initial)
-                        studentRows.AppendLine("  <td></td>");
-                    studentRows.AppendLine("</tr>");
-                    index++;
+                    var trainee = await _userRepository.GetByIdAsync(cert.UserId);
+                    if (trainee != null)
+                    {
+                        string specialtyId = trainee.SpecialtyId ?? "Chưa xác định";
+                        var specialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(specialtyId);
+                        var course = await _unitOfWork.CourseRepository.GetByIdAsync(cert.CourseId);
+
+                        studentRows.AppendLine("<tr>");
+                        studentRows.AppendLine($"  <td>{index}</td>");
+                        studentRows.AppendLine($"  <td>{trainee.FullName}</td>");
+                        studentRows.AppendLine($"  <td>{trainee.Username}</td>");
+                        studentRows.AppendLine($"  <td>{specialty?.SpecialtyName ?? "Chưa xác định"}</td>");
+
+                        // Thêm cột Ghi chú cho các khóa không phải Initial
+                        if (course != null && course.CourseLevel != CourseLevel.Initial)
+                            studentRows.AppendLine("  <td></td>");
+
+                        studentRows.AppendLine("</tr>");
+                        index++;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log error but continue with other students
+                    // Consider adding proper logging here
+                    Console.WriteLine($"Error processing student {cert.UserId}: {ex.Message}");
                 }
             }
+
             return studentRows.ToString();
         }
 
         private async Task NotifyHeadMasterForSignatureAsync(string decisionId, string courseName)
         {
             var headMasters = await _userRepository.GetUsersByRoleAsync("HeadMaster");
+
+            if (headMasters == null || !headMasters.Any())
+                return; // No headmasters to notify
+
             foreach (var hm in headMasters)
             {
                 await _notificationService.SendNotificationAsync(
@@ -325,8 +397,11 @@ namespace OCMS_Services.Service
         }
 
         private async Task<IEnumerable<DecisionModel>> GetDecisionsWithSasAsync(
-    Func<Task<IEnumerable<Decision>>> getDecisionsFunc)
+            Func<Task<IEnumerable<Decision>>> getDecisionsFunc)
         {
+            if (getDecisionsFunc == null)
+                throw new ArgumentNullException(nameof(getDecisionsFunc));
+
             var decisions = await getDecisionsFunc();
 
             if (decisions == null || !decisions.Any())
@@ -335,11 +410,32 @@ namespace OCMS_Services.Service
             var decisionsWithSas = new List<DecisionModel>();
             foreach (var decision in decisions)
             {
-                var contentWithSas = await _blobService.GetBlobUrlWithSasTokenAsync(
-                    decision.Content, TimeSpan.FromHours(1), "r");
-                var decisionModel = _mapper.Map<DecisionModel>(decision);
-                decisionModel.ContentWithSas = contentWithSas;
-                decisionsWithSas.Add(decisionModel);
+                try
+                {
+                    if (string.IsNullOrEmpty(decision.Content))
+                    {
+                        var decisionModel = _mapper.Map<DecisionModel>(decision);
+                        decisionsWithSas.Add(decisionModel);
+                        continue;
+                    }
+
+                    var contentWithSas = await _blobService.GetBlobUrlWithSasTokenAsync(
+                        decision.Content, TimeSpan.FromHours(1), "r");
+
+                    var decisionModelWithSas = _mapper.Map<DecisionModel>(decision);
+                    decisionModelWithSas.ContentWithSas = contentWithSas;
+                    decisionsWithSas.Add(decisionModelWithSas);
+                }
+                catch (Exception ex)
+                {
+                    // Log error but continue with other decisions
+                    // Consider adding proper logging here
+                    Console.WriteLine($"Error processing decision {decision.DecisionId}: {ex.Message}");
+
+                    // Still add the decision to the list even without SAS URL
+                    var decisionModelWithoutSas = _mapper.Map<DecisionModel>(decision);
+                    decisionsWithSas.Add(decisionModelWithoutSas);
+                }
             }
 
             return decisionsWithSas;

@@ -19,10 +19,10 @@ namespace OCMS_Repositories.Repository
             _context = context;
         }
 
-        public async Task<bool> ExistsAsync(string id)
-        {
-            return await _context.TrainingPlans.AnyAsync(tp => tp.PlanId == id);
-        }
+        //public async Task<bool> ExistsAsync(string id)
+        //{
+        //    return await _context.TrainingPlans.AnyAsync(tp => tp.PlanId == id);
+        //}
 
         public async Task<TraineeAssign> GetTraineeAssignmentAsync(string courseId, string traineeId)
         {

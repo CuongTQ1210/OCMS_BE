@@ -561,7 +561,6 @@ namespace OCMS_Services.Service
         }
         #endregion
 
-
         #region Get Trainees by SubjectId
         public async Task<List<TraineeAssignModel>> GetTraineesBySubjectIdAsync(string subjectId)
         {

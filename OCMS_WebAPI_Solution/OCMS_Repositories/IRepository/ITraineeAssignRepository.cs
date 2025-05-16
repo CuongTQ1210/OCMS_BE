@@ -10,7 +10,7 @@ namespace OCMS_Repositories.IRepository
 {
     public interface ITraineeAssignRepository
     {
-        Task<bool> ExistsAsync(string id);
+        //Task<bool> ExistsAsync(string id);
         Task<TraineeAssign> GetTraineeAssignmentAsync(string courseId, string traineeId);
 
         Task<List<TraineeAssignModel>> GetTraineeAssignmentsByRequestIdAsync(string requestId);
