@@ -25,7 +25,6 @@ namespace OCMS_Services.Service
         private readonly ICandidateRepository _candidateRepository;
         private readonly ICourseRepository _courseRepository;
         private readonly ITraineeAssignRepository _traineeAssignRepository;
-        private readonly ICourseSubjectSpecialtyRepository _courseSubjectSpecialtyRepository;
 
         public TraineeAssignService(
             UnitOfWork unitOfWork,
@@ -34,8 +33,7 @@ namespace OCMS_Services.Service
             IUserRepository userRepository,
             ICandidateRepository candidateRepository,
             ICourseRepository courseRepository,
-            ITraineeAssignRepository traineeAssignRepository,
-            ICourseSubjectSpecialtyRepository courseSubjectSpecialtyRepository)
+            ITraineeAssignRepository traineeAssignRepository)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
@@ -44,7 +42,6 @@ namespace OCMS_Services.Service
             _candidateRepository = candidateRepository;
             _courseRepository = courseRepository;
             _traineeAssignRepository = traineeAssignRepository;
-            _courseSubjectSpecialtyRepository = courseSubjectSpecialtyRepository;
         }
 
         #region Get All Trainee Assignments
@@ -92,34 +89,44 @@ namespace OCMS_Services.Service
             if (trainee.RoleId != 7) // Assuming 7 = Trainee
                 throw new Exception($"User with ID {dto.TraineeId} is not a Trainee. Role: {trainee.Role}.");
 
-            // Validate CourseSubjectSpecialtyId
-            var css = await _unitOfWork.CourseSubjectSpecialtyRepository.GetByIdAsync(dto.CourseSubjectSpecialtyId);
-            if (css == null)
-                throw new Exception($"CourseSubjectSpecialty with ID {dto.CourseSubjectSpecialtyId} not found.");
+            // Validate ClassId
+            var classSubject = await _unitOfWork.ClassSubjectRepository.GetByIdAsync(dto.ClassId);
+            if (classSubject == null)
+                throw new Exception($"ClassSubject with ID {dto.ClassId} not found.");
 
-            var course = await _unitOfWork.CourseRepository.GetByIdAsync(css.CourseId);
+            var course = await _unitOfWork.CourseRepository.GetByIdAsync(classSubject.ClassId);
             if (course == null)
-                throw new Exception($"Course with ID {css.CourseId} not found.");
+                throw new Exception($"Course with ID {classSubject.ClassId} not found.");
 
-            var trainingPlan = await _unitOfWork.TrainingPlanRepository
-    .FindAsync(tp => tp.CourseId == course.CourseId);
+            // Get specialty through SubjectSpecialty
+            var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(classSubject.SubjectId);
+            if (subject == null)
+            {
+                throw new Exception($"Subject with ID {classSubject.SubjectId} not found.");
+            }
+            
+            // Find the specialty for this subject
+            var subjectSpecialty = await _unitOfWork.SubjectSpecialtyRepository.FirstOrDefaultAsync(
+                ss => ss.SubjectId == subject.SubjectId);
+                
+            if (subjectSpecialty == null)
+            {
+                throw new Exception($"No specialty mapping found for Subject with ID {subject.SubjectId}");
+            }
 
-            var trainingPlanEntity = trainingPlan.FirstOrDefault();
+            // Check if trainee's specialty matches the subject's specialty
+            if (trainee.SpecialtyId != subjectSpecialty.SpecialtyId)
+            {
+                throw new Exception($"Trainee's specialty ({trainee.SpecialtyId}) does not match with the Subject's specialty ({subjectSpecialty.SpecialtyId}).");
+            }
 
-            if (trainingPlanEntity == null)
-                throw new Exception($"Training Plan with CourseID {course.CourseId} not found.");
-
-            // Kiểm tra nếu Trainee có Specialty phù hợp với TrainingPlan
-            if (trainee.SpecialtyId != css.SpecialtyId)
-                throw new Exception($"Trainee's specialty ({trainee.SpecialtyId}) does not match with the Training Plan's specialty ({css.SpecialtyId}).");
-
-            // Check if the trainee is already assigned to this CourseSubjectSpecialty (only if changing the trainee or CourseSubjectSpecialty)
-            if (dto.TraineeId != existingAssignment.TraineeId || dto.CourseSubjectSpecialtyId != existingAssignment.CourseSubjectSpecialtyId)
+            // Check if the trainee is already assigned to this Class (only if changing the trainee or Class)
+            if (dto.TraineeId != existingAssignment.TraineeId || dto.ClassId != existingAssignment.ClassSubjectId)
             {
                 var existingAssignmentCheck = await _unitOfWork.TraineeAssignRepository
-                    .FindAsync(ta => ta.TraineeId == dto.TraineeId && ta.CourseSubjectSpecialtyId == dto.CourseSubjectSpecialtyId && ta.TraineeAssignId != id);
+                    .FindAsync(ta => ta.TraineeId == dto.TraineeId && ta.ClassSubjectId == dto.ClassId && ta.TraineeAssignId != id);
                 if (existingAssignmentCheck.Any())
-                    throw new Exception($"Trainee {dto.TraineeId} is already assigned to CourseSubjectSpecialty {dto.CourseSubjectSpecialtyId}.");
+                    throw new Exception($"Trainee {dto.TraineeId} is already assigned to ClassSubject {dto.ClassId}.");
             }
 
             // Update the IsAssign status of the user if needed
@@ -131,7 +138,7 @@ namespace OCMS_Services.Service
 
             // Update the assignment
             existingAssignment.TraineeId = dto.TraineeId;
-            existingAssignment.CourseSubjectSpecialtyId = dto.CourseSubjectSpecialtyId;
+            existingAssignment.ClassSubjectId = dto.ClassId;
             existingAssignment.Notes = dto.Notes;
 
             await _unitOfWork.TraineeAssignRepository.UpdateAsync(existingAssignment);
@@ -176,9 +183,9 @@ namespace OCMS_Services.Service
                 throw new ArgumentException("Trainee ID cannot be null or empty.", nameof(traineeId));
 
             var assignments = await _unitOfWork.TraineeAssignRepository.GetAllAsync(a => a.TraineeId == traineeId);
-            var cssIds = assignments.Select(a => a.CourseSubjectSpecialtyId).Distinct().ToList();
-            var cssList = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAllAsync(css => cssIds.Contains(css.Id));
-            var courseIds = cssList.Select(css => css.CourseId).Distinct().ToList();
+            var classSubjectIds = assignments.Select(a => a.ClassSubjectId).Distinct().ToList();
+            var classes = await _unitOfWork.ClassSubjectRepository.GetAllAsync(c => classSubjectIds.Contains(c.ClassSubjectId));
+            var courseIds = classes.Select(c => c.ClassId).Distinct().ToList();
             var courses = await _unitOfWork.CourseRepository.GetAllAsync(c => courseIds.Contains(c.CourseId));
 
             return _mapper.Map<IEnumerable<CourseModel>>(courses);
@@ -201,43 +208,51 @@ namespace OCMS_Services.Service
                 throw new Exception($"User with ID {dto.TraineeId} is not a Trainee. Role: {trainee.Role}.");
             }
 
-            // Validate CourseSubjectSpecialtyId
-            var css = await _unitOfWork.CourseSubjectSpecialtyRepository.GetByIdAsync(dto.CourseSubjectSpecialtyId);
-            if (css == null)
+            // Validate ClassId
+            var classSubject = await _unitOfWork.ClassSubjectRepository.GetByIdAsync(dto.ClassId);
+            if (classSubject == null)
             {
-                throw new Exception($"CourseSubjectSpecialty with ID {dto.CourseSubjectSpecialtyId} not found.");
+                throw new Exception($"ClassSubject with ID {dto.ClassId} not found.");
             }
 
-            var course = await _unitOfWork.CourseRepository.GetByIdAsync(css.CourseId);
+            var course = await _unitOfWork.CourseRepository.GetByIdAsync(classSubject.ClassId);
             if (course == null)
             {
-                throw new Exception($"Course with ID {css.CourseId} not found.");
+                throw new Exception($"Course with ID {classSubject.ClassId} not found.");
             }
             if (course.Status != CourseStatus.Approved)
             {
                 throw new Exception("Course hasn't been approved yet!");
             }
 
-            var trainingPlan = await _unitOfWork.TrainingPlanRepository
-    .FindAsync(tp => tp.CourseId == course.CourseId);
-
-            var trainingPlanEntity = trainingPlan.FirstOrDefault();
-
-            if (trainingPlanEntity == null)
-                throw new Exception($"Training Plan with CourseID {course.CourseId} not found.");
-
-            // Kiểm tra nếu Trainee có Specialty phù hợp với TrainingPlan
-            if (trainee.SpecialtyId != css.SpecialtyId)
+            // Get specialty through SubjectSpecialty
+            var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(classSubject.SubjectId);
+            if (subject == null)
             {
-                throw new Exception($"Trainee's specialty ({trainee.SpecialtyId}) does not match with the Training Plan's specialty ({css.SpecialtyId}).");
+                throw new Exception($"Subject with ID {classSubject.SubjectId} not found.");
+            }
+            
+            // Find the specialty for this subject
+            var subjectSpecialty = await _unitOfWork.SubjectSpecialtyRepository.FirstOrDefaultAsync(
+                ss => ss.SubjectId == subject.SubjectId);
+                
+            if (subjectSpecialty == null)
+            {
+                throw new Exception($"No specialty mapping found for Subject with ID {subject.SubjectId}");
             }
 
-            // Check if the trainee is already assigned to this CourseSubjectSpecialty
+            // Check if trainee's specialty matches the subject's specialty
+            if (trainee.SpecialtyId != subjectSpecialty.SpecialtyId)
+            {
+                throw new Exception($"Trainee's specialty ({trainee.SpecialtyId}) does not match with the Subject's specialty ({subjectSpecialty.SpecialtyId}).");
+            }
+
+            // Check if the trainee is already assigned to this Class
             var existingAssignment = await _unitOfWork.TraineeAssignRepository
-                .FindAsync(ta => ta.TraineeId == dto.TraineeId && ta.CourseSubjectSpecialtyId == dto.CourseSubjectSpecialtyId);
+                .FindAsync(ta => ta.TraineeId == dto.TraineeId && ta.ClassSubjectId == dto.ClassId);
             if (existingAssignment.Any())
             {
-                throw new Exception($"Trainee {dto.TraineeId} is already assigned to CourseSubjectSpecialty {dto.CourseSubjectSpecialtyId}.");
+                throw new Exception($"Trainee {dto.TraineeId} is already assigned to ClassSubject {dto.ClassId}.");
             }
 
             // Generate unique TraineeAssignId
@@ -259,8 +274,8 @@ namespace OCMS_Services.Service
                 RequestUserId = createdByUserId,
                 RequestDate = DateTime.UtcNow,
                 Status = RequestStatus.Pending,
-                Description = $"Assign trainee {dto.TraineeId} to CourseSubjectSpecialty {dto.CourseSubjectSpecialtyId}.",
-                Notes = $"Request to assign Trainee {dto.TraineeId} to CourseSubjectSpecialty {dto.CourseSubjectSpecialtyId}."
+                Description = $"Assign trainee {dto.TraineeId} to ClassSubject {dto.ClassId}.",
+                Notes = $"Request to assign Trainee {dto.TraineeId} to ClassSubject {dto.ClassId}."
             };
 
             //Create TraineeAssign object with RequestId
@@ -268,7 +283,7 @@ namespace OCMS_Services.Service
             {
                 TraineeAssignId = newTraineeAssignId,
                 TraineeId = dto.TraineeId,
-                CourseSubjectSpecialtyId = dto.CourseSubjectSpecialtyId,
+                ClassSubjectId = dto.ClassId,
                 RequestId = newRequest.RequestId,
                 AssignByUserId = createdByUserId,
                 RequestStatus = RequestStatus.Pending,
@@ -309,23 +324,22 @@ namespace OCMS_Services.Service
 
             try
             {
-                var existingCss = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAllAsync(
-                    css => css.Course);
+                var existingCss = await _unitOfWork.ClassSubjectRepository.GetAllAsync(
+                    css => css.Class);
 
-                // Now, separately get all training plans for the related course IDs
-                var courseIds = existingCss.Select(css => css.Course.CourseId).Distinct().ToList();
+                // Now, separately get all coursesIds
+                var courseIds = existingCss.Select(css => css.ClassId).Distinct().ToList();
 
-                var trainingPlans = await _unitOfWork.TrainingPlanRepository
-                    .FindAsync(tp => courseIds.Contains(tp.CourseId));
-                var existingCssIds = existingCss.Select(css => css.Id).ToList();
-                var cssDict = existingCss.ToDictionary(css => css.Id, css => css);
+                // Remove references to TrainingPlan which doesn't exist in the current schema
+                var existingCssIds = existingCss.Select(css => css.ClassSubjectId).ToList();
+                var cssDict = existingCss.ToDictionary(css => css.ClassSubjectId, css => css);
 
                 var existingUsers = await _unitOfWork.UserRepository.GetAllAsync();
                 var userDict = existingUsers.ToDictionary(u => u.UserId, u => u);
 
                 var existingAssignments = await _unitOfWork.TraineeAssignRepository.GetAllAsync();
                 var existingAssignmentPairs = existingAssignments
-                    .Select(ta => (ta.TraineeId, ta.CourseSubjectSpecialtyId))
+                    .Select(ta => new { ta.TraineeId, ta.ClassSubjectId })
                     .ToHashSet();
 
                 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
@@ -338,19 +352,19 @@ namespace OCMS_Services.Service
                         return result;
                     }
 
-                    // Read CourseSubjectSpecialtyId from cell B1
-                    string courseId = worksheet.Cells[1, 2].GetValue<string>(); // B1 (row 1, column 2)
+                    // Read ClassSubject info from cell B1
+                    var courseId = worksheet.Cells[1, 2].GetValue<string>();
                     if (string.IsNullOrEmpty(courseId))
                     {
                         result.Errors.Add($"Invalid or missing CourseId '{courseId}' in cell B1.");
                         return result;
                     }
+                    
                     var courses = await _unitOfWork.CourseRepository.FirstOrDefaultAsync(css => css.CourseId == courseId);
                     if(courses == null)    
                     {
                         result.Errors.Add($"Dont have Course that have CourseID: '{courseId}' in cell B1.");
                         return result;
-
                     }
                     string subjectId = worksheet.Cells[1, 4].GetValue<string>(); 
                     if (string.IsNullOrEmpty(subjectId))
@@ -364,7 +378,6 @@ namespace OCMS_Services.Service
                     {
                         result.Errors.Add($"Dont have Subject that have SubjectId: '{subjects}' in cell D1.");
                         return result;
-
                     }
                     string SpecialtyId = worksheet.Cells[1, 6].GetValue<string>(); 
                     if (string.IsNullOrEmpty(SpecialtyId))
@@ -378,32 +391,27 @@ namespace OCMS_Services.Service
                     {
                         result.Errors.Add($"Dont have Specialty that have SpecialtyID: '{SpecialtyId}' in cell F1.");
                         return result;
-
                     }
-                    var cssEntity = await _unitOfWork.CourseSubjectSpecialtyRepository.FirstOrDefaultAsync(
-                        css => css.CourseId == courseId && css.SubjectId == subjectId && css.SpecialtyId == SpecialtyId);
+                    var cssEntity = await _unitOfWork.ClassSubjectRepository.FirstOrDefaultAsync(
+                        css => css.ClassId == courseId && css.SubjectId == subjectId);
 
                     if (cssEntity == null)
                     {
-                        result.Errors.Add($"Không tìm thấy CourseSubjectSpecialty với CourseId={courseId}, SubjectId={subjectId}, SpecialtyId={SpecialtyId}");
+                        result.Errors.Add($"Không tìm thấy ClassSubject với CourseId={courseId}, SubjectId={subjectId}");
                         return result;
                     }
 
-                    var cssId = cssEntity.Id; var css = cssDict[cssId];
-                    var course = css.Course;
+                    var cssId = cssEntity.ClassSubjectId;
+                    var css = cssDict[cssId];
+                    var classInfo = css.Class;
+                    var course = await _unitOfWork.CourseRepository.GetByIdAsync(classInfo.ClassId);
 
-                    if (course.Status != CourseStatus.Approved)
+                    if (course == null || course.Status != CourseStatus.Approved)
                     {
                         throw new Exception("Course hasn't been approved yet!");
                     }
 
-                    // Fetch all training plans that use this course
-                    var relevantTrainingPlans = trainingPlans.Where(tp => tp.CourseId == course.CourseId).ToList();
-                    if (!relevantTrainingPlans.Any())
-                    {
-                        throw new Exception($"No training plan found for course ID {course.CourseId}");
-                    }
-
+                    // Remove references to training plans
                     var lastTraineeAssignId = await GetLastTraineeAssignIdAsync();
                     int lastIdNumber = 0;
                     if (!string.IsNullOrEmpty(lastTraineeAssignId))
@@ -445,25 +453,29 @@ namespace OCMS_Services.Service
                             continue;
                         }
 
-                        if (existingAssignmentPairs.Contains((userId, cssId)))
+                        if (existingAssignmentPairs.Contains(new { TraineeId = userId, ClassSubjectId = cssId }))
                         {
                             result.FailedCount++;
-                            result.Errors.Add($"Error at row {row}: Trainee '{userId}' is already assigned to CourseSubjectSpecialty '{cssId}'.");
+                            result.Errors.Add($"Error at row {row}: Trainee '{userId}' is already assigned to CourseSubject '{cssId}'.");
                             continue;
                         }
 
-                        // Validate the specialty ID for each training plan
+                        // Get subject to check specialty
+                        var subjectForSpecialty = await _unitOfWork.SubjectRepository.GetByIdAsync(css.SubjectId);
+                        var subjectSpecialtyMapping = await _unitOfWork.SubjectSpecialtyRepository.FirstOrDefaultAsync(
+                            ss => ss.SubjectId == subjectForSpecialty.SubjectId);
+                            
                         bool specialtyMismatch = false;
-                        foreach (var trainingPlan in relevantTrainingPlans)
+                        
+                        if (subjectSpecialtyMapping != null)
                         {
-                            string trainingPlanSpecialtyId = css.SpecialtyId;
+                            string subjectSpecialtyId = subjectSpecialtyMapping.SpecialtyId;
 
-                            if (user.SpecialtyId != trainingPlanSpecialtyId)
+                            if (user.SpecialtyId != subjectSpecialtyId)
                             {
                                 specialtyMismatch = true;
                                 result.FailedCount++;
-                                result.Errors.Add($"Error at row {row}: Trainee '{userId}' specialty ({user.SpecialtyId}) does not match with the Training Plan's specialty ({trainingPlanSpecialtyId}).");
-                                break;  // Stop checking other training plans for this row
+                                result.Errors.Add($"Error at row {row}: Trainee '{userId}' specialty ({user.SpecialtyId}) does not match with the Subject's specialty ({subjectSpecialtyId}).");
                             }
                         }
 
@@ -478,7 +490,7 @@ namespace OCMS_Services.Service
                         {
                             TraineeAssignId = traineeAssignId,
                             TraineeId = userId,
-                            CourseSubjectSpecialtyId = cssId,
+                            ClassSubjectId = cssId,
                             AssignDate = DateTime.UtcNow,
                             RequestStatus = RequestStatus.Pending,
                             AssignByUserId = importedByUserId,
@@ -494,7 +506,7 @@ namespace OCMS_Services.Service
                             await _unitOfWork.SaveChangesAsync();
                         }
                         traineeAssignments.Add(traineeAssign);
-                        existingAssignmentPairs.Add((userId, cssId));
+                        existingAssignmentPairs.Add(new { TraineeId = userId, ClassSubjectId = cssId });
                         processedUserIds.Add(userId);
                         result.SuccessCount++;
                     }
@@ -556,10 +568,13 @@ namespace OCMS_Services.Service
             if (string.IsNullOrWhiteSpace(subjectId))
                 throw new ArgumentException("Subject ID cannot be null or empty.");
 
-            var cssList = await _unitOfWork.CourseSubjectSpecialtyRepository.GetAllAsync(
-                css => css.SubjectId == subjectId,
-                css => css.Trainees);
-            var assignments = cssList.SelectMany(css => css.Trainees).ToList();
+            var classSubjects = await _unitOfWork.ClassSubjectRepository.GetAllAsync(
+                cs => cs.SubjectId == subjectId);
+                
+            var classSubjectIds = classSubjects.Select(cs => cs.ClassSubjectId).ToList();
+            
+            var assignments = await _unitOfWork.TraineeAssignRepository.GetAllAsync(
+                ta => classSubjectIds.Contains(ta.ClassSubjectId));
 
             if (!assignments.Any())
                 throw new KeyNotFoundException($"No trainee assignments found for Subject with ID '{subjectId}'.");

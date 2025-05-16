@@ -39,10 +39,8 @@ namespace OCMS_BOs
         public DbSet<Request> Requests { get; set; }
         public DbSet<TraineeAssign> TraineeAssignments { get; set; }
         public DbSet<Specialties> Specialties { get; set; }
-        public DbSet<TrainingPlan> TrainingPlans { get; set; }
         public DbSet<TrainingSchedule> TrainingSchedules { get; set; }
-
-        public DbSet<CourseSubjectSpecialty> CourseSubjectSpecialties { get; set; }
+        public DbSet<ClassSubject> ClassSubjects { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -57,30 +55,11 @@ namespace OCMS_BOs
                       .HasMaxLength(100);
             });
 
-            // Configure CourseSubjectSpecialty relationships
-            modelBuilder.Entity<CourseSubjectSpecialty>()
-                .HasOne(css => css.Course)
-                .WithMany(c => c.CourseSubjectSpecialties)
-                .HasForeignKey(css => css.CourseId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            modelBuilder.Entity<CourseSubjectSpecialty>()
-                .HasOne(css => css.Subject)
-                .WithMany(s => s.CourseSubjectSpecialties)
-                .HasForeignKey(css => css.SubjectId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            modelBuilder.Entity<CourseSubjectSpecialty>()
-                .HasOne(css => css.Specialty)
-                .WithMany() // Make sure there's a navigation property on Specialties if needed
-                .HasForeignKey(css => css.SpecialtyId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            modelBuilder.Entity<CourseSubjectSpecialty>()
-                .HasOne(css => css.CreatedByUser)
-                .WithMany()
-                .HasForeignKey(css => css.CreatedByUserId)
-                .OnDelete(DeleteBehavior.Restrict);
+            // Configure many-to-many relationship between Course and SubjectSpecialty
+            modelBuilder.Entity<Course>()
+                .HasMany(c => c.SubjectSpecialties)
+                .WithMany(ss => ss.Courses)
+                .UsingEntity(j => j.ToTable("CourseSubjectSpecialty"));
 
             // Fluent API for User
             modelBuilder.Entity<User>(entity =>
@@ -163,11 +142,6 @@ namespace OCMS_BOs
                       .HasForeignKey(s => s.UpdatedByUserId)
                       .OnDelete(DeleteBehavior.Restrict);
 
-                entity.HasMany(s => s.CourseSubjectSpecialties)
-                      .WithOne(c => c.Specialty)
-                      .HasForeignKey(c => c.SpecialtyId)
-                      .OnDelete(DeleteBehavior.Restrict);
-
             });
             modelBuilder.Entity<Department>(entity =>
             {
@@ -202,10 +176,11 @@ namespace OCMS_BOs
     .HasConversion<int>() // Store enum as an integer
     .Metadata.SetBeforeSaveBehavior(Microsoft.EntityFrameworkCore.Metadata.PropertySaveBehavior.Ignore);
 
-            modelBuilder.Entity<Grade>()
-                    .HasOne(g => g.TraineeAssign)
-                    .WithMany()
-                    .HasForeignKey(g => g.TraineeAssignID)
+            // Update relationship between Grade and TraineeAssign
+            modelBuilder.Entity<TraineeAssign>()
+                    .HasOne(ta => ta.Grade)
+                    .WithMany(g => g.Assignees)
+                    .HasForeignKey(ta => ta.GradeId)
                     .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Grade>()

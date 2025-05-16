@@ -34,6 +34,7 @@ namespace OCMS_BOs.Entities
         public Course? RelatedCourse { get; set; }
         public ICollection<Course> RelatedCourses { get; set; }
 
+        // Many-to-many relationship with SubjectSpecialty
         public ICollection<SubjectSpecialty> SubjectSpecialties { get; set; }
     }
 }

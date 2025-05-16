@@ -26,7 +26,6 @@ namespace OCMS_Services.Service
         private readonly ICandidateRepository _candidateRepository;
         private readonly IUserRepository _userRepository;
         private readonly Lazy<ITrainingScheduleService> _trainingScheduleService;
-        private readonly Lazy<ITrainingPlanService> _trainingPlanService;
         private readonly ITrainingScheduleRepository _trainingScheduleRepository;
         private readonly ICourseRepository _courseRepository;
         private readonly IInstructorAssignmentRepository _instructorAssignmentRepository;
@@ -38,19 +37,21 @@ namespace OCMS_Services.Service
             IUserRepository userRepository,
             ICandidateRepository candidateRepository,
             Lazy<ITrainingScheduleService> trainingScheduleService,
-            Lazy<ITrainingPlanService> trainingPlanService, ITrainingScheduleRepository trainingScheduleRepository, ICourseRepository courseRepository, IInstructorAssignmentRepository instructorAssignmentRepository, ITraineeAssignRepository traineeAssignRepository)
+            ITrainingScheduleRepository trainingScheduleRepository, 
+            ICourseRepository courseRepository, 
+            IInstructorAssignmentRepository instructorAssignmentRepository, 
+            ITraineeAssignRepository traineeAssignRepository)
         {
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _notificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
             _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
             _candidateRepository = candidateRepository ?? throw new ArgumentNullException(nameof(candidateRepository));
-            _trainingScheduleRepository = trainingScheduleRepository;
-            _courseRepository = courseRepository;
-            _instructorAssignmentRepository = instructorAssignmentRepository;
             _trainingScheduleService = trainingScheduleService ?? throw new ArgumentNullException(nameof(trainingScheduleService));
-            _trainingPlanService = trainingPlanService ?? throw new ArgumentNullException(nameof(trainingPlanService));
-            _traineeAssignRepository = traineeAssignRepository;
+            _trainingScheduleRepository = trainingScheduleRepository ?? throw new ArgumentNullException(nameof(trainingScheduleRepository));
+            _courseRepository = courseRepository ?? throw new ArgumentNullException(nameof(courseRepository));
+            _instructorAssignmentRepository = instructorAssignmentRepository ?? throw new ArgumentNullException(nameof(instructorAssignmentRepository));
+            _traineeAssignRepository = traineeAssignRepository ?? throw new ArgumentNullException(nameof(traineeAssignRepository));
         }
         public RequestService(UnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService, IUserRepository userRepository, ICandidateRepository candidateRepository)
         {
@@ -434,25 +435,10 @@ namespace OCMS_Services.Service
                         return courseExists && subjectExists && specialtyExists;
                     }
 
-                    var validplan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(entityId);
-                    if (validplan != null && validplan.TrainingPlanStatus != TrainingPlanStatus.Approved)
-                    {
-                        throw new InvalidOperationException("The plan has not been approved yet you can update or delete it if needed.");
-                    }
-
-                    return await _unitOfWork.TrainingPlanRepository.ExistsAsync(tp => tp.PlanId == entityId);
+                    return true;
                 case RequestType.PlanChange:
                 case RequestType.PlanDelete:
-                    if (string.IsNullOrWhiteSpace(entityId))
-                        return false;
-                    var trainingplan = await _unitOfWork.TrainingPlanRepository.GetByIdAsync(entityId);
-                    if (trainingplan != null && trainingplan.TrainingPlanStatus == TrainingPlanStatus.Approved)
-                    {
-                        throw new InvalidOperationException("The request has already been approved and cannot send request.");
-                    }
-
-                    return await _unitOfWork.TrainingPlanRepository.ExistsAsync(tp => tp.PlanId == entityId);
-
+                    return true;
                 case RequestType.CreateNew:
                 case RequestType.CreateRecurrent:
                 case RequestType.CreateRelearn:
@@ -537,6 +523,7 @@ namespace OCMS_Services.Service
                     }
 
                     // Kiểm tra xem course có đang được sử dụng trong training plan nào không
+                    /*
                     var isUsedInActivePlan = await _unitOfWork.TrainingPlanRepository.ExistsAsync(
                         tp => tp.CourseId == entityId && tp.TrainingPlanStatus == TrainingPlanStatus.Approved);
 
@@ -544,6 +531,7 @@ namespace OCMS_Services.Service
                     {
                         throw new InvalidOperationException("Cannot delete course that is being used in an active training plan.");
                     }
+                    */
 
                     return true;
                 default:
@@ -593,6 +581,7 @@ namespace OCMS_Services.Service
                 switch (request.RequestType)
                 {
                     case RequestType.NewPlan:
+                        /* 
                         if (approver == null || approver.RoleId != 2)
                         {
                             throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
@@ -627,75 +616,8 @@ namespace OCMS_Services.Service
                                 .GetAllAsync(css => css.CourseId == courses.CourseId && css.SpecialtyId == plan.SpecialtyId,
                                     css => css.Schedules,
                                     css => css.Trainees);
-
-                            foreach (var css in courseSubjectSpecialties)
-                            {
-                                // Chỉ phê duyệt các lịch trong thời gian của plan
-                                var schedulesToApprove = css.Schedules
-                                    .Where(s => (s.StartDateTime >= planStartDate && s.StartDateTime <= planEndDate) ||
-                                              (s.EndDateTime >= planStartDate && s.EndDateTime <= planEndDate) ||
-                                              (s.StartDateTime <= planStartDate && s.EndDateTime >= planEndDate))
-                                    .ToList();
-
-                                foreach (var schedule in schedulesToApprove)
-                                {
-                                    schedule.Status = ScheduleStatus.Approved;
-                                    schedule.ModifiedDate = DateTime.Now;
-                                    await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
-                                }
-
-                                // Lọc và phê duyệt instructor assignments
-                                var instructorAssignments = await _unitOfWork.InstructorAssignmentRepository.GetAllAsync(
-                                    ia => ia.CourseSubjectSpecialty.CourseId == courses.CourseId &&
-                                         ia.CourseSubjectSpecialty.SpecialtyId == plan.SpecialtyId);
-
-                                var instructorAssignmentsToApprove = instructorAssignments
-                                    .Where(ia => ia.AssignDate >= planStartDate && ia.AssignDate <= planEndDate)
-                                    .ToList();
-
-                                foreach (var assignment in instructorAssignmentsToApprove)
-                                {
-                                    assignment.RequestStatus = RequestStatus.Approved;
-                                    await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(assignment);
-                                    await _notificationService.SendNotificationAsync(
-                                        assignment.InstructorId,
-                                        "Subject schedule assignment",
-                                        $"You have been assigned to this subject {assignment.CourseSubjectSpecialty.Subject.SubjectName}.",
-                                        "Schedule notification."
-                                    );
-                                }
-
-                                // Chỉ phê duyệt trainee assignments trong thời gian của plan
-                                var traineesToApprove = css.Trainees
-                                .Where(t => t.AssignDate >= planStartDate && t.AssignDate <= planEndDate)
-                                .ToList();
-
-                                foreach (var trainee in traineesToApprove)
-                                {
-                                    trainee.RequestStatus = RequestStatus.Approved;
-                                    trainee.ApprovalDate = DateTime.Now;
-                                    trainee.ApproveByUserId = approvedByUserId;
-                                    await _unitOfWork.TraineeAssignRepository.UpdateAsync(trainee);
-                                    await _notificationService.SendNotificationAsync(
-                                        trainee.TraineeId,
-                                        "Course Assignment Approved",
-                                        $"You have been assigned to CourseSubjectSpecialty {css.Id}.",
-                                        "Training assignment notification."
-                                    );
-                                }
-                            }
-
-                            if (!string.IsNullOrEmpty(request.RequestUserId))
-                            {
-                                await _notificationService.SendNotificationAsync(
-                                    request.RequestUserId,
-                                    "Trainee Plan Approved",
-                                    $"Your request for {request.RequestEntityId} has been approved.",
-                                    $"{request.RequestType.ToString()}"
-                                );
-                            }
-                        }
-
+                        */
+                        // Set success flag
                         actionSuccessful = true;
                         break;
 

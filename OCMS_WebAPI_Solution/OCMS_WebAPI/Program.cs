@@ -75,7 +75,6 @@ builder.Services.AddScoped<IRequestRepository, RequestRepository>();
 builder.Services.AddScoped<ISpecialtyRepository, SpecialtyRepository>();
 builder.Services.AddScoped<ICandidateRepository, CandidateRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
-builder.Services.AddScoped<ITrainingPlanRepository, TrainingPlanRepository>();
 builder.Services.AddScoped<ICourseRepository, CourseRepository>();
 builder.Services.AddScoped<IExternalCertificateRepository, ExternalCertificateRepository>();
 builder.Services.AddScoped<ISubjectRepository, SubjectRepository>();
@@ -87,7 +86,7 @@ builder.Services.AddScoped<IGradeRepository, GradeRepository>();
 builder.Services.AddScoped<ICertificateRepository, CertificateRepository>();
 builder.Services.AddScoped<IDecisionTemplateRepository, DecisionTemplateRepository>();
 builder.Services.AddScoped<IDecisionRepository, DecisionRepository>();
-builder.Services.AddScoped<ICourseSubjectSpecialtyRepository, CourseSubjectSpecialtyRepository>();
+
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
@@ -98,7 +97,6 @@ builder.Services.AddScoped<ICandidateService, CandidateService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IExternalCertificateService, ExternalCertificateService>();
 builder.Services.AddScoped<IBlobService, BlobService>();
-builder.Services.AddScoped<ITrainingPlanService, TrainingPlanService>();
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<ISubjectService, SubjectService>();
 builder.Services.AddScoped<ITrainingScheduleService, TrainingScheduleService>();
@@ -114,10 +112,8 @@ builder.Services.AddScoped<IDecisionService, DecisionService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IProgressTrackingService, ProgressTrackingService>();
 builder.Services.AddScoped<ICertificateMonitoringService, CertificateMonitoringService>();
-builder.Services.AddScoped<ICourseSubjectSpecialtyService, CourseSubjectSpecialtyService>();
 // Register Lazy<T> factories
 builder.Services.AddScoped(provider => new Lazy<ITrainingScheduleService>(() => provider.GetRequiredService<ITrainingScheduleService>()));
-builder.Services.AddScoped(provider => new Lazy<ITrainingPlanService>(() => provider.GetRequiredService<ITrainingPlanService>()));
 
 builder.Services.AddMemoryCache();
 

@@ -20,5 +20,8 @@ namespace OCMS_BOs.Entities
         [ForeignKey("Subject")]
         public string SubjectId { get; set; }
         public Subject Subject { get; set; }
+        
+        // Many-to-many relationship with Course
+        public ICollection<Course> Courses { get; set; }
     }
 }

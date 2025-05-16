@@ -10,10 +10,10 @@ namespace OCMS_Repositories.IRepository
     public interface ITrainingScheduleRepository
     {
         Task<bool> ExistsAsync(string id);
-        Task<IEnumerable<TrainingSchedule>> GetSchedulesByTrainingPlanIdAsync(string trainingPlanId);
+        Task<IEnumerable<TrainingSchedule>> GetSchedulesByCourseIdAsync(string courseId);
 
         Task<List<TraineeAssign>> GetTraineeAssignmentsWithSchedulesAsync(string traineeId);
 
-        Task<List<TrainingSchedule>> GetSchedulesByCourseSubjectIdAsync(string courseSubjectId);
+        Task<List<TrainingSchedule>> GetSchedulesByClassSubjectIdAsync(string classSubjectId);
     }
 }

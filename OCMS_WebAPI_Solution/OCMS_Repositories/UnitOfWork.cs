@@ -17,7 +17,6 @@ namespace OCMS_Repositories
         private GenericRepository<Role> _roleRepository;
         private GenericRepository<Specialties> _specialtiesRepository;
         private GenericRepository<Candidate> _candidateRepository;
-        private GenericRepository<TrainingPlan> _trainingplanRepository;
         private GenericRepository<Subject> _subjectRepository;
         private GenericRepository<TraineeAssign> _traineeAssignRepository;
         private GenericRepository<InstructorAssignment> _instructorAssignRepository;
@@ -25,14 +24,15 @@ namespace OCMS_Repositories
         private GenericRepository<TrainingSchedule> _trainingScheduleRepository;
         private GenericRepository<Notification> _notificationRepository;
         private GenericRepository<ExternalCertificate> _externalCertificateRepository;
-        private GenericRepository<InstructorAssignment> _instructorAssignmentRepository;
         private GenericRepository<CertificateTemplate> _certificateTemplateRepository;
         private GenericRepository<Certificate> _certificateRepository;
         private GenericRepository<Grade> _gradeRepository;
         private GenericRepository<Decision> _decisionRepository;
         private GenericRepository<DecisionTemplate> _decisionTemplateRepository;
         private GenericRepository<Report> _reportRepository;
-        private GenericRepository<CourseSubjectSpecialty> _courseSubjectSpecialtyRepository;
+        private GenericRepository<ClassSubject> _classSubjectRepository;
+        private GenericRepository<SubjectSpecialty> _subjectSpecialtyRepository;
+        
         public UnitOfWork(OCMSDbContext context)
         {
             _context = context;
@@ -68,11 +68,6 @@ namespace OCMS_Repositories
             get => _candidateRepository ??= new GenericRepository<Candidate>(_context);
         }
 
-        public GenericRepository<TrainingPlan> TrainingPlanRepository
-        {
-            get=> _trainingplanRepository ??= new GenericRepository<TrainingPlan>(_context);
-        }
-
         public GenericRepository<Subject> SubjectRepository
         {
             get => _subjectRepository ??= new GenericRepository<Subject>(_context);
@@ -95,7 +90,7 @@ namespace OCMS_Repositories
 
         public GenericRepository<InstructorAssignment> InstructorAssignmentRepository
         {
-            get => _instructorAssignmentRepository ??= new GenericRepository<InstructorAssignment>(_context);
+            get => _instructorAssignRepository ??= new GenericRepository<InstructorAssignment>(_context);
         }
 
         public GenericRepository<TraineeAssign> TraineeAssignRepository
@@ -132,13 +127,20 @@ namespace OCMS_Repositories
         {
             get => _decisionTemplateRepository ??= new GenericRepository<DecisionTemplate>(_context);
         }
+        
         public GenericRepository<Report> ReportRepository
         {
             get => _reportRepository ??= new GenericRepository<Report>(_context);
         }
-        public GenericRepository<CourseSubjectSpecialty> CourseSubjectSpecialtyRepository
+        
+        public GenericRepository<ClassSubject> ClassSubjectRepository
         {
-            get => _courseSubjectSpecialtyRepository ??= new GenericRepository<CourseSubjectSpecialty>(_context);
+            get => _classSubjectRepository ??= new GenericRepository<ClassSubject>(_context);
+        }
+
+        public GenericRepository<SubjectSpecialty> SubjectSpecialtyRepository
+        {
+            get => _subjectSpecialtyRepository ??= new GenericRepository<SubjectSpecialty>(_context);
         }
 
         public async Task<IDbContextTransaction> BeginTransactionAsync()

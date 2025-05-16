@@ -243,11 +243,13 @@ namespace OCMS_Services.Service
                     _logger.LogInformation($"Updated Course {courseId} to Completed");
 
                     // Check and update all related TrainingPlans
+                    /*
                     var trainingPlans = await _unitOfWork.TrainingPlanRepository.FindAsync(tp => tp.CourseId == courseId);
                     foreach (var trainingPlan in trainingPlans)
                     {
                         await CheckAndUpdateTrainingPlanStatus(trainingPlan.PlanId);
                     }
+                    */
                 }
                 else
                 {
@@ -271,6 +273,9 @@ namespace OCMS_Services.Service
         /// <param name="planId">The ID of the TrainingPlan to check</param>
         public async Task CheckAndUpdateTrainingPlanStatus(string planId)
         {
+            // Method disabled as TrainingPlan entity has been removed
+            await Task.CompletedTask;
+            /*
             try
             {
                 _logger.LogInformation($"Checking status for Training Plan ID: {planId}");
@@ -318,6 +323,7 @@ namespace OCMS_Services.Service
                 _logger.LogError(ex, $"Error checking status for Training Plan {planId}");
                 throw;
             }
+            */
         }
         #endregion
 
@@ -384,6 +390,7 @@ namespace OCMS_Services.Service
                 _logger.LogInformation($"Processed {ongoingCourses.Count()} ongoing courses");
 
                 // 4. Check active training plans
+                /*
                 var activePlans = await _unitOfWork.TrainingPlanRepository.FindAsync(
                     p => p.TrainingPlanStatus == TrainingPlanStatus.Approved ||
                          p.TrainingPlanStatus == TrainingPlanStatus.Pending);
@@ -394,6 +401,7 @@ namespace OCMS_Services.Service
                 }
 
                 _logger.LogInformation($"Processed {activePlans.Count()} active training plans");
+                */
                 _logger.LogInformation("System-wide status check completed");
             }
             catch (Exception ex)
