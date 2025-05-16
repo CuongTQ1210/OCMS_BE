@@ -27,6 +27,6 @@ namespace OCMS_BOs.Entities
         public InstructorAssignment InstructorAssignment { get; set; }
 
         public ICollection<TraineeAssign> traineeAssigns { get; set; }
-        public TrainingSchedule Schedule { get; set; }
+        public List<TrainingSchedule> Schedules { get; set; }
     }
 }

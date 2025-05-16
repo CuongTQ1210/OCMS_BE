@@ -9,7 +9,7 @@ namespace OCMS_BOs.RequestModel
 {
     public class TrainingScheduleDTO
     {
-        public string CourseSubjectSpecialtyId { get; set; }
+        public string ClassSubjectId { get; set; }
         public string InstructorID { get; set; }
         public string Location { get; set; }
         public string Room { get; set; }

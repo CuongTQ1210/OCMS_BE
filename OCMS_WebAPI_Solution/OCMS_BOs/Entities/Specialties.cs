@@ -38,7 +38,5 @@ namespace OCMS_BOs.Entities
         public virtual ICollection<Specialties> SubSpecialties { get; set; }
         public virtual User CreatedByUser { get; set; }
         public virtual User UpdatedByUser { get; set; }
-
-        
     }
 }

@@ -10,7 +10,7 @@ namespace OCMS_BOs.ViewModel
     {
         public string TraineeAssignId { get; set; }
         public string TraineeId { get; set; }
-        public string CourseSubjectSpecialtyId { get; set; }
+        public string ClassId { get; set; }
         public string RequestStatus { get; set; }
         public string? AssignByUserId { get; set; }
         public DateTime AssignDate { get; set; }

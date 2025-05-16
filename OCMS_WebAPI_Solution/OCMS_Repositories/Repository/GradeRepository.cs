@@ -21,24 +21,26 @@ namespace OCMS_Repositories.Repository
         public async Task<IEnumerable<Grade>> GetGradesByTraineeAssignIdAsync(string traineeAssignId)
         {
             return await _context.Grades
-                .Where(g => g.TraineeAssignID == traineeAssignId)
+                .Where(g => g.GradeId == traineeAssignId)
                 .ToListAsync();
         }
-        public async Task<IEnumerable<Grade>> GetGradesByCourseSubjectIdAsync(string courseSubjectId)
+        
+        public async Task<IEnumerable<Grade>> GetGradesByClassSubjectIdAsync(string classSubjectId)
         {
             return await _context.Grades
-                .Include(g => g.TraineeAssign)
-                .ThenInclude(ta => ta.Trainee)
-                .Where(g => g.TraineeAssign.CourseSubjectSpecialtyId == courseSubjectId)
+                .Include(g => g.Assignees)
+                .Where(g => g.Assignees.Any(ta => ta.ClassSubjectId == classSubjectId))
                 .ToListAsync();
         }
 
         public async Task<IEnumerable<Grade>> GetGradesByCourseIdAsync(string courseId)
         {
             return await _context.Grades
-                .Include(g => g.TraineeAssign)
+                .Include(g => g.Assignees)
                 .ThenInclude(ta => ta.Trainee)
-                .Where(g => g.TraineeAssign.CourseSubjectSpecialty.CourseId == courseId)
+                .Include(g => g.Assignees)
+                .ThenInclude(ta => ta.ClassSubject)
+                .Where(g => g.Assignees.Any(ta => ta.ClassSubject.ClassId == courseId))
                 .ToListAsync();
         }
     }
