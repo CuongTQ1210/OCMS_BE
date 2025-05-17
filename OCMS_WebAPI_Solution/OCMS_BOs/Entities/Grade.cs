@@ -33,6 +33,5 @@ namespace OCMS_BOs.Entities
         public string TraineeAssignID { get; set; }
         public TraineeAssign TraineeAssign { get; set; }
 
-        public ICollection<TraineeAssign> Assignees { get; set; } = new List<TraineeAssign>();
     }
 }

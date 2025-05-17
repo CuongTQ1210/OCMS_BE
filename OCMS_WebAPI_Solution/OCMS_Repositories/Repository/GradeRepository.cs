@@ -28,19 +28,12 @@ namespace OCMS_Repositories.Repository
         public async Task<IEnumerable<Grade>> GetGradesByClassSubjectIdAsync(string classSubjectId)
         {
             return await _context.Grades
-                .Include(g => g.Assignees)
-                .Where(g => g.Assignees.Any(ta => ta.ClassSubjectId == classSubjectId))
                 .ToListAsync();
         }
 
         public async Task<IEnumerable<Grade>> GetGradesByCourseIdAsync(string courseId)
         {
             return await _context.Grades
-                .Include(g => g.Assignees)
-                .ThenInclude(ta => ta.Trainee)
-                .Include(g => g.Assignees)
-                .ThenInclude(ta => ta.ClassSubject)
-                .Where(g => g.Assignees.Any(ta => ta.ClassSubject.ClassId == courseId))
                 .ToListAsync();
         }
     }
