@@ -32,6 +32,7 @@ namespace OCMS_Repositories
         private GenericRepository<Report> _reportRepository;
         private GenericRepository<ClassSubject> _classSubjectRepository;
         private GenericRepository<SubjectSpecialty> _subjectSpecialtyRepository;
+        private GenericRepository<Class> _classRepository;
         
         public UnitOfWork(OCMSDbContext context)
         {
@@ -136,6 +137,11 @@ namespace OCMS_Repositories
         public GenericRepository<ClassSubject> ClassSubjectRepository
         {
             get => _classSubjectRepository ??= new GenericRepository<ClassSubject>(_context);
+        }
+
+        public GenericRepository<Class> ClassRepository
+        {
+            get => _classRepository ??= new GenericRepository<Class>(_context);
         }
 
         public GenericRepository<SubjectSpecialty> SubjectSpecialtyRepository

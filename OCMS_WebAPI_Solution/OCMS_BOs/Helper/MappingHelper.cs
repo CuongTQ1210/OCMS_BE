@@ -410,6 +410,63 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.ApproveByUser, opt => opt.Ignore());
 
             CreateMap<TraineeAssign, TraineeAssignDTO>();
+
+            CreateMap<Class, ClassModel>()
+                .ForMember(dest => dest.ClassId, opt => opt.MapFrom(src => src.ClassId))
+                .ForMember(dest => dest.ClassName, opt => opt.MapFrom(src => src.ClassName));
+
+            // ClassModel to Class reverse mapping
+            CreateMap<ClassModel, Class>();
+
+            // ClassSubject to ClassSubjectModel mapping
+            CreateMap<ClassSubject, ClassSubjectModel>()
+                .ForMember(dest => dest.ClassSubjectId, opt => opt.MapFrom(src => src.ClassSubjectId))
+                .ForMember(dest => dest.ClassId, opt => opt.MapFrom(src => src.ClassId))
+                .ForMember(dest => dest.ClassName, opt => opt.MapFrom(src => src.Class.ClassName))
+                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.SubjectId))
+                .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.Subject.SubjectName))
+                .ForMember(dest => dest.InstructorAssignmentID, opt => opt.MapFrom(src => src.InstructorAssignmentID))
+                .ForMember(dest => dest.InstructorName, opt => opt.MapFrom(src => src.InstructorAssignment.Instructor.FullName));
+
+            // ClassSubject to ClassSubjectDetailModel mapping
+            CreateMap<ClassSubject, ClassSubjectDetailModel>()
+                .ForMember(dest => dest.ClassSubjectId, opt => opt.MapFrom(src => src.ClassSubjectId))
+                .ForMember(dest => dest.ClassId, opt => opt.MapFrom(src => src.ClassId))
+                .ForMember(dest => dest.ClassName, opt => opt.MapFrom(src => src.Class.ClassName))
+                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.SubjectId))
+                .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.Subject.SubjectName))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Subject.Description))
+                .ForMember(dest => dest.Credits, opt => opt.MapFrom(src => src.Subject.Credits))
+                .ForMember(dest => dest.PassingScore, opt => opt.MapFrom(src => src.Subject.PassingScore))
+                .ForMember(dest => dest.InstructorAssignmentID, opt => opt.MapFrom(src => src.InstructorAssignmentID))
+                .ForMember(dest => dest.InstructorId, opt => opt.MapFrom(src => src.InstructorAssignment.InstructorId))
+                .ForMember(dest => dest.InstructorName, opt => opt.MapFrom(src => src.InstructorAssignment.Instructor.FullName))
+                .ForMember(dest => dest.InstructorEmail, opt => opt.MapFrom(src => src.InstructorAssignment.Instructor.Email))
+                .ForMember(dest => dest.Schedules, opt => opt.MapFrom(src => src.Schedules))
+                .ForMember(dest => dest.TraineeAssignments, opt => opt.MapFrom(src => src.traineeAssigns));
+
+            // Add the mapping for InstructorAssignmentDTO to InstructorAssignment
+            CreateMap<InstructorAssignmentDTO, InstructorAssignment>()
+                .ForMember(dest => dest.AssignmentId, opt => opt.Ignore())
+                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.SubjectId))
+                .ForMember(dest => dest.InstructorId, opt => opt.MapFrom(src => src.InstructorId))
+                .ForMember(dest => dest.Notes, opt => opt.MapFrom(src => src.Notes))
+                .ForMember(dest => dest.AssignByUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.AssignDate, opt => opt.Ignore())
+                .ForMember(dest => dest.RequestStatus, opt => opt.Ignore())
+                .ForMember(dest => dest.Instructor, opt => opt.Ignore())
+                .ForMember(dest => dest.AssignByUser, opt => opt.Ignore())
+                .ForMember(dest => dest.Subject, opt => opt.Ignore());
+
+            // Also map InstructorAssignment to InstructorAssignmentModel
+            CreateMap<InstructorAssignment, InstructorAssignmentModel>()
+                .ForMember(dest => dest.AssignmentId, opt => opt.MapFrom(src => src.AssignmentId))
+                .ForMember(dest => dest.InstructorId, opt => opt.MapFrom(src => src.InstructorId))
+                .ForMember(dest => dest.AssignByUserId, opt => opt.MapFrom(src => src.AssignByUserId))
+                .ForMember(dest => dest.AssignDate, opt => opt.MapFrom(src => src.AssignDate))
+                .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => src.RequestStatus.ToString()))
+                .ForMember(dest => dest.Notes, opt => opt.MapFrom(src => src.Notes))
+                .ForMember(dest => dest.CourseSubjectSpecialtyId, opt => opt.MapFrom(src => src.SubjectId));
         }
     }
 }
