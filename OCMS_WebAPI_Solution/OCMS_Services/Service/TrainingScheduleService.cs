@@ -23,20 +23,18 @@ namespace OCMS_Services.Service
         private readonly ITrainingScheduleRepository _trainingScheduleRepository;
         private readonly IInstructorAssignmentService _instructorAssignmentService;
         private readonly IRequestService _requestService;
-        private readonly Lazy<ITrainingScheduleService> _trainingScheduleService;
+        
         public TrainingScheduleService(
             UnitOfWork unitOfWork,
             IMapper mapper,
             IInstructorAssignmentService instructorAssignmentService,
             IRequestService requestService,
-            Lazy<ITrainingScheduleService> trainingScheduleService,
             ITrainingScheduleRepository trainingScheduleRepository)
         {
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _instructorAssignmentService = instructorAssignmentService ?? throw new ArgumentNullException(nameof(instructorAssignmentService));
             _requestService = requestService;
-            _trainingScheduleService = trainingScheduleService ?? throw new ArgumentNullException(nameof(trainingScheduleService));
             _trainingScheduleRepository = trainingScheduleRepository ?? throw new ArgumentNullException(nameof(trainingScheduleRepository));
         }
 
@@ -79,7 +77,7 @@ namespace OCMS_Services.Service
 
         #region Create Training Schedule
         /// <summary>
-        /// Creates a new training schedule and associated instructor assignment.
+        /// Creates a new training schedule. Requires that an instructor assignment already exists.
         /// </summary>
         public async Task<TrainingScheduleModel> CreateTrainingScheduleAsync(TrainingScheduleDTO dto, string createdByUserId)
         {
@@ -95,6 +93,14 @@ namespace OCMS_Services.Service
             var instructor = await _unitOfWork.UserRepository.GetAsync(u => u.UserId == dto.InstructorID);
             if (instructor == null)
                 throw new ArgumentException($"Instructor with ID '{dto.InstructorID}' not found.");
+
+            // Verify that an instructor assignment already exists for this subject and instructor
+            var existingAssignment = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
+                a => a.SubjectId == classSubject.SubjectId && a.InstructorId == dto.InstructorID
+            );
+
+            if (existingAssignment == null)
+                throw new InvalidOperationException($"No instructor assignment exists for Subject '{classSubject.SubjectId}' and Instructor '{dto.InstructorID}'. Please create an instructor assignment first.");
 
             // Get the subject specialty through the SubjectSpecialty entity
             var subjectSpecialty = await _unitOfWork.SubjectSpecialtyRepository.FirstOrDefaultAsync(
@@ -122,9 +128,6 @@ namespace OCMS_Services.Service
             await _unitOfWork.TrainingScheduleRepository.AddAsync(schedule);
             await _unitOfWork.SaveChangesAsync();
 
-            // Assign instructor after creating schedule
-            await ManageInstructorAssignment(dto.ClassSubjectId, dto.InstructorID, createdByUserId);
-
             return _mapper.Map<TrainingScheduleModel>(schedule);
         }
         #endregion
@@ -143,7 +146,38 @@ namespace OCMS_Services.Service
                 throw new Exception("Schedule is approved. Please send request to update if needed.");
             }    
             await ValidateTrainingScheduleAsync(dto, scheduleId);
-            var instructor = await _unitOfWork.UserRepository.GetByIdAsync(dto.InstructorID);
+            
+            // Check instructor specialty compatibility with subject
+            var classSubject = await _unitOfWork.ClassSubjectRepository.GetAsync(
+                cs => cs.ClassSubjectId == dto.ClassSubjectId,
+                cs => cs.Class,
+                cs => cs.Subject
+            );
+
+            if (classSubject == null)
+                throw new ArgumentException($"ClassSubject with ID '{dto.ClassSubjectId}' not found.");
+
+            var instructor = await _unitOfWork.UserRepository.GetAsync(u => u.UserId == dto.InstructorID);
+            if (instructor == null)
+                throw new ArgumentException($"Instructor with ID '{dto.InstructorID}' not found.");
+
+            // Verify that an instructor assignment already exists for this subject and instructor
+            var existingAssignment = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
+                a => a.SubjectId == classSubject.SubjectId && a.InstructorId == dto.InstructorID
+            );
+
+            if (existingAssignment == null)
+                throw new InvalidOperationException($"No instructor assignment exists for Subject '{classSubject.SubjectId}' and Instructor '{dto.InstructorID}'. Please create an instructor assignment first.");
+
+            // Get the subject specialty through the SubjectSpecialty entity
+            var subjectSpecialty = await _unitOfWork.SubjectSpecialtyRepository.FirstOrDefaultAsync(
+                ss => ss.SubjectId == classSubject.SubjectId);
+                
+            if (subjectSpecialty == null)
+                throw new ArgumentException($"No specialty found for Subject with ID '{classSubject.SubjectId}'.");
+
+            if (subjectSpecialty.SpecialtyId != instructor.SpecialtyId)
+                throw new ArgumentException($"Instructor's specialty does not match the specialty of Subject '{classSubject.SubjectId}'.");
             
             // Apply update
             _mapper.Map(dto, schedule);
@@ -151,9 +185,6 @@ namespace OCMS_Services.Service
 
             await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
             await _unitOfWork.SaveChangesAsync();
-
-            // Update InstructorAssignment if needed
-            await ManageInstructorAssignment(dto.ClassSubjectId, dto.InstructorID, schedule.CreatedByUserId);
 
             var updatedSchedule = await _unitOfWork.TrainingScheduleRepository.GetAsync(
                 s => s.ScheduleID == scheduleId,
@@ -377,8 +408,7 @@ namespace OCMS_Services.Service
 
         #region Delete Training Schedule
         /// <summary>
-        /// Deletes a training schedule by its ID and its related instructor assignment.
-        /// If the related assignment is Approved, changes status to Deleting and creates a request.
+        /// Deletes a training schedule by its ID. Instructor assignments are managed separately.
         /// </summary>
         public async Task<bool> DeleteTrainingScheduleAsync(string scheduleId)
         {
@@ -395,14 +425,6 @@ namespace OCMS_Services.Service
             if (schedule.Status == ScheduleStatus.Incoming)
             {
                 throw new Exception("Schedule is approved. Please send request to delete if needed.");
-            }
-            // Delete related instructor assignment (if any)
-            var assignment = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
-                a => a.SubjectId == schedule.ClassSubject.SubjectId
-            );
-            if (assignment != null)
-            {
-                await _unitOfWork.InstructorAssignmentRepository.DeleteAsync(assignment.AssignmentId);
             }
 
             // Delete schedule directly
