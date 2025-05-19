@@ -32,29 +32,43 @@ namespace OCMS_Repositories.Repository
                 .FirstOrDefaultAsync();
         }
 
-        public async Task<Course?> GetCourseByTrainingPlanIdAsync(string trainingPlanId)
-        {
-            var trainingPlan = await _context.TrainingPlans
-                .Include(tp => tp.Course)
-                .FirstOrDefaultAsync(tp => tp.PlanId == trainingPlanId);
+        //public async Task<Course?> GetCourseByTrainingPlanIdAsync(string trainingPlanId)
+        //{
+        //    var trainingPlan = await _context.TrainingPlans
+        //        .Include(tp => tp.Course)
+        //        .FirstOrDefaultAsync(tp => tp.PlanId == trainingPlanId);
 
-            return trainingPlan?.Course;
-        }
+        //    return trainingPlan?.Course;
+        //}
 
         public async Task<Course?> GetCourseWithDetailsAsync(string courseId)
         {
-            return await _context.Courses
-                .Include(c => c.CourseSubjectSpecialties)
-                    .ThenInclude(s => s.Instructors)
-                .Include(c => c.CourseSubjectSpecialties)
-                    .ThenInclude(s => s.Schedules)
-                .Include(c => c.CourseSubjectSpecialties)
-                    .ThenInclude(s => s.Trainees)
-                .Include(c => c.CourseSubjectSpecialties)
+            var course = await _context.Courses
+                .Include(c => c.SubjectSpecialties)
                     .ThenInclude(s => s.Subject)
-                .Include(c => c.CourseSubjectSpecialties)
+                .Include(c => c.SubjectSpecialties)
                     .ThenInclude(s => s.Specialty)
                 .FirstOrDefaultAsync(c => c.CourseId == courseId);
+
+            if (course != null)
+            {
+                // Get subject IDs from the course
+                var subjectIds = course.SubjectSpecialties
+                    .Select(ss => ss.SubjectId)
+                    .ToList();
+
+                // Load instructors, schedules, and trainees separately using subject IDs
+                var classSubjects = await _context.ClassSubjects
+                    .Include(cs => cs.InstructorAssignment)
+                        .ThenInclude(ia => ia.Instructor)
+                    .Include(cs => cs.Schedules)
+                    .Include(cs => cs.traineeAssigns)
+                        .ThenInclude(ta => ta.Trainee)
+                    .Where(cs => subjectIds.Contains(cs.SubjectId))
+                    .ToListAsync();
+            }
+
+            return course;
         }
 
         public async Task<IEnumerable<Course>> GetAllWithIncludesAsync(Func<IQueryable<Course>, IQueryable<Course>> includes)

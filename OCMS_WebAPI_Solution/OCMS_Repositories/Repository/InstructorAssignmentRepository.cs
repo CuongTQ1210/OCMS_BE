@@ -21,16 +21,19 @@ namespace OCMS_Repositories.Repository
         {
             return await _context.InstructorAssignments.AnyAsync(tp => tp.AssignmentId == id);
         }
-        public async Task<IEnumerable<InstructorAssignment>> GetAssignmentsByTrainingPlanIdAsync(string trainingPlanId)
+        
+        public async Task<IEnumerable<InstructorAssignment>> GetAssignmentsByCourseIdAsync(string courseId)
         {
-            var courseId = await _context.TrainingPlans
-                .Where(tp => tp.PlanId == trainingPlanId)
-                .Select(tp => tp.CourseId)
-                .FirstOrDefaultAsync();
+            // Get ClassSubjects for this course
+            var classSubjects = await _context.ClassSubjects
+                .Where(cs => cs.ClassId == courseId)
+                .Select(cs => cs.SubjectId)
+                .ToListAsync();
 
+            // Get instructor assignments for these subjects
             return await _context.InstructorAssignments
-                .Where(ia => ia.CourseSubjectSpecialty.CourseId == courseId)
-                .Include(ia => ia.CourseSubjectSpecialty.Subject)
+                .Where(ia => classSubjects.Contains(ia.SubjectId))
+                .Include(ia => ia.Subject)
                 .ToListAsync();
         }
 
@@ -38,6 +41,7 @@ namespace OCMS_Repositories.Repository
         {
             return await _context.InstructorAssignments
                 .Where(ia => ia.InstructorId == instructorId)
+                .Include(ia => ia.Subject)
                 .ToListAsync();
         }
     }

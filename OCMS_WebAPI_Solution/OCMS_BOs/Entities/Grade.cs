@@ -13,9 +13,6 @@ namespace OCMS_BOs.Entities
         [Key]
         public string GradeId { get; set; }
 
-        [ForeignKey("TraineeAssign")]
-        public string TraineeAssignID { get; set; }
-        public TraineeAssign TraineeAssign { get; set; }
         public double ParticipantScore { get; set; }
         public double AssignmentScore    { get; set; }
         public double FinalExamScore { get; set; }
@@ -31,6 +28,10 @@ namespace OCMS_BOs.Entities
         public DateTime EvaluationDate { get; set; }= DateTime.Now;
 
         public DateTime UpdateDate { get; set; }=DateTime.Now;
+
+        [ForeignKey("TraineeAssign")]
+        public string TraineeAssignID { get; set; }
+        public TraineeAssign TraineeAssign { get; set; }
 
     }
 }

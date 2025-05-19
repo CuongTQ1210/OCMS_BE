@@ -22,11 +22,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
-var keyVaultEndpoint = new Uri(builder.Configuration["KeyVault:Endpoint"]);
-builder.Configuration.AddAzureKeyVault(
-   keyVaultEndpoint,
-   new DefaultAzureCredential()
-);
+if (!builder.Environment.IsDevelopment())
+{
+    var keyVaultEndpoint = new Uri(builder.Configuration["KeyVault:Endpoint"]);
+    builder.Configuration.AddAzureKeyVault(keyVaultEndpoint, new DefaultAzureCredential());
+}
 
 // Các cấu hình khác có thể lấy từ Key Vault
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -48,10 +48,7 @@ builder.Services.AddHostedService<StatusCheckBackgroundService>();
 // Add Redis
 builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(builder.Configuration.GetValue<string>("Redis:ConnectionString")));
 
-builder.Services.AddSingleton(new StatusCheckBackgroundService(
-        serviceProvider: null, // Sẽ được DI container inject
-        logger: null, // Sẽ được DI container inject
-        checkInterval: TimeSpan.FromHours(1)));
+
 
 // Add Email Service
 builder.Services.AddTransient<IEmailService>(provider =>
@@ -75,7 +72,6 @@ builder.Services.AddScoped<IRequestRepository, RequestRepository>();
 builder.Services.AddScoped<ISpecialtyRepository, SpecialtyRepository>();
 builder.Services.AddScoped<ICandidateRepository, CandidateRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
-builder.Services.AddScoped<ITrainingPlanRepository, TrainingPlanRepository>();
 builder.Services.AddScoped<ICourseRepository, CourseRepository>();
 builder.Services.AddScoped<IExternalCertificateRepository, ExternalCertificateRepository>();
 builder.Services.AddScoped<ISubjectRepository, SubjectRepository>();
@@ -87,7 +83,9 @@ builder.Services.AddScoped<IGradeRepository, GradeRepository>();
 builder.Services.AddScoped<ICertificateRepository, CertificateRepository>();
 builder.Services.AddScoped<IDecisionTemplateRepository, DecisionTemplateRepository>();
 builder.Services.AddScoped<IDecisionRepository, DecisionRepository>();
-builder.Services.AddScoped<ICourseSubjectSpecialtyRepository, CourseSubjectSpecialtyRepository>();
+builder.Services.AddScoped<IClassRepository, ClassRepository>();
+builder.Services.AddScoped<IClassSubjectRepository, ClassSubjectRepository>();
+
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
@@ -98,7 +96,6 @@ builder.Services.AddScoped<ICandidateService, CandidateService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IExternalCertificateService, ExternalCertificateService>();
 builder.Services.AddScoped<IBlobService, BlobService>();
-builder.Services.AddScoped<ITrainingPlanService, TrainingPlanService>();
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<ISubjectService, SubjectService>();
 builder.Services.AddScoped<ITrainingScheduleService, TrainingScheduleService>();
@@ -114,10 +111,11 @@ builder.Services.AddScoped<IDecisionService, DecisionService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IProgressTrackingService, ProgressTrackingService>();
 builder.Services.AddScoped<ICertificateMonitoringService, CertificateMonitoringService>();
-builder.Services.AddScoped<ICourseSubjectSpecialtyService, CourseSubjectSpecialtyService>();
+builder.Services.AddScoped<IClassService, ClassService>();
+builder.Services.AddScoped<IClassSubjectService, ClassSubjectService>();
+
 // Register Lazy<T> factories
 builder.Services.AddScoped(provider => new Lazy<ITrainingScheduleService>(() => provider.GetRequiredService<ITrainingScheduleService>()));
-builder.Services.AddScoped(provider => new Lazy<ITrainingPlanService>(() => provider.GetRequiredService<ITrainingPlanService>()));
 
 builder.Services.AddMemoryCache();
 
