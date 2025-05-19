@@ -23,8 +23,6 @@ namespace OCMS_BOs.ViewModel
         public DateTime UpdatedAt { get; set; }
 
         public List<TraineeAssignModel> Trainees { get; set; } = new List<TraineeAssignModel>();
-        public List<SubjectModel> Subjects { get; set; } = new List<SubjectModel>();
-        public List<CourseSubjectSpecialtyModel> CourseSubjectSpecialties { get; set; } = new List<CourseSubjectSpecialtyModel>();
-        public List<TrainingPlanModel> TrainingPlans { get; set; } = new List<TrainingPlanModel>();
+        public List<SubjectSpecialtyModel> SubjectSpecialties { get; set; } = new List<SubjectSpecialtyModel>();
     }
 }

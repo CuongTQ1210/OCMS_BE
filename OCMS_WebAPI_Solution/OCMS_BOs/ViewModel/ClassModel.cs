@@ -4,12 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace OCMS_BOs.RequestModel
+namespace OCMS_BOs.ViewModel
 {
-    public class TraineeAssignDTO
+    public class ClassModel
     {
-        public string TraineeId { get; set; }
         public string ClassId { get; set; }
-        public string Notes { get; set; }
+        public string ClassName { get; set; }
     }
 }

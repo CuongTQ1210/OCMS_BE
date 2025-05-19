@@ -19,24 +19,24 @@ namespace OCMS_Repositories.Repository
             _context = context;
         }
 
-        public async Task<bool> ExistsAsync(string id)
-        {
-            return await _context.TrainingPlans.AnyAsync(tp => tp.PlanId == id);
-        }
+        //public async Task<bool> ExistsAsync(string id)
+        //{
+        //    return await _context.TrainingPlans.AnyAsync(tp => tp.PlanId == id);
+        //}
 
         public async Task<TraineeAssign> GetTraineeAssignmentAsync(string courseId, string traineeId)
         {
             return await _context.TraineeAssignments
-                .Include(ta => ta.CourseSubjectSpecialty)
+                .Include(ta => ta.ClassSubject)
                 .Include(ta => ta.Trainee)
-                .FirstOrDefaultAsync(ta => ta.CourseSubjectSpecialty.CourseId == courseId && ta.TraineeId == traineeId);
+                .FirstOrDefaultAsync(ta => ta.ClassSubject.ClassId == courseId && ta.TraineeId == traineeId);
         }
 
-        public async Task<IEnumerable<TraineeAssign>> GetTraineeAssignmentsByCourseSubjectIdAsync(string courseSubjectId)
+        public async Task<IEnumerable<TraineeAssign>> GetTraineeAssignmentsByClassSubjectIdAsync(string classSubjectId)
         {
             return await _context.TraineeAssignments
                 .Include(ta => ta.Trainee)
-                .Where(ta => ta.CourseSubjectSpecialtyId == courseSubjectId && ta.RequestStatus == RequestStatus.Approved)
+                .Where(ta => ta.ClassSubjectId == classSubjectId && ta.RequestStatus == RequestStatus.Approved)
                 .ToListAsync();
         }
 
@@ -44,7 +44,8 @@ namespace OCMS_Repositories.Repository
         {
             return await _context.TraineeAssignments
                 .Include(ta => ta.Trainee)
-                .Where(ta => ta.CourseSubjectSpecialty.CourseId == courseId && ta.RequestStatus == RequestStatus.Approved)
+                .Include(ta => ta.ClassSubject)
+                .Where(ta => ta.ClassSubject.ClassId == courseId && ta.RequestStatus == RequestStatus.Approved)
                 .ToListAsync();
         }
         public async Task<List<TraineeAssignModel>> GetTraineeAssignmentsByRequestIdAsync(string requestId)
@@ -55,7 +56,7 @@ namespace OCMS_Repositories.Repository
                 {
                     TraineeAssignId = ta.TraineeAssignId,
                     TraineeId = ta.TraineeId,
-                    CourseSubjectSpecialtyId = ta.CourseSubjectSpecialtyId,
+                    ClassSubjectId = ta.ClassSubjectId,
                     Notes = ta.Notes,
                     RequestStatus = ta.RequestStatus.ToString(),
                     AssignByUserId = ta.AssignByUserId,
@@ -68,19 +69,19 @@ namespace OCMS_Repositories.Repository
         }
 
 
-        public async Task<List<TraineeAssignModel>> GetTraineeAssignsByCourseSubjectIdAsync(string courseSubjectId)
+        public async Task<List<TraineeAssignModel>> GetTraineeAssignsByClassSubjectIdAsync(string classSubjectId)
         {
-            var courseSubject = await _context.CourseSubjectSpecialties.FindAsync(courseSubjectId);
-            if (courseSubject == null)
+            var classSubject = await _context.ClassSubjects.FindAsync(classSubjectId);
+            if (classSubject == null)
                 return new List<TraineeAssignModel>();
 
             return await _context.TraineeAssignments
-                .Where(ta => ta.CourseSubjectSpecialtyId == courseSubject.CourseId)
+                .Where(ta => ta.ClassSubjectId == classSubjectId)
                 .Select(ta => new TraineeAssignModel
                 {
                     TraineeAssignId = ta.TraineeAssignId,
                     TraineeId = ta.TraineeId,
-                    CourseSubjectSpecialtyId = ta.CourseSubjectSpecialtyId,
+                    ClassSubjectId = ta.ClassSubjectId,
                     Notes = ta.Notes,
                     RequestStatus = ta.RequestStatus.ToString(),
                     AssignByUserId = ta.AssignByUserId,

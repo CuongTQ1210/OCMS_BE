@@ -17,6 +17,7 @@ namespace OCMS_BOs.ViewModel
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
 
-        public List<CourseSubjectSpecialtyModel> CourseSubjectSpecialties { get; set; } = new List<CourseSubjectSpecialtyModel>();
+        // List of courses that use this subject
+        public List<CourseModel> Courses { get; set; } = new List<CourseModel>();
     }
 }

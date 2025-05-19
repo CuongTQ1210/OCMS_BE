@@ -1,15 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace OCMS_BOs.RequestModel
+namespace OCMS_BOs.Entities
 {
-    public class TraineeAssignDTO
+    public class Class
     {
-        public string TraineeId { get; set; }
+        [Key]
         public string ClassId { get; set; }
-        public string Notes { get; set; }
+        public string ClassName { get; set; }
     }
 }

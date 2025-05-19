@@ -5,6 +5,7 @@ using OCMS_BOs.RequestModel;
 using OCMS_Services.IService;
 using OCMS_WebAPI.AuthorizeSettings;
 using System.Security.Claims;
+using OCMS_BOs.ResponseModel;
 
 namespace OCMS_WebAPI.Controllers
 {
@@ -206,6 +207,53 @@ namespace OCMS_WebAPI.Controllers
                 {
                     success = false,
                     message = "Failed to delete course.",
+                    error = ex.Message
+                });
+            }
+        }
+        #endregion
+
+        #region Import Courses
+        /// <summary>
+        /// Import courses from Excel file
+        /// </summary>
+        [HttpPost("import")]
+        [CustomAuthorize("Admin", "Training staff")]
+        public async Task<IActionResult> ImportCourses(IFormFile file)
+        {
+            try
+            {
+                if (file == null || file.Length == 0)
+                    return BadRequest(new { success = false, message = "No file uploaded." });
+
+                if (!file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+                    return BadRequest(new { success = false, message = "Only .xlsx files are supported." });
+
+                var importedByUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(importedByUserId))
+                    return Unauthorized(new { success = false, message = "Unauthorized access." });
+
+                using var stream = file.OpenReadStream();
+                var result = await _courseService.ImportCoursesAsync(stream, importedByUserId);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"Import completed. Successfully imported {result.SuccessCount} courses. Failed to import {result.FailedCount} courses.",
+                    data = new
+                    {
+                        successCount = result.SuccessCount,
+                        failureCount = result.FailedCount,
+                        errors = result.Errors
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Failed to import courses.",
                     error = ex.Message
                 });
             }

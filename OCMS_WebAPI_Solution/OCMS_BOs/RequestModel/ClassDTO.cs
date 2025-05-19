@@ -4,9 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace OCMS_Repositories.IRepository
+namespace OCMS_BOs.RequestModel
 {
-    public interface ICourseSubjectSpecialtyRepository
+    public class ClassDTO
     {
+        public string ClassName { get; set; }
     }
 }

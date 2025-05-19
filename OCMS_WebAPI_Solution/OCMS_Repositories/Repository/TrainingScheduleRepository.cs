@@ -21,30 +21,28 @@ namespace OCMS_Repositories.Repository
         {
             return await _context.TrainingSchedules.AnyAsync(tp => tp.ScheduleID == id);
         }
-        public async Task<IEnumerable<TrainingSchedule>> GetSchedulesByTrainingPlanIdAsync(string trainingPlanId)
+        public async Task<IEnumerable<TrainingSchedule>> GetSchedulesByCourseIdAsync(string courseId)
         {
             return await _context.TrainingSchedules
-                .Where(s => s.CourseSubjectSpecialty.Course.TrainingPlans
-                    .Any(tp => tp.PlanId == trainingPlanId)) 
-                .Include(s => s.CourseSubjectSpecialty)
-                    .ThenInclude(css => css.Course)
+                .Where(s => s.ClassSubject.ClassId == courseId) 
+                .Include(s => s.ClassSubject)
+                    .ThenInclude(cs => cs.Class)
                 .ToListAsync();
         }
         public async Task<List<TraineeAssign>> GetTraineeAssignmentsWithSchedulesAsync(string traineeId)
         {
             return await _context.TraineeAssignments
                 .Where(ta => ta.TraineeId == traineeId)
-                .Include(ta => ta.CourseSubjectSpecialty)
-                    .ThenInclude(css => css.Subject)
-                .Include(ta => ta.CourseSubjectSpecialty)
-                    .ThenInclude(css => css.Schedules)
-                    .ThenInclude(s => s.Instructor)
+                .Include(ta => ta.ClassSubject)
+                    .ThenInclude(cs => cs.Subject)
+                .Include(ta => ta.ClassSubject)
+                    .ThenInclude(cs => cs.Schedules)
                 .ToListAsync();
         }
-        public async Task<List<TrainingSchedule>> GetSchedulesByCourseSubjectIdAsync(string courseSubjectId)
+        public async Task<List<TrainingSchedule>> GetSchedulesByClassSubjectIdAsync(string classSubjectId)
         {
             return await _context.TrainingSchedules
-                .Where(s => s.CourseSubjectSpecialtyId == courseSubjectId)
+                .Where(s => s.ClassSubjectId == classSubjectId)
                 .ToListAsync();
         }
     }

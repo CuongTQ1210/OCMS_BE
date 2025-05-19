@@ -13,315 +13,603 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using System.Text.RegularExpressions;
 using System.Runtime.CompilerServices;
+using OfficeOpenXml;
+using OCMS_BOs.ResponseModel;
 
-public class CourseService : ICourseService
+namespace OCMS_Services.Service
 {
-    private readonly UnitOfWork _unitOfWork;
-    private readonly IMapper _mapper;
-    private readonly ICourseRepository _courseRepository;
-    private readonly IRequestService _requestService; // Added for request creation
-
-    public CourseService(UnitOfWork unitOfWork, IMapper mapper, ICourseRepository courseRepository, IRequestService requestService)
+    public class CourseService : ICourseService
     {
-        _unitOfWork = unitOfWork;
-        _mapper = mapper;
-        _courseRepository = courseRepository;
-        _requestService = requestService;
-    }
+        private readonly UnitOfWork _unitOfWork;
+        private readonly IMapper _mapper;
+        private readonly ICourseRepository _courseRepository;
+        private readonly IRequestService _requestService;
 
-    #region Create Course
-    public async Task<CourseModel> CreateCourseAsync(CourseDTO dto, string createdByUserId)
-    {
-        // Convert empty CourseRelatedId to null
-        if (string.IsNullOrEmpty(dto.CourseRelatedId))
+        public CourseService(UnitOfWork unitOfWork, IMapper mapper, ICourseRepository courseRepository, IRequestService requestService)
         {
-            dto.CourseRelatedId = null;
+            _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+            _courseRepository = courseRepository ?? throw new ArgumentNullException(nameof(courseRepository));
+            _requestService = requestService ?? throw new ArgumentNullException(nameof(requestService));
         }
 
-        // Parse CourseLevel from DTO
-        if (!Enum.TryParse<CourseLevel>(dto.CourseLevel, true, out var courseLevel))
-            throw new ArgumentException("Invalid CourseLevel provided.");
+        #region Create Course
+        public async Task<CourseModel> CreateCourseAsync(CourseDTO dto, string createdByUserId)
+        {
+            if (string.IsNullOrEmpty(createdByUserId))
+                throw new ArgumentException("Creator user ID cannot be empty.");
 
-        // Validate CourseRelatedId based on CourseLevel
-        if (courseLevel == CourseLevel.Initial)
-        {
-            if (!string.IsNullOrEmpty(dto.CourseRelatedId))
-                throw new ArgumentException("CourseRelatedId must be null for Initial course level.");
-        }
-        else if (courseLevel == CourseLevel.Professional)
-        {
+            // Convert empty CourseRelatedId to null
             if (string.IsNullOrEmpty(dto.CourseRelatedId))
-                throw new ArgumentException("CourseRelatedId is required for Professional course level.");
+            {
+                dto.CourseRelatedId = null;
+            }
 
-            var relatedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(dto.CourseRelatedId);
-            if (relatedCourse == null)
-                throw new ArgumentException("The specified CourseRelatedId does not exist.");
-            if (relatedCourse.CourseLevel != CourseLevel.Initial)
-                throw new ArgumentException("The related course for a Professional course must have Initial level.");
+            // Parse CourseLevel from DTO
+            if (!Enum.TryParse<CourseLevel>(dto.CourseLevel, true, out var courseLevel))
+                throw new ArgumentException("Invalid CourseLevel provided.");
+
+            // Validate CourseRelatedId based on CourseLevel
+            if (courseLevel == CourseLevel.Initial)
+            {
+                if (!string.IsNullOrEmpty(dto.CourseRelatedId))
+                    throw new ArgumentException("CourseRelatedId must be null for Initial course level.");
+            }
+            else if (courseLevel == CourseLevel.Professional)
+            {
+                if (string.IsNullOrEmpty(dto.CourseRelatedId))
+                    throw new ArgumentException("CourseRelatedId is required for Professional course level.");
+
+                var relatedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(dto.CourseRelatedId);
+                if (relatedCourse == null)
+                    throw new ArgumentException("The specified CourseRelatedId does not exist.");
+                if (relatedCourse.CourseLevel != CourseLevel.Initial)
+                    throw new ArgumentException("The related course for a Professional course must have Initial level.");
+            }
+            else if (courseLevel == CourseLevel.Recurrent)
+            {
+                if (string.IsNullOrEmpty(dto.CourseRelatedId))
+                    throw new ArgumentException("CourseRelatedId is required for Recurrent course level.");
+
+                var relatedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(dto.CourseRelatedId);
+                if (relatedCourse == null)
+                    throw new ArgumentException("The specified CourseRelatedId does not exist.");
+                if (relatedCourse.CourseLevel != CourseLevel.Initial && relatedCourse.CourseLevel != CourseLevel.Professional)
+                    throw new ArgumentException("The related course for a Recurrent course must have Initial or Professional level.");
+            }
+            else if (courseLevel == CourseLevel.Relearn)
+            {
+                if (string.IsNullOrEmpty(dto.CourseRelatedId))
+                    throw new ArgumentException("CourseRelatedId is required for Relearn course level.");
+
+                var relatedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(dto.CourseRelatedId);
+                if (relatedCourse == null)
+                    throw new ArgumentException("The specified CourseRelatedId does not exist.");
+                if (relatedCourse.CourseLevel != CourseLevel.Initial &&
+                    relatedCourse.CourseLevel != CourseLevel.Professional &&
+                    relatedCourse.CourseLevel != CourseLevel.Recurrent)
+                    throw new ArgumentException("The related course for a Relearn course must have Initial, Professional, or Recurrent level.");
+            }
+            else
+            {
+                throw new ArgumentException("Unsupported CourseLevel provided.");
+            }
+
+            var courseId = await GenerateCourseId(dto.CourseName, dto.CourseLevel, dto.CourseRelatedId);
+            var existedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(courseId);
+            if (existedCourse != null)
+            {
+                throw new ArgumentException($"Course with this level {dto.CourseLevel} already existed for this course {dto.CourseRelatedId}");
+            }
+
+            // Map DTO to Course entity
+            var course = _mapper.Map<Course>(dto);
+            course.CourseId = courseId;
+            course.CreatedByUserId = createdByUserId;
+            course.CreatedAt = DateTime.Now;
+            course.UpdatedAt = DateTime.Now;
+            course.Status = CourseStatus.Pending;
+            course.Progress = Progress.NotYet;
+            course.CourseLevel = courseLevel;
+
+            // Add course to repository and save
+            await _unitOfWork.CourseRepository.AddAsync(course);
+            await _unitOfWork.SaveChangesAsync();
+
+            return _mapper.Map<CourseModel>(course);
         }
-        else if (courseLevel == CourseLevel.Recurrent)
+        #endregion
+
+        #region Get All Courses
+        public async Task<IEnumerable<CourseModel>> GetAllCoursesAsync()
         {
+            var courses = await _courseRepository.GetAllWithIncludesAsync(query =>
+                query.Include(c => c.SubjectSpecialties)
+                     .ThenInclude(ss => ss.Subject)
+                     .Include(c => c.SubjectSpecialties)
+                     .ThenInclude(ss => ss.Specialty)
+                     .Include(c => c.CreatedByUser)
+                     .Include(c => c.RelatedCourse)
+            );
+
+            return _mapper.Map<IEnumerable<CourseModel>>(courses);
+        }
+        #endregion
+
+        #region Get Course by ID
+        public async Task<CourseModel?> GetCourseByIdAsync(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+                throw new ArgumentException("Course ID cannot be empty.");
+
+            var course = await _courseRepository.GetWithIncludesAsync(
+                c => c.CourseId == id,
+                query => query.Include(c => c.SubjectSpecialties)
+                     .ThenInclude(ss => ss.Subject)
+                     .Include(c => c.SubjectSpecialties)
+                     .ThenInclude(ss => ss.Specialty)
+                     .Include(c => c.CreatedByUser)
+                     .Include(c => c.RelatedCourse)
+            );
+
+            return course == null ? null : _mapper.Map<CourseModel>(course);
+        }
+        #endregion
+
+        #region Delete Course
+        public async Task<bool> DeleteCourseAsync(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+                throw new ArgumentException("Course ID cannot be empty.");
+
+            var course = await _unitOfWork.CourseRepository.GetByIdAsync(id);
+            if (course == null)
+                throw new Exception("Course does not exist.");
+
+            // Check if there are any certificates linked to this course
+            var linkedCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.CourseId == id);
+            if (linkedCertificates.Any())
+            {
+                throw new InvalidOperationException($"Cannot delete course {id} because it has linked certificates.");
+            }
+
+            if (course.Status == CourseStatus.Approved)
+            {
+                // Create a request for deletion
+                var requestDto = new RequestDTO
+                {
+                    RequestType = RequestType.DeleteCourse,
+                    RequestEntityId = id,
+                    Description = $"Request to delete course {course.CourseName} ({id})",
+                    Notes = "Awaiting HeadMaster approval"
+                };
+                await _requestService.CreateRequestAsync(requestDto, course.CreatedByUserId);
+                throw new InvalidOperationException($"Cannot delete course {id} because it is Approved. A request has been sent to the HeadMaster for approval.");
+            }
+
+            // Check if the course has any related courses
+            var relatedCourses = await _unitOfWork.CourseRepository.GetAllAsync(c => c.RelatedCourseId == id);
+            if (relatedCourses.Any())
+            {
+                throw new InvalidOperationException($"Cannot delete course {id} because it has related courses: {string.Join(", ", relatedCourses.Select(c => c.CourseId))}");
+            }
+
+            // Allow deletion only for Pending or Rejected statuses
+            if (course.Status == CourseStatus.Pending || course.Status == CourseStatus.Rejected)
+            {
+                await _unitOfWork.CourseRepository.DeleteAsync(id);
+                await _unitOfWork.SaveChangesAsync();
+                return true;
+            }
+
+            throw new InvalidOperationException($"Cannot delete course {id} because its status is {course.Status}. Only Pending or Rejected courses can be deleted.");
+        }
+        #endregion
+
+        #region Update Course
+        public async Task<CourseModel> UpdateCourseAsync(string id, CourseUpdateDTO dto, string updatedByUserId)
+        {
+            if (string.IsNullOrEmpty(id))
+                throw new ArgumentException("Course ID cannot be empty.");
+
+            if (string.IsNullOrEmpty(updatedByUserId))
+                throw new ArgumentException("Updater user ID cannot be empty.");
+
+            // Validate course existence
+            var course = await _unitOfWork.CourseRepository.GetByIdAsync(id);
+            if (course == null)
+                throw new Exception("Course Id does not exist!");
+
+            // Check if the course is approved and create a change request instead of direct update
+            if (course.Status == CourseStatus.Approved)
+            {
+                var requestDto = new RequestDTO
+                {
+                    RequestType = RequestType.UpdateCourse,
+                    RequestEntityId = id,
+                    Description = $"Request to update course '{course.CourseName}'",
+                    Notes = $"Requested changes: {JsonSerializer.Serialize(dto)}"
+                };
+                await _requestService.CreateRequestAsync(requestDto, updatedByUserId);
+                throw new InvalidOperationException($"Course {id} is already approved. A change request has been created and is awaiting approval.");
+            }
+
+            // Convert empty CourseRelatedId to null
             if (string.IsNullOrEmpty(dto.CourseRelatedId))
-                throw new ArgumentException("CourseRelatedId is required for Recurrent course level.");
+            {
+                dto.CourseRelatedId = null;
+            }
 
-            var relatedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(dto.CourseRelatedId);
-            if (relatedCourse == null)
-                throw new ArgumentException("The specified CourseRelatedId does not exist.");
-            if (relatedCourse.CourseLevel != CourseLevel.Initial && relatedCourse.CourseLevel != CourseLevel.Professional)
-                throw new ArgumentException("The related course for a Recurrent course must have Initial or Professional level.");
+            // Validate CourseRelatedId based on CourseLevel
+            if (course.CourseLevel == CourseLevel.Initial)
+            {
+                if (!string.IsNullOrEmpty(dto.CourseRelatedId))
+                    throw new ArgumentException("CourseRelatedId must be null for Initial course level.");
+            }
+            else if (course.CourseLevel == CourseLevel.Professional)
+            {
+                if (string.IsNullOrEmpty(dto.CourseRelatedId))
+                    throw new ArgumentException("CourseRelatedId is required for Professional course level.");
+
+                var relatedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(dto.CourseRelatedId);
+                if (relatedCourse == null)
+                    throw new ArgumentException("The specified CourseRelatedId does not exist.");
+                if (relatedCourse.CourseLevel != CourseLevel.Initial)
+                    throw new ArgumentException("The related course for a Professional course must have Initial level.");
+            }
+            else if (course.CourseLevel == CourseLevel.Recurrent)
+            {
+                if (string.IsNullOrEmpty(dto.CourseRelatedId))
+                    throw new ArgumentException("CourseRelatedId is required for Recurrent course level.");
+
+                var relatedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(dto.CourseRelatedId);
+                if (relatedCourse == null)
+                    throw new ArgumentException("The specified CourseRelatedId does not exist.");
+                if (relatedCourse.CourseLevel != CourseLevel.Initial && relatedCourse.CourseLevel != CourseLevel.Professional)
+                    throw new ArgumentException("The related course for a Recurrent course must have Initial or Professional level.");
+            }
+            else if (course.CourseLevel == CourseLevel.Relearn)
+            {
+                if (string.IsNullOrEmpty(dto.CourseRelatedId))
+                    throw new ArgumentException("CourseRelatedId is required for Relearn course level.");
+
+                var relatedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(dto.CourseRelatedId);
+                if (relatedCourse == null)
+                    throw new ArgumentException("The specified CourseRelatedId does not exist.");
+                if (relatedCourse.CourseLevel != CourseLevel.Initial &&
+                    relatedCourse.CourseLevel != CourseLevel.Professional &&
+                    relatedCourse.CourseLevel != CourseLevel.Recurrent)
+                    throw new ArgumentException("The related course for a Relearn course must have Initial, Professional, or Recurrent level.");
+            }
+            else
+            {
+                throw new ArgumentException("Unsupported CourseLevel in course.");
+            }
+
+            // Map DTO to course entity
+            _mapper.Map(dto, course);
+            course.UpdatedAt = DateTime.Now;
+
+            // Update course in repository and save
+            await _unitOfWork.CourseRepository.UpdateAsync(course);
+            await _unitOfWork.SaveChangesAsync();
+
+            return _mapper.Map<CourseModel>(course);
         }
-        else if (courseLevel == CourseLevel.Relearn)
+        #endregion
+
+        #region Send Course Request For Approval
+        public async Task<bool> SendCourseRequestForApprove(string courseId, string createdByUserId)
         {
-            if (string.IsNullOrEmpty(dto.CourseRelatedId))
-                throw new ArgumentException("CourseRelatedId is required for Relearn course level.");
+            if (string.IsNullOrEmpty(courseId))
+                throw new ArgumentException("Course ID cannot be empty.");
 
-            var relatedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(dto.CourseRelatedId);
-            if (relatedCourse == null)
-                throw new ArgumentException("The specified CourseRelatedId does not exist.");
-            if (relatedCourse.CourseLevel != CourseLevel.Initial &&
-                relatedCourse.CourseLevel != CourseLevel.Professional &&
-                relatedCourse.CourseLevel != CourseLevel.Recurrent)
-                throw new ArgumentException("The related course for a Relearn course must have Initial, Professional, or Recurrent level.");
-        }
-        else
-        {
-            throw new ArgumentException("Unsupported CourseLevel provided.");
-        }
+            if (string.IsNullOrEmpty(createdByUserId))
+                throw new ArgumentException("User ID cannot be empty.");
 
-        var courseId = await GenerateCourseId(dto.CourseName, dto.CourseLevel, dto.CourseRelatedId);
-        var existedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(courseId);
-        if(existedCourse!= null)
-        {
-            throw new ArgumentException($"Course with this level {dto.CourseLevel} already existed for this course {dto.CourseRelatedId}");
-        }
-        // Map DTO to Course entity
-        var course = _mapper.Map<Course>(dto);
-        course.CourseId = courseId;
-        course.CreatedByUserId = createdByUserId;
-        course.CreatedAt = DateTime.Now;
-        course.UpdatedAt = DateTime.Now;
-        course.Status = CourseStatus.Pending;
-        course.Progress = Progress.NotYet;
-        course.CourseLevel = courseLevel;
+            var course = await _unitOfWork.CourseRepository.GetByIdAsync(courseId);
+            if (course == null)
+            {
+                throw new KeyNotFoundException($"Course with id {courseId} does not exist!");
+            }
 
-        // Add course to repository and save
-        await _unitOfWork.CourseRepository.AddAsync(course);
-        await _unitOfWork.SaveChangesAsync();
+            // Check if the course is already approved
+            if (course.Status == CourseStatus.Approved)
+            {
+                throw new InvalidOperationException($"Course {courseId} is already approved.");
+            }
 
-        return _mapper.Map<CourseModel>(course);
-    }
-    #endregion
+            // Check if there's already a pending request for this course
+            var pendingRequests = await _unitOfWork.RequestRepository.GetAllAsync(
+                r => r.RequestEntityId == courseId &&
+                     (r.RequestType == RequestType.NewCourse || r.RequestType == RequestType.UpdateCourse) &&
+                     r.Status == RequestStatus.Pending
+            );
 
-    #region Get All Courses
-    public async Task<IEnumerable<CourseModel>> GetAllCoursesAsync()
-    {
-        var courses = await _courseRepository.GetAllWithIncludesAsync(query =>
-            query.Include(c => c.CourseSubjectSpecialties)
-                 .ThenInclude(css => css.Subject)
-                 .Include(c => c.CourseSubjectSpecialties)
-                 .ThenInclude(css => css.Trainees)
-                 .Include(c => c.CourseSubjectSpecialties)
-                 .ThenInclude(css => css.Instructors)
-                 .Include(c => c.CourseSubjectSpecialties)
-                 .ThenInclude(css => css.Schedules)
-                 .Include(c => c.CourseSubjectSpecialties)
-                 .ThenInclude(css => css.Specialty)
-        );
+            if (pendingRequests.Any())
+            {
+                throw new InvalidOperationException($"There is already a pending approval request for course {courseId}.");
+            }
 
-        return _mapper.Map<IEnumerable<CourseModel>>(courses);
-    }
-    #endregion
-
-    #region Get Course by ID
-    public async Task<CourseModel?> GetCourseByIdAsync(string id)
-    {
-        var course = await _courseRepository.GetWithIncludesAsync(
-            c => c.CourseId == id,
-            query => query.Include(c => c.CourseSubjectSpecialties)
-                          .ThenInclude(css => css.Subject)
-                          .Include(c => c.CourseSubjectSpecialties)
-                          .ThenInclude(css => css.Trainees)
-                          .Include(c => c.CourseSubjectSpecialties)
-                          .ThenInclude(css => css.Instructors)
-                          .Include(c => c.CourseSubjectSpecialties)
-                          .ThenInclude(css => css.Schedules)
-                          .Include(c => c.CourseSubjectSpecialties)
-                          .ThenInclude(css => css.Specialty)
-        );
-
-        return course == null ? null : _mapper.Map<CourseModel>(course);
-    }
-    #endregion
-
-    #region Delete Course
-    public async Task<bool> DeleteCourseAsync(string id)
-    {
-        var course = await _unitOfWork.CourseRepository.GetByIdAsync(id);
-        if (course == null)
-            throw new Exception("Course does not exist.");
-
-        if (course.Status == CourseStatus.Approved)
-        {
-            // Create a request for deletion
             var requestDto = new RequestDTO
             {
-                RequestType = RequestType.Delete, // Updated to match CreateCourseAsync
-                RequestEntityId = id,
-                Description = $"Request to delete course {id}",
-                Notes = "Awaiting HeadMaster approval"
+                RequestEntityId = courseId,
+                RequestType = RequestType.NewCourse,
+                Description = $"Request to approve new course '{course.CourseName}'",
+                Notes = null
             };
-            await _requestService.CreateRequestAsync(requestDto, course.CreatedByUserId);
-            throw new InvalidOperationException($"Cannot delete course {id} because it is Approved. A request has been sent to the HeadMaster for approval.");
-        }
 
-        // Allow deletion only for Pending or Draft statuses
-        if (course.Status == CourseStatus.Pending || course.Status == CourseStatus.Rejected)
-        {
-            await _unitOfWork.CourseRepository.DeleteAsync(id);
-            await _unitOfWork.SaveChangesAsync();
+            await _requestService.CreateRequestAsync(requestDto, createdByUserId);
             return true;
         }
+        #endregion
 
-        throw new InvalidOperationException($"Cannot delete course {id} because its status is {course.Status}. Only Pending or Draft courses can be deleted.");
-    }
-    #endregion
-
-    #region Update Course
-    public async Task<CourseModel> UpdateCourseAsync(string id, CourseUpdateDTO dto, string updatedByUserId)
-    {
-        // Validate course existence
-        var course = await _unitOfWork.CourseRepository.GetByIdAsync(id);
-        if (course == null)
-            throw new Exception("Course Id does not exist!");
-
-        // Convert empty CourseRelatedId to null
-        if (string.IsNullOrEmpty(dto.CourseRelatedId))
+        #region Helper Methods
+        private async Task<string> GenerateSubjectSpecialtyId(string subjectName, string specialtyName)
         {
-            dto.CourseRelatedId = null;
-        }
+            if (string.IsNullOrEmpty(subjectName))
+                throw new ArgumentException("Subject name cannot be empty.");
 
-        // Validate CourseRelatedId based on CourseLevel
-        if (course.CourseLevel == CourseLevel.Initial)
-        {
-            if (!string.IsNullOrEmpty(dto.CourseRelatedId))
-                throw new ArgumentException("CourseRelatedId must be null for Initial course level.");
-        }
-        else if (course.CourseLevel == CourseLevel.Professional)
-        {
-            if (string.IsNullOrEmpty(dto.CourseRelatedId))
-                throw new ArgumentException("CourseRelatedId is required for Professional course level.");
+            if (string.IsNullOrEmpty(specialtyName))
+                throw new ArgumentException("Specialty name cannot be empty.");
 
-            var relatedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(dto.CourseRelatedId);
-            if (relatedCourse == null)
-                throw new ArgumentException("The specified CourseRelatedId does not exist.");
-            if (relatedCourse.CourseLevel != CourseLevel.Initial)
-                throw new ArgumentException("The related course for a Professional course must have Initial level.");
-        }
-        else if (course.CourseLevel == CourseLevel.Recurrent)
-        {
-            if (string.IsNullOrEmpty(dto.CourseRelatedId))
-                throw new ArgumentException("CourseRelatedId is required for Recurrent course level.");
-
-            var relatedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(dto.CourseRelatedId);
-            if (relatedCourse == null)
-                throw new ArgumentException("The specified CourseRelatedId does not exist.");
-            if (relatedCourse.CourseLevel != CourseLevel.Initial && relatedCourse.CourseLevel != CourseLevel.Professional)
-                throw new ArgumentException("The related course for a Recurrent course must have Initial or Professional level.");
-        }
-        else if (course.CourseLevel == CourseLevel.Relearn)
-        {
-            if (string.IsNullOrEmpty(dto.CourseRelatedId))
-                throw new ArgumentException("CourseRelatedId is required for Relearn course level.");
-
-            var relatedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(dto.CourseRelatedId);
-            if (relatedCourse == null)
-                throw new ArgumentException("The specified CourseRelatedId does not exist.");
-            if (relatedCourse.CourseLevel != CourseLevel.Initial &&
-                relatedCourse.CourseLevel != CourseLevel.Professional &&
-                relatedCourse.CourseLevel != CourseLevel.Recurrent)
-                throw new ArgumentException("The related course for a Relearn course must have Initial, Professional, or Recurrent level.");
-        }
-        else
-        {
-            throw new ArgumentException("Unsupported CourseLevel in course.");
-        }
-
-        // Map DTO to course entity
-        _mapper.Map(dto, course);
-        course.UpdatedAt = DateTime.Now;
-
-        // Update course in repository and save
-        await _unitOfWork.CourseRepository.UpdateAsync(course);
-        await _unitOfWork.SaveChangesAsync();
-
-        return _mapper.Map<CourseModel>(course);
-    }
-    #endregion
-    #region
-    public async Task<bool> SendCourseRequestForApprove(string courseId, string createdByUserId)
-    {
-        var course = await _unitOfWork.CourseRepository.GetByIdAsync(courseId);
-        if (course == null)
-        {
-            throw new KeyNotFoundException($"Course with id {courseId} does not exist!");
-        }
-
-        var requestDto = new RequestDTO
-        {
-            RequestEntityId = courseId,
-            RequestType = RequestType.NewCourse,
-            Description = $"Request to approve new course '{course.CourseName}'",
-            Notes = null 
-        };
-
-        await _requestService.CreateRequestAsync(requestDto, createdByUserId);
-        return true;
-    }
-
-    #endregion
-
-    #region Helper Method
-    public async Task<string> GenerateCourseId(string courseName, string level, string? relatedCourseId = null)
-    {
-        if (level == "Initial")
-        {
-            // Use your original initials extraction logic
-            string courseInitials = string.Concat(courseName
+            // Get initials from subject name (up to 2 words)
+            string subjectInitials = string.Concat(subjectName
                 .Split(' ', StringSplitOptions.RemoveEmptyEntries)
                 .Where(word => !string.IsNullOrWhiteSpace(word))
-                .Take(3)
+                .Take(2)
                 .Select(word => char.ToUpper(word[0])));
 
-            // Always start Initial with 101
-            return $"{courseInitials}101";
+            if (string.IsNullOrEmpty(subjectInitials))
+            {
+                subjectInitials = "SB"; // Default if no valid initials
+            }
+
+            // Get initials from specialty name (up to 2 words)
+            string specialtyInitials = string.Concat(specialtyName
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Where(word => !string.IsNullOrWhiteSpace(word))
+                .Take(2)
+                .Select(word => char.ToUpper(word[0])));
+
+            if (string.IsNullOrEmpty(specialtyInitials))
+            {
+                specialtyInitials = "SP"; // Default if no valid initials
+            }
+
+            // Combine initials
+            string combinedInitials = $"{subjectInitials}{specialtyInitials}";
+
+            // Get the last SubjectSpecialty ID with these initials
+            var lastSubjectSpecialty = await _unitOfWork.SubjectSpecialtyRepository.GetAllAsync();
+            var lastId = lastSubjectSpecialty
+                .Where(ss => ss.SubjectSpecialtyId.StartsWith(combinedInitials))
+                .OrderByDescending(ss => ss.SubjectSpecialtyId)
+                .FirstOrDefault();
+
+            int nextNumber = 1;
+            if (lastId != null)
+            {
+                // Extract the numeric part and increment
+                string numericPart = new string(lastId.SubjectSpecialtyId.SkipWhile(c => !char.IsDigit(c)).ToArray());
+                if (int.TryParse(numericPart, out int lastNumber))
+                {
+                    nextNumber = lastNumber + 1;
+                }
+            }
+
+            // Format the new ID with leading zeros
+            return $"{combinedInitials}{nextNumber:D3}";
         }
 
-        if (string.IsNullOrEmpty(relatedCourseId))
-            throw new ArgumentException("Related course ID is required for non-initial levels.");
-
-        var relatedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(relatedCourseId);
-        if (relatedCourse == null)
-            throw new ArgumentException("The related course does not exist.");
-
-        // Extract initials (alphabetic part)
-        string initialsPart = new(relatedCourse.CourseId.TakeWhile(char.IsLetter).ToArray());
-
-        // Extract number (numeric part)
-        string numberPart = new(relatedCourse.CourseId.SkipWhile(char.IsLetter).ToArray());
-
-        if (!int.TryParse(numberPart, out int baseCode))
-            throw new InvalidOperationException("Related course ID does not contain a valid numeric part.");
-
-        // Determine new code based on level
-        int newCode = level switch
+        public async Task<string> GenerateCourseId(string courseName, string level, string? relatedCourseId = null)
         {
-            "Professional" => baseCode + 100,
-            "Recurrent" => baseCode + 10,
-            "Relearn" => baseCode + 1,
-            _ => throw new InvalidOperationException("Invalid CourseLevel.")
-        };
+            if (string.IsNullOrEmpty(courseName))
+                throw new ArgumentException("Course name cannot be empty.");
 
-        return $"{initialsPart}{newCode}";
+            if (string.IsNullOrEmpty(level))
+                throw new ArgumentException("Course level cannot be empty.");
+
+            if (level == "Initial")
+            {
+                // Use initials extraction logic
+                string courseInitials = string.Concat(courseName
+                    .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Where(word => !string.IsNullOrWhiteSpace(word))
+                    .Take(3)
+                    .Select(word => char.ToUpper(word[0])));
+
+                if (string.IsNullOrEmpty(courseInitials))
+                {
+                    courseInitials = "CRS"; // Default if no valid initials
+                }
+
+                // Always start Initial with 101
+                return $"{courseInitials}101";
+            }
+
+            if (string.IsNullOrEmpty(relatedCourseId))
+                throw new ArgumentException("Related course ID is required for non-initial levels.");
+
+            var relatedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(relatedCourseId);
+            if (relatedCourse == null)
+                throw new ArgumentException("The related course does not exist.");
+
+            // Extract initials (alphabetic part)
+            string initialsPart = new(relatedCourse.CourseId.TakeWhile(char.IsLetter).ToArray());
+
+            // Extract number (numeric part)
+            string numberPart = new(relatedCourse.CourseId.SkipWhile(char.IsLetter).ToArray());
+
+            if (!int.TryParse(numberPart, out int baseCode))
+                throw new InvalidOperationException("Related course ID does not contain a valid numeric part.");
+
+            // Determine new code based on level
+            int newCode = level switch
+            {
+                "Professional" => baseCode + 100,
+                "Recurrent" => baseCode + 10,
+                "Relearn" => baseCode + 1,
+                _ => throw new InvalidOperationException("Invalid CourseLevel.")
+            };
+
+            return $"{initialsPart}{newCode}";
+        }
+        #endregion
+
+        #region Import Courses
+        public async Task<ImportResult> ImportCoursesAsync(Stream excelStream, string importedByUserId)
+        {
+            var result = new ImportResult
+            {
+                SuccessCount = 0,
+                FailedCount = 0,
+                Errors = new List<string>()
+            };
+
+            try
+            {
+                ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+                using var package = new ExcelPackage(excelStream);
+                var worksheet = package.Workbook.Worksheets[0]; // First worksheet
+
+                // Read subject names from row 8, starting from column E (5)
+                var subjectNames = new List<string>();
+                int column = 5; // Column E
+                while (!string.IsNullOrWhiteSpace(worksheet.Cells[8, column].Text))
+                {
+                    subjectNames.Add(worksheet.Cells[8, column].Text.Trim());
+                    column++;
+                }
+
+                // Validate subjects exist in the database
+                var subjects = await _unitOfWork.SubjectRepository.GetAllAsync(
+                    s => subjectNames.Contains(s.SubjectName));
+
+                var subjectDict = subjects.ToDictionary(s => s.SubjectName, s => s);
+
+                // Check for missing subjects and throw exception if any are not found
+                var missingSubjects = subjectNames.Where(name => !subjectDict.ContainsKey(name)).ToList();
+                if (missingSubjects.Any())
+                {
+                    throw new KeyNotFoundException($"The following subjects were not found in the database: {string.Join(", ", missingSubjects)}");
+                }
+
+                // Get all specialties that will be used
+                var specialtyNames = new HashSet<string>();
+                int row = 9;
+                while (!string.IsNullOrWhiteSpace(worksheet.Cells[row, 2].Text))
+                {
+                    specialtyNames.Add(worksheet.Cells[row, 4].Text.Trim()); // Column D
+                    row++;
+                }
+
+                // Validate specialties exist
+                var specialties = await _unitOfWork.SpecialtyRepository.GetAllAsync(
+                    s => specialtyNames.Contains(s.SpecialtyName));
+                var specialtyDict = specialties.ToDictionary(s => s.SpecialtyName, s => s);
+
+                var missingSpecialties = specialtyNames.Where(name => !specialtyDict.ContainsKey(name)).ToList();
+                if (missingSpecialties.Any())
+                {
+                    throw new KeyNotFoundException($"The following specialties were not found in the database: {string.Join(", ", missingSpecialties)}");
+                }
+
+                // Create a dictionary to store SubjectSpecialty records
+                var subjectSpecialtyDict = new Dictionary<(string SubjectId, string SpecialtyId), SubjectSpecialty>();
+
+                // Process courses starting from row 9
+                row = 9;
+                while (!string.IsNullOrWhiteSpace(worksheet.Cells[row, 2].Text))
+                {
+                    try
+                    {
+                        string courseId = worksheet.Cells[row, 2].Text.Trim(); // Column B
+                        string courseName = worksheet.Cells[row, 3].Text.Trim(); // Column C
+                        string specialtyName = worksheet.Cells[row, 4].Text.Trim(); // Column D
+
+                        // Check if course already exists
+                        var existingCourse = await _unitOfWork.CourseRepository.GetByIdAsync(courseId);
+                        if (existingCourse != null)
+                        {
+                            result.Errors.Add($"Course with ID '{courseId}' already exists.");
+                            result.FailedCount++;
+                            row++;
+                            continue;
+                        }
+
+                        var specialty = specialtyDict[specialtyName];
+
+                        // Create new course
+                        var course = new Course
+                        {
+                            CourseId = courseId,
+                            CourseName = courseName,
+                            CourseLevel = CourseLevel.Initial,
+                            Status = CourseStatus.Pending,
+                            Progress = Progress.NotYet,
+                            StartDateTime = DateTime.Now,
+                            EndDateTime = DateTime.Now.AddDays(30),
+                            CreatedByUserId = importedByUserId,
+                            CreatedAt = DateTime.Now,
+                            UpdatedAt = DateTime.Now,
+                            SubjectSpecialties = new List<SubjectSpecialty>()
+                        };
+
+                        // Process 'x' markers for subjects
+                        for (int col = 5, subjectIndex = 0; col < 5 + subjectNames.Count; col++, subjectIndex++)
+                        {
+                            if (worksheet.Cells[row, col].Text.Trim().ToLower() == "x")
+                            {
+                                var subject = subjectDict[subjectNames[subjectIndex]];
+                                var key = (subject.SubjectId, specialty.SpecialtyId);
+
+                                // Check if we already created this SubjectSpecialty
+                                if (!subjectSpecialtyDict.TryGetValue(key, out var subjectSpecialty))
+                                {
+                                    // Generate new SubjectSpecialty ID
+                                    string subjectSpecialtyId = await GenerateSubjectSpecialtyId(subject.SubjectName, specialty.SpecialtyName);
+
+                                    // Create new SubjectSpecialty
+                                    subjectSpecialty = new SubjectSpecialty
+                                    {
+                                        SubjectSpecialtyId = subjectSpecialtyId,
+                                        SubjectId = subject.SubjectId,
+                                        SpecialtyId = specialty.SpecialtyId,
+                                        Subject = subject,
+                                        Specialty = specialty
+                                    };
+                                    await _unitOfWork.SubjectSpecialtyRepository.AddAsync(subjectSpecialty);
+                                    await _unitOfWork.SaveChangesAsync(); // Save to get the ID
+                                    subjectSpecialtyDict[key] = subjectSpecialty;
+                                }
+
+                                course.SubjectSpecialties.Add(subjectSpecialty);
+                            }
+                        }
+
+                        await _unitOfWork.CourseRepository.AddAsync(course);
+                        await _unitOfWork.SaveChangesAsync();
+                        result.SuccessCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Errors.Add($"Error processing row {row}: {ex.Message}");
+                        result.FailedCount++;
+                    }
+
+                    row++;
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.Errors.Add($"Error importing courses: {ex.Message}");
+                result.FailedCount++;
+                return result;
+            }
+        }
+        #endregion
     }
-    #endregion
 }
