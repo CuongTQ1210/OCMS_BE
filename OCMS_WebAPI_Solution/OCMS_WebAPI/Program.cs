@@ -22,11 +22,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
-var keyVaultEndpoint = new Uri(builder.Configuration["KeyVault:Endpoint"]);
-builder.Configuration.AddAzureKeyVault(
-   keyVaultEndpoint,
-   new DefaultAzureCredential()
-);
+if (!builder.Environment.IsDevelopment())
+{
+    var keyVaultEndpoint = new Uri(builder.Configuration["KeyVault:Endpoint"]);
+    builder.Configuration.AddAzureKeyVault(keyVaultEndpoint, new DefaultAzureCredential());
+}
 
 // Các cấu hình khác có thể lấy từ Key Vault
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -48,10 +48,7 @@ builder.Services.AddHostedService<StatusCheckBackgroundService>();
 // Add Redis
 builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(builder.Configuration.GetValue<string>("Redis:ConnectionString")));
 
-builder.Services.AddSingleton(new StatusCheckBackgroundService(
-        serviceProvider: null, // Sẽ được DI container inject
-        logger: null, // Sẽ được DI container inject
-        checkInterval: TimeSpan.FromHours(1)));
+
 
 // Add Email Service
 builder.Services.AddTransient<IEmailService>(provider =>

@@ -1,4 +1,5 @@
 ﻿using OCMS_BOs.RequestModel;
+using OCMS_BOs.ResponseModel;
 using OCMS_BOs.ViewModel;
 using System;
 using System.Collections.Generic;
@@ -17,5 +18,6 @@ namespace OCMS_Services.IService
         Task<CourseModel> UpdateCourseAsync(string id, CourseUpdateDTO dto, string updatedByUserId);
 
         Task<bool> SendCourseRequestForApprove(string courseId, string createdByUserId);
+        Task<ImportResult> ImportCoursesAsync(Stream excelStream, string importedByUserId);
     }
 }
