@@ -13,6 +13,8 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using System.Text.RegularExpressions;
 using System.Runtime.CompilerServices;
+using OfficeOpenXml;
+using OCMS_BOs.ResponseModel;
 
 namespace OCMS_Services.Service
 {
@@ -122,10 +124,12 @@ namespace OCMS_Services.Service
         public async Task<IEnumerable<CourseModel>> GetAllCoursesAsync()
         {
             var courses = await _courseRepository.GetAllWithIncludesAsync(query =>
-                query.Include(c => c.SubjectSpecialties) // Changed from CourseSubjectSpecialties
-                     .ThenInclude(css => css.Subject)
-                     .Include(c => c.CreatedByUser) // Include creator information
-                     .Include(c => c.RelatedCourse) // Include related course information
+                query.Include(c => c.SubjectSpecialties)
+                     .ThenInclude(ss => ss.Subject)
+                     .Include(c => c.SubjectSpecialties)
+                     .ThenInclude(ss => ss.Specialty)
+                     .Include(c => c.CreatedByUser)
+                     .Include(c => c.RelatedCourse)
             );
 
             return _mapper.Map<IEnumerable<CourseModel>>(courses);
@@ -140,10 +144,12 @@ namespace OCMS_Services.Service
 
             var course = await _courseRepository.GetWithIncludesAsync(
                 c => c.CourseId == id,
-                query => query.Include(c => c.SubjectSpecialties) // Changed from CourseSubjectSpecialties
-                              .ThenInclude(css => css.Subject)
-                              .Include(c => c.CreatedByUser) // Include creator information
-                              .Include(c => c.RelatedCourse) // Include related course information
+                query => query.Include(c => c.SubjectSpecialties)
+                     .ThenInclude(ss => ss.Subject)
+                     .Include(c => c.SubjectSpecialties)
+                     .ThenInclude(ss => ss.Specialty)
+                     .Include(c => c.CreatedByUser)
+                     .Include(c => c.RelatedCourse)
             );
 
             return course == null ? null : _mapper.Map<CourseModel>(course);
@@ -172,7 +178,7 @@ namespace OCMS_Services.Service
                 // Create a request for deletion
                 var requestDto = new RequestDTO
                 {
-                    RequestType = RequestType.DeleteCourse, // Changed from Delete to match enum value
+                    RequestType = RequestType.DeleteCourse,
                     RequestEntityId = id,
                     Description = $"Request to delete course {course.CourseName} ({id})",
                     Notes = "Awaiting HeadMaster approval"
@@ -338,7 +344,64 @@ namespace OCMS_Services.Service
         }
         #endregion
 
-        #region Helper Method
+        #region Helper Methods
+        private async Task<string> GenerateSubjectSpecialtyId(string subjectName, string specialtyName)
+        {
+            if (string.IsNullOrEmpty(subjectName))
+                throw new ArgumentException("Subject name cannot be empty.");
+
+            if (string.IsNullOrEmpty(specialtyName))
+                throw new ArgumentException("Specialty name cannot be empty.");
+
+            // Get initials from subject name (up to 2 words)
+            string subjectInitials = string.Concat(subjectName
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Where(word => !string.IsNullOrWhiteSpace(word))
+                .Take(2)
+                .Select(word => char.ToUpper(word[0])));
+
+            if (string.IsNullOrEmpty(subjectInitials))
+            {
+                subjectInitials = "SB"; // Default if no valid initials
+            }
+
+            // Get initials from specialty name (up to 2 words)
+            string specialtyInitials = string.Concat(specialtyName
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Where(word => !string.IsNullOrWhiteSpace(word))
+                .Take(2)
+                .Select(word => char.ToUpper(word[0])));
+
+            if (string.IsNullOrEmpty(specialtyInitials))
+            {
+                specialtyInitials = "SP"; // Default if no valid initials
+            }
+
+            // Combine initials
+            string combinedInitials = $"{subjectInitials}{specialtyInitials}";
+
+            // Get the last SubjectSpecialty ID with these initials
+            var lastSubjectSpecialty = await _unitOfWork.SubjectSpecialtyRepository.GetAllAsync();
+            var lastId = lastSubjectSpecialty
+                .Where(ss => ss.SubjectSpecialtyId.StartsWith(combinedInitials))
+                .OrderByDescending(ss => ss.SubjectSpecialtyId)
+                .FirstOrDefault();
+
+            int nextNumber = 1;
+            if (lastId != null)
+            {
+                // Extract the numeric part and increment
+                string numericPart = new string(lastId.SubjectSpecialtyId.SkipWhile(c => !char.IsDigit(c)).ToArray());
+                if (int.TryParse(numericPart, out int lastNumber))
+                {
+                    nextNumber = lastNumber + 1;
+                }
+            }
+
+            // Format the new ID with leading zeros
+            return $"{combinedInitials}{nextNumber:D3}";
+        }
+
         public async Task<string> GenerateCourseId(string courseName, string level, string? relatedCourseId = null)
         {
             if (string.IsNullOrEmpty(courseName))
@@ -391,6 +454,161 @@ namespace OCMS_Services.Service
             };
 
             return $"{initialsPart}{newCode}";
+        }
+        #endregion
+
+        #region Import Courses
+        public async Task<ImportResult> ImportCoursesAsync(Stream excelStream, string importedByUserId)
+        {
+            var result = new ImportResult
+            {
+                SuccessCount = 0,
+                FailedCount = 0,
+                Errors = new List<string>()
+            };
+
+            try
+            {
+                ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+                using var package = new ExcelPackage(excelStream);
+                var worksheet = package.Workbook.Worksheets[0]; // First worksheet
+
+                // Read subject names from row 8, starting from column E (5)
+                var subjectNames = new List<string>();
+                int column = 5; // Column E
+                while (!string.IsNullOrWhiteSpace(worksheet.Cells[8, column].Text))
+                {
+                    subjectNames.Add(worksheet.Cells[8, column].Text.Trim());
+                    column++;
+                }
+
+                // Validate subjects exist in the database
+                var subjects = await _unitOfWork.SubjectRepository.GetAllAsync(
+                    s => subjectNames.Contains(s.SubjectName));
+
+                var subjectDict = subjects.ToDictionary(s => s.SubjectName, s => s);
+
+                // Check for missing subjects and throw exception if any are not found
+                var missingSubjects = subjectNames.Where(name => !subjectDict.ContainsKey(name)).ToList();
+                if (missingSubjects.Any())
+                {
+                    throw new KeyNotFoundException($"The following subjects were not found in the database: {string.Join(", ", missingSubjects)}");
+                }
+
+                // Get all specialties that will be used
+                var specialtyNames = new HashSet<string>();
+                int row = 9;
+                while (!string.IsNullOrWhiteSpace(worksheet.Cells[row, 2].Text))
+                {
+                    specialtyNames.Add(worksheet.Cells[row, 4].Text.Trim()); // Column D
+                    row++;
+                }
+
+                // Validate specialties exist
+                var specialties = await _unitOfWork.SpecialtyRepository.GetAllAsync(
+                    s => specialtyNames.Contains(s.SpecialtyName));
+                var specialtyDict = specialties.ToDictionary(s => s.SpecialtyName, s => s);
+
+                var missingSpecialties = specialtyNames.Where(name => !specialtyDict.ContainsKey(name)).ToList();
+                if (missingSpecialties.Any())
+                {
+                    throw new KeyNotFoundException($"The following specialties were not found in the database: {string.Join(", ", missingSpecialties)}");
+                }
+
+                // Create a dictionary to store SubjectSpecialty records
+                var subjectSpecialtyDict = new Dictionary<(string SubjectId, string SpecialtyId), SubjectSpecialty>();
+
+                // Process courses starting from row 9
+                row = 9;
+                while (!string.IsNullOrWhiteSpace(worksheet.Cells[row, 2].Text))
+                {
+                    try
+                    {
+                        string courseId = worksheet.Cells[row, 2].Text.Trim(); // Column B
+                        string courseName = worksheet.Cells[row, 3].Text.Trim(); // Column C
+                        string specialtyName = worksheet.Cells[row, 4].Text.Trim(); // Column D
+
+                        // Check if course already exists
+                        var existingCourse = await _unitOfWork.CourseRepository.GetByIdAsync(courseId);
+                        if (existingCourse != null)
+                        {
+                            result.Errors.Add($"Course with ID '{courseId}' already exists.");
+                            result.FailedCount++;
+                            row++;
+                            continue;
+                        }
+
+                        var specialty = specialtyDict[specialtyName];
+
+                        // Create new course
+                        var course = new Course
+                        {
+                            CourseId = courseId,
+                            CourseName = courseName,
+                            CourseLevel = CourseLevel.Initial,
+                            Status = CourseStatus.Pending,
+                            Progress = Progress.NotYet,
+                            StartDateTime = DateTime.Now,
+                            EndDateTime = DateTime.Now.AddDays(30),
+                            CreatedByUserId = importedByUserId,
+                            CreatedAt = DateTime.Now,
+                            UpdatedAt = DateTime.Now,
+                            SubjectSpecialties = new List<SubjectSpecialty>()
+                        };
+
+                        // Process 'x' markers for subjects
+                        for (int col = 5, subjectIndex = 0; col < 5 + subjectNames.Count; col++, subjectIndex++)
+                        {
+                            if (worksheet.Cells[row, col].Text.Trim().ToLower() == "x")
+                            {
+                                var subject = subjectDict[subjectNames[subjectIndex]];
+                                var key = (subject.SubjectId, specialty.SpecialtyId);
+
+                                // Check if we already created this SubjectSpecialty
+                                if (!subjectSpecialtyDict.TryGetValue(key, out var subjectSpecialty))
+                                {
+                                    // Generate new SubjectSpecialty ID
+                                    string subjectSpecialtyId = await GenerateSubjectSpecialtyId(subject.SubjectName, specialty.SpecialtyName);
+
+                                    // Create new SubjectSpecialty
+                                    subjectSpecialty = new SubjectSpecialty
+                                    {
+                                        SubjectSpecialtyId = subjectSpecialtyId,
+                                        SubjectId = subject.SubjectId,
+                                        SpecialtyId = specialty.SpecialtyId,
+                                        Subject = subject,
+                                        Specialty = specialty
+                                    };
+                                    await _unitOfWork.SubjectSpecialtyRepository.AddAsync(subjectSpecialty);
+                                    await _unitOfWork.SaveChangesAsync(); // Save to get the ID
+                                    subjectSpecialtyDict[key] = subjectSpecialty;
+                                }
+
+                                course.SubjectSpecialties.Add(subjectSpecialty);
+                            }
+                        }
+
+                        await _unitOfWork.CourseRepository.AddAsync(course);
+                        await _unitOfWork.SaveChangesAsync();
+                        result.SuccessCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Errors.Add($"Error processing row {row}: {ex.Message}");
+                        result.FailedCount++;
+                    }
+
+                    row++;
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.Errors.Add($"Error importing courses: {ex.Message}");
+                result.FailedCount++;
+                return result;
+            }
         }
         #endregion
     }

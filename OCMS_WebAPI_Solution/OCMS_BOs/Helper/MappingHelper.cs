@@ -134,7 +134,6 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.CreatedByUserId, opt => opt.MapFrom(src => src.CreatedByUserId))
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
                 .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.UpdatedAt))
-                // Map directly from Course's properties to model, removing references to CourseSubjectSpecialties
                 .ForMember(dest => dest.Trainees, opt => opt.Ignore())
                 .ForMember(dest => dest.SubjectSpecialties, opt => opt.MapFrom(src => src.SubjectSpecialties));
 
