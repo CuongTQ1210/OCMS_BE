@@ -4,6 +4,8 @@ using OCMS_BOs;
 using OCMS_BOs.Entities;
 using System;
 using System.Threading.Tasks;
+using OCMS_Repositories.IRepository;
+using OCMS_Repositories.Repository;
 
 namespace OCMS_Repositories
 {
@@ -148,6 +150,7 @@ namespace OCMS_Repositories
         {
             get => _subjectSpecialtyRepository ??= new GenericRepository<SubjectSpecialty>(_context);
         }
+
 
         public async Task<IDbContextTransaction> BeginTransactionAsync()
         {
