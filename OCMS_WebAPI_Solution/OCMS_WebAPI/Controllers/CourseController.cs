@@ -259,5 +259,46 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
+
+        #region Assign SubjectSpecialty
+        /// <summary>
+        /// Assign a SubjectSpecialty to a course
+        /// </summary>
+        [HttpPost("assign-subject-specialty")]
+        [CustomAuthorize("Admin", "Training staff")]
+        public async Task<IActionResult> AssignSubjectSpecialty([FromBody] AssignSubjectSpecialtyRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(request.CourseId) || string.IsNullOrEmpty(request.SubjectSpecialtyId))
+                    return BadRequest(new { success = false, message = "Course ID and SubjectSpecialty ID are required." });
+
+                var updatedCourse = await _courseService.AssignSubjectSpecialtyAsync(request.CourseId, request.SubjectSpecialtyId);
+                return Ok(new
+                {
+                    success = true,
+                    message = "SubjectSpecialty assigned successfully.",
+                    data = updatedCourse
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { success = false, message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Failed to assign SubjectSpecialty.",
+                    error = ex.Message
+                });
+            }
+        }
+        #endregion
     }
 }

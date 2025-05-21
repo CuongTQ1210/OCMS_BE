@@ -611,5 +611,44 @@ namespace OCMS_Services.Service
             }
         }
         #endregion
+
+        #region Assign SubjectSpecialty
+        public async Task<CourseModel> AssignSubjectSpecialtyAsync(string courseId, string subjectSpecialtyId)
+        {
+            if (string.IsNullOrEmpty(courseId))
+                throw new ArgumentException("Course ID cannot be empty.");
+
+            if (string.IsNullOrEmpty(subjectSpecialtyId))
+                throw new ArgumentException("SubjectSpecialty ID cannot be empty.");
+
+            // Get course with its SubjectSpecialties
+            var course = await _courseRepository.GetWithIncludesAsync(
+                c => c.CourseId == courseId,
+                query => query.Include(c => c.SubjectSpecialties)
+            );
+
+            if (course == null)
+                throw new KeyNotFoundException($"Course with ID {courseId} does not exist.");
+
+            // Get SubjectSpecialty
+            var subjectSpecialty = await _unitOfWork.SubjectSpecialtyRepository.GetByIdAsync(subjectSpecialtyId);
+            if (subjectSpecialty == null)
+                throw new KeyNotFoundException($"SubjectSpecialty with ID {subjectSpecialtyId} does not exist.");
+
+            // Check if the SubjectSpecialty is already assigned to the course
+            if (course.SubjectSpecialties.Any(ss => ss.SubjectSpecialtyId == subjectSpecialtyId))
+                throw new InvalidOperationException($"SubjectSpecialty {subjectSpecialtyId} is already assigned to course {courseId}.");
+
+            // Add SubjectSpecialty to course
+            course.SubjectSpecialties.Add(subjectSpecialty);
+            course.UpdatedAt = DateTime.Now;
+
+            // Update course in repository and save
+            await _unitOfWork.CourseRepository.UpdateAsync(course);
+            await _unitOfWork.SaveChangesAsync();
+
+            return _mapper.Map<CourseModel>(course);
+        }
+        #endregion
     }
 }
