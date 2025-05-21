@@ -473,9 +473,17 @@ namespace OCMS_Services.Service
                 using var package = new ExcelPackage(excelStream);
                 var worksheet = package.Workbook.Worksheets[0]; // First worksheet
 
-                // Read subject names from row 8, starting from column E (5)
+                // Adjusted column indexes:
+                // Course Id = 2 (B), Course Name = 3 (C), Course Level = 4 (D), Specialty = 5 (E), Subjects start from 6 (F)
+                int courseIdCol = 2;
+                int courseNameCol = 3;
+                int courseLevelCol = 4;
+                int specialtyCol = 5;
+                int subjectStartCol = 6;
+
+                // Read subject names from row 8, starting from subjectStartCol (F)
                 var subjectNames = new List<string>();
-                int column = 5; // Column E
+                int column = subjectStartCol;
                 while (!string.IsNullOrWhiteSpace(worksheet.Cells[8, column].Text))
                 {
                     subjectNames.Add(worksheet.Cells[8, column].Text.Trim());
@@ -485,7 +493,6 @@ namespace OCMS_Services.Service
                 // Validate subjects exist in the database
                 var subjects = await _unitOfWork.SubjectRepository.GetAllAsync(
                     s => subjectNames.Contains(s.SubjectName));
-
                 var subjectDict = subjects.ToDictionary(s => s.SubjectName, s => s);
 
                 // Check for missing subjects and throw exception if any are not found
@@ -498,9 +505,9 @@ namespace OCMS_Services.Service
                 // Get all specialties that will be used
                 var specialtyNames = new HashSet<string>();
                 int row = 9;
-                while (!string.IsNullOrWhiteSpace(worksheet.Cells[row, 2].Text))
+                while (!string.IsNullOrWhiteSpace(worksheet.Cells[row, courseIdCol].Text))
                 {
-                    specialtyNames.Add(worksheet.Cells[row, 4].Text.Trim()); // Column D
+                    specialtyNames.Add(worksheet.Cells[row, specialtyCol].Text.Trim());
                     row++;
                 }
 
@@ -520,13 +527,26 @@ namespace OCMS_Services.Service
 
                 // Process courses starting from row 9
                 row = 9;
-                while (!string.IsNullOrWhiteSpace(worksheet.Cells[row, 2].Text))
+                while (!string.IsNullOrWhiteSpace(worksheet.Cells[row, courseIdCol].Text))
                 {
                     try
                     {
-                        string courseId = worksheet.Cells[row, 2].Text.Trim(); // Column B
-                        string courseName = worksheet.Cells[row, 3].Text.Trim(); // Column C
-                        string specialtyName = worksheet.Cells[row, 4].Text.Trim(); // Column D
+                        string relatedCourseId = worksheet.Cells[row, courseIdCol].Text.Trim();
+                        string courseName = worksheet.Cells[row, courseNameCol].Text.Trim();
+                        string courseLevel = worksheet.Cells[row, courseLevelCol].Text.Trim();
+                        string specialtyName = worksheet.Cells[row, specialtyCol].Text.Trim();
+
+                        string courseId;
+                        if (courseLevel.Equals("Initial", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // For Initial, use the Course Id from the Excel file directly
+                            courseId = relatedCourseId;
+                        }
+                        else
+                        {
+                            // For other levels, use relatedCourseId to generate new courseId
+                            courseId = await GenerateCourseId(courseName, courseLevel, relatedCourseId);
+                        }
 
                         // Check if course already exists
                         var existingCourse = await _unitOfWork.CourseRepository.GetByIdAsync(courseId);
@@ -545,7 +565,7 @@ namespace OCMS_Services.Service
                         {
                             CourseId = courseId,
                             CourseName = courseName,
-                            CourseLevel = CourseLevel.Initial,
+                            CourseLevel = Enum.TryParse<CourseLevel>(courseLevel, true, out var levelEnum) ? levelEnum : CourseLevel.Initial,
                             Status = CourseStatus.Pending,
                             Progress = Progress.NotYet,
                             StartDateTime = DateTime.Now,
@@ -553,11 +573,16 @@ namespace OCMS_Services.Service
                             CreatedByUserId = importedByUserId,
                             CreatedAt = DateTime.Now,
                             UpdatedAt = DateTime.Now,
-                            SubjectSpecialties = new List<SubjectSpecialty>()
+                            SubjectSpecialties = new List<SubjectSpecialty>(),
+                            RelatedCourseId = courseLevel.Equals("Initial", StringComparison.OrdinalIgnoreCase) ? null : relatedCourseId
                         };
 
+                        // Save the course immediately so it can be referenced by subsequent rows
+                        await _unitOfWork.CourseRepository.AddAsync(course);
+                        await _unitOfWork.SaveChangesAsync();
+
                         // Process 'x' markers for subjects
-                        for (int col = 5, subjectIndex = 0; col < 5 + subjectNames.Count; col++, subjectIndex++)
+                        for (int col = subjectStartCol, subjectIndex = 0; col < subjectStartCol + subjectNames.Count; col++, subjectIndex++)
                         {
                             if (worksheet.Cells[row, col].Text.Trim().ToLower() == "x")
                             {
@@ -588,7 +613,8 @@ namespace OCMS_Services.Service
                             }
                         }
 
-                        await _unitOfWork.CourseRepository.AddAsync(course);
+                        // Save again if you added SubjectSpecialties
+                        await _unitOfWork.CourseRepository.UpdateAsync(course);
                         await _unitOfWork.SaveChangesAsync();
                         result.SuccessCount++;
                     }
@@ -609,6 +635,45 @@ namespace OCMS_Services.Service
                 result.FailedCount++;
                 return result;
             }
+        }
+        #endregion
+
+        #region Assign SubjectSpecialty
+        public async Task<CourseModel> AssignSubjectSpecialtyAsync(string courseId, string subjectSpecialtyId)
+        {
+            if (string.IsNullOrEmpty(courseId))
+                throw new ArgumentException("Course ID cannot be empty.");
+
+            if (string.IsNullOrEmpty(subjectSpecialtyId))
+                throw new ArgumentException("SubjectSpecialty ID cannot be empty.");
+
+            // Get course with its SubjectSpecialties
+            var course = await _courseRepository.GetWithIncludesAsync(
+                c => c.CourseId == courseId,
+                query => query.Include(c => c.SubjectSpecialties)
+            );
+
+            if (course == null)
+                throw new KeyNotFoundException($"Course with ID {courseId} does not exist.");
+
+            // Get SubjectSpecialty
+            var subjectSpecialty = await _unitOfWork.SubjectSpecialtyRepository.GetByIdAsync(subjectSpecialtyId);
+            if (subjectSpecialty == null)
+                throw new KeyNotFoundException($"SubjectSpecialty with ID {subjectSpecialtyId} does not exist.");
+
+            // Check if the SubjectSpecialty is already assigned to the course
+            if (course.SubjectSpecialties.Any(ss => ss.SubjectSpecialtyId == subjectSpecialtyId))
+                throw new InvalidOperationException($"SubjectSpecialty {subjectSpecialtyId} is already assigned to course {courseId}.");
+
+            // Add SubjectSpecialty to course
+            course.SubjectSpecialties.Add(subjectSpecialty);
+            course.UpdatedAt = DateTime.Now;
+
+            // Update course in repository and save
+            await _unitOfWork.CourseRepository.UpdateAsync(course);
+            await _unitOfWork.SaveChangesAsync();
+
+            return _mapper.Map<CourseModel>(course);
         }
         #endregion
     }

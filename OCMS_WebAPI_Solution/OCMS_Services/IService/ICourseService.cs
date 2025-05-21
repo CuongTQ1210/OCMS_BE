@@ -19,5 +19,7 @@ namespace OCMS_Services.IService
 
         Task<bool> SendCourseRequestForApprove(string courseId, string createdByUserId);
         Task<ImportResult> ImportCoursesAsync(Stream excelStream, string importedByUserId);
+
+        Task<CourseModel> AssignSubjectSpecialtyAsync(string courseId, string subjectSpecialtyId);
     }
 }
