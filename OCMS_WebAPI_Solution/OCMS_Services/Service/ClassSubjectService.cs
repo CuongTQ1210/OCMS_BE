@@ -46,7 +46,10 @@ namespace OCMS_Services.Service
             var instructorAssignment = await _unitOfWork.InstructorAssignmentRepository.GetByIdAsync(dto.InstructorAssignmentID);
             if (instructorAssignment == null)
                 throw new KeyNotFoundException($"Instructor assignment with ID {dto.InstructorAssignmentID} does not exist.");
-
+            if (instructorAssignment.RequestStatus!= RequestStatus.Approved)
+            {
+                throw new KeyNotFoundException($"Instructor assignment hasn't been approved yet.");
+            }
             // Check if class-subject combination already exists
             bool exists = await _unitOfWork.ClassSubjectRepository.AnyAsync(
                 cs => cs.ClassId == dto.ClassId && cs.SubjectId == dto.SubjectId
@@ -82,14 +85,14 @@ namespace OCMS_Services.Service
             if (classSubject == null)
                 return null;
 
-            // L?y các entity liên quan
+            // L?y cï¿½c entity liï¿½n quan
             var classEntity = await _unitOfWork.Context.Set<Class>().FindAsync(classSubject.ClassId);
             var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(classSubject.SubjectId);
             var instructorAssignment = await _unitOfWork.InstructorAssignmentRepository.GetByIdAsync(classSubject.InstructorAssignmentID);
             var instructor = instructorAssignment != null ?
                 await _unitOfWork.UserRepository.GetByIdAsync(instructorAssignment.InstructorId) : null;
 
-            // T?o model th? công và gán giá tr? tr?c ti?p thay vì dùng AutoMapper
+            // T?o model th? cï¿½ng vï¿½ gï¿½n giï¿½ tr? tr?c ti?p thay vï¿½ dï¿½ng AutoMapper
             var model = new ClassSubjectModel
             {
                 ClassSubjectId = classSubject.ClassSubjectId,
