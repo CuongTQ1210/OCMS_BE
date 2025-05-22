@@ -196,6 +196,7 @@ namespace OCMS_BOs.Helper
             CreateMap<TrainingSchedule, TrainingScheduleModel>()
                 .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.ClassSubject.SubjectId))
                 .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.ClassSubject.Subject != null ? src.ClassSubject.Subject.SubjectName : null))
+                .ForMember(dest => dest.InstructorID, opt => opt.MapFrom(src => src.ClassSubject.InstructorAssignment != null ? src.ClassSubject.InstructorAssignment.Instructor.UserId : null))
                 .ForMember(dest => dest.InstructorName, opt => opt.MapFrom(src => src.ClassSubject.InstructorAssignment != null ? src.ClassSubject.InstructorAssignment.Instructor.FullName : null))
                 .ForMember(dest => dest.StartDateTime, opt => opt.MapFrom(src => src.StartDateTime))
                 .ForMember(dest => dest.EndDateTime, opt => opt.MapFrom(src => src.EndDateTime))

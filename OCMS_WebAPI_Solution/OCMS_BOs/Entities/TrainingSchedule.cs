@@ -22,8 +22,10 @@ namespace OCMS_BOs.Entities
         public DateTime StartDateTime { get; set; }
         public DateTime EndDateTime { get; set; }
 
-        public string Location { get; set; }
-        public string Room { get; set; }
+        [Column(TypeName = "integer")]
+        public Location Location { get; set; }
+        [Column(TypeName = "integer")]
+        public Room Room { get; set; }
 
         [ForeignKey("CreateByUser")]
         public string CreatedByUserId { get; set; }
