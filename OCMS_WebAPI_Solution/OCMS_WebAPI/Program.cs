@@ -85,6 +85,7 @@ builder.Services.AddScoped<IDecisionTemplateRepository, DecisionTemplateReposito
 builder.Services.AddScoped<IDecisionRepository, DecisionRepository>();
 builder.Services.AddScoped<IClassRepository, ClassRepository>();
 builder.Services.AddScoped<IClassSubjectRepository, ClassSubjectRepository>();
+builder.Services.AddScoped<ISubjectSpecialtyRepository, SubjectSpecialtyRepository>();
 
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -113,6 +114,7 @@ builder.Services.AddScoped<IProgressTrackingService, ProgressTrackingService>();
 builder.Services.AddScoped<ICertificateMonitoringService, CertificateMonitoringService>();
 builder.Services.AddScoped<IClassService, ClassService>();
 builder.Services.AddScoped<IClassSubjectService, ClassSubjectService>();
+builder.Services.AddScoped<ISubjectSpecialtyService, SubjectSpecialtyService>();
 
 // Register Lazy<T> factories
 builder.Services.AddScoped(provider => new Lazy<ITrainingScheduleService>(() => provider.GetRequiredService<ITrainingScheduleService>()));
