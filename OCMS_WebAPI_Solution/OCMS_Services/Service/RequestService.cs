@@ -246,6 +246,8 @@ namespace OCMS_Services.Service
             var validRequestTypes = new[]
             {
                 RequestType.NewPlan,
+                RequestType.ClassSchedule,
+                RequestType.AssignInstructor,
                 RequestType.AddTraineeAssign,
                 RequestType.AssignTrainee,
                 RequestType.DecisionTemplate,
