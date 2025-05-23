@@ -99,6 +99,12 @@ namespace OCMS_Services.Service
             if (subject == null || specialty == null)
                 throw new System.Exception("Subject or Specialty not found");
 
+            // Check for existing SubjectSpecialty
+            var existing = await _unitOfWork.SubjectSpecialtyRepository.FirstOrDefaultAsync(
+                ss => ss.SubjectId == dto.SubjectId && ss.SpecialtyId == dto.SpecialtyId);
+            if (existing != null)
+                throw new System.Exception("A SubjectSpecialty with the same Subject and Specialty already exists.");
+
             string generatedId = await GenerateSubjectSpecialtyId(subject.SubjectName, specialty.SpecialtyName);
 
             var entity = _mapper.Map<SubjectSpecialty>(dto);
