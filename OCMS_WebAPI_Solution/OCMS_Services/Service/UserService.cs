@@ -128,13 +128,25 @@ namespace OCMS_Services.Service
         #region Create User
         public async Task<User> CreateUserAsync(CreateUserDTO userDto)
         {
+            if (!Regex.IsMatch(userDto.Email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+                throw new Exception("Invalid email format.");
+
             // Ánh xạ DTO sang User entity
             var user = _mapper.Map<User>(userDto);
 
             // Xử lý tạo UserId
             string specialtyInitial = user.SpecialtyId?.Substring(0, 1) ?? "U";
             string lastUserId = await GetLastUserIdAsync();
-            int nextNumber = lastUserId != null ? int.Parse(lastUserId.Substring(1)) + 1 : 1;
+            int nextNumber = 1;
+            if (lastUserId != null)
+            {
+                // Extract only the numeric part
+                string numericPart = new string(lastUserId.Where(char.IsDigit).ToArray());
+                if (int.TryParse(numericPart, out int parsedNumber))
+                {
+                    nextNumber = parsedNumber + 1;
+                }
+            }
             string userId = $"{specialtyInitial}{nextNumber:D6}";
 
             // Đảm bảo UserId là duy nhất

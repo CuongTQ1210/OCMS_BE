@@ -9,7 +9,7 @@ namespace OCMS_BOs.RequestModel
     public class TraineeAssignDTO
     {
         public string TraineeId { get; set; }
-        public string ClassId { get; set; }
+        public string ClassSubjectId { get; set; }
         public string Notes { get; set; }
     }
 }
