@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using OCMS_BOs;
 using OCMS_BOs.Entities;
 using System;
@@ -73,6 +74,9 @@ namespace OCMS_Services.Middleware
                 // Lấy thông tin người dùng từ claims
                 var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
+                //Lấy thông tin session 
+                var sessionId = context.User.FindFirst("jti")?.Value;
+
                 // Chỉ ghi log nếu người dùng đã đăng nhập
                 if (!string.IsNullOrEmpty(userId))
                 {
@@ -106,7 +110,9 @@ namespace OCMS_Services.Middleware
                     // Tạo bản ghi AuditLog
                     var auditLog = new AuditLog
                     {
+                        LogId = await GenerateSequentialLogId(dbContext),
                         UserId = userId,
+                        SessionId = sessionId,
                         Action = action,
                         ActionDetails = actionDetails,
                         Timestamp = startTime
@@ -195,6 +201,17 @@ namespace OCMS_Services.Middleware
                     writer.WriteNullValue();
                     break;
             }
+        }
+
+        private async Task<int> GenerateSequentialLogId(OCMSDbContext dbContext)
+        {
+            // Get the last log ID from the database
+            var lastLog = await dbContext.AuditLogs
+                .OrderByDescending(l => l.LogId)
+                .FirstOrDefaultAsync();
+
+            // If there are no logs yet, start from 1, otherwise increment the last ID
+            return lastLog == null ? 1 : lastLog.LogId + 1;
         }
     }
 

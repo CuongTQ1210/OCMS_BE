@@ -21,6 +21,7 @@ namespace OCMS_Repositories.Repository
         {
             return await _context.TrainingSchedules.AnyAsync(tp => tp.ScheduleID == id);
         }
+
         public async Task<IEnumerable<TrainingSchedule>> GetSchedulesByCourseIdAsync(string courseId)
         {
             return await _context.TrainingSchedules
@@ -34,11 +35,13 @@ namespace OCMS_Repositories.Repository
             return await _context.TraineeAssignments
                 .Where(ta => ta.TraineeId == traineeId)
                 .Include(ta => ta.ClassSubject)
-                    .ThenInclude(cs => cs.Subject)
+                    .ThenInclude(cs => cs.SubjectSpecialty) // FIX: Use SubjectSpecialty
+                    .ThenInclude(ss => ss.Subject)          // FIX: Then include Subject from SubjectSpecialty
                 .Include(ta => ta.ClassSubject)
                     .ThenInclude(cs => cs.Schedules)
                 .ToListAsync();
         }
+
         public async Task<List<TrainingSchedule>> GetSchedulesByClassSubjectIdAsync(string classSubjectId)
         {
             return await _context.TrainingSchedules

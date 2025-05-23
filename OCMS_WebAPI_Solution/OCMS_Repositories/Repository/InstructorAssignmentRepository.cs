@@ -27,7 +27,7 @@ namespace OCMS_Repositories.Repository
             // Get ClassSubjects for this course
             var classSubjects = await _context.ClassSubjects
                 .Where(cs => cs.ClassId == courseId)
-                .Select(cs => cs.SubjectId)
+                .Select(cs => cs.SubjectSpecialtyId)
                 .ToListAsync();
 
             // Get instructor assignments for these subjects
