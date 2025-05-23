@@ -116,6 +116,19 @@ namespace OCMS_Services.Service
             await _unitOfWork.CourseRepository.AddAsync(course);
             await _unitOfWork.SaveChangesAsync();
 
+            // Create approval request
+            var requestDto = new RequestDTO
+            {
+                RequestEntityId = courseId,
+                RequestType = RequestType.NewCourse,
+                Description = $"Request to approve new course '{course.CourseName}'",
+                Notes = $"Course details:\n" +
+                       $"Level: {course.CourseLevel}\n" +
+                       $"Start Date: {course.StartDateTime}\n" +
+                       $"End Date: {course.EndDateTime}\n"
+            };
+            await _requestService.CreateRequestAsync(requestDto, createdByUserId);
+
             return _mapper.Map<CourseModel>(course);
         }
         #endregion
@@ -616,6 +629,22 @@ namespace OCMS_Services.Service
                         // Save again if you added SubjectSpecialties
                         await _unitOfWork.CourseRepository.UpdateAsync(course);
                         await _unitOfWork.SaveChangesAsync();
+
+                        // Create approval request for the imported course
+                        var requestDto = new RequestDTO
+                        {
+                            RequestEntityId = courseId,
+                            RequestType = RequestType.NewCourse,
+                            Description = $"Request to approve imported course '{course.CourseName}'",
+                            Notes = $"Course details:\n" +
+                                   $"Level: {course.CourseLevel}\n" +
+                                   $"Start Date: {course.StartDateTime}\n" +
+                                   $"End Date: {course.EndDateTime}\n" +
+                                   $"Specialty: {specialtyName}\n" +
+                                   $"Subjects: {string.Join(", ", course.SubjectSpecialties.Select(ss => ss.Subject.SubjectName))}"
+                        };
+                        await _requestService.CreateRequestAsync(requestDto, importedByUserId);
+
                         result.SuccessCount++;
                     }
                     catch (Exception ex)

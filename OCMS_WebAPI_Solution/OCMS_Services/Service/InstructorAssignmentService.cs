@@ -16,11 +16,13 @@ namespace OCMS_Services.Service
     {
         private readonly UnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly IRequestService _requestService;
 
-        public InstructorAssignmentService(UnitOfWork unitOfWork, IMapper mapper)
+        public InstructorAssignmentService(UnitOfWork unitOfWork, IMapper mapper, IRequestService requestService)
         {
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+            _requestService = requestService ?? throw new ArgumentNullException(nameof(requestService));
         }
 
         public async Task<IEnumerable<InstructorAssignmentModel>> GetAllInstructorAssignmentsAsync()
@@ -90,6 +92,19 @@ namespace OCMS_Services.Service
 
             await _unitOfWork.InstructorAssignmentRepository.AddAsync(assignment);
             await _unitOfWork.SaveChangesAsync();
+
+            // Create approval request for the instructor assignment
+            var requestDto = new RequestDTO
+            {
+                RequestEntityId = assignmentId,
+                RequestType = RequestType.AssignInstructor,
+                Description = $"Request to approve instructor assignment for subject {dto.SubjectId}",
+                Notes = $"Assignment details:\n" +
+                       $"Instructor ID: {dto.InstructorId}\n" +
+                       $"Subject ID: {dto.SubjectId}\n" +
+                       $"Assignment Date: {assignment.AssignDate}"
+            };
+            await _requestService.CreateRequestAsync(requestDto, assignByUserId);
 
             var createdAssignment = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
                 a => a.AssignmentId == assignmentId,
