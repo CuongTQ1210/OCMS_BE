@@ -37,29 +37,32 @@ namespace OCMS_Services.Service
             if (classEntity == null)
                 throw new KeyNotFoundException($"Class with ID {dto.ClassId} does not exist.");
 
-            // Check if subject exists
-            var subjectEntity = await _unitOfWork.Context.Set<Subject>().FindAsync(dto.SubjectId);
-            if (subjectEntity == null)
-                throw new KeyNotFoundException($"Subject with ID {dto.SubjectId} does not exist.");
+            // Check if subject specialty exists
+            var subjectSpecialty = await _unitOfWork.SubjectSpecialtyRepository.GetByIdAsync(dto.SubjectSpecialtyId);
+            if (subjectSpecialty == null)
+                throw new KeyNotFoundException($"SubjectSpecialty with ID {dto.SubjectSpecialtyId} does not exist.");
 
             // Check if instructor assignment exists
             var instructorAssignment = await _unitOfWork.InstructorAssignmentRepository.GetByIdAsync(dto.InstructorAssignmentID);
             if (instructorAssignment == null)
                 throw new KeyNotFoundException($"Instructor assignment with ID {dto.InstructorAssignmentID} does not exist.");
-
+            if (instructorAssignment.RequestStatus!= RequestStatus.Approved)
+            {
+                throw new KeyNotFoundException($"Instructor assignment hasn't been approved yet.");
+            }
             // Check if class-subject combination already exists
             bool exists = await _unitOfWork.ClassSubjectRepository.AnyAsync(
-                cs => cs.ClassId == dto.ClassId && cs.SubjectId == dto.SubjectId
+                cs => cs.ClassId == dto.ClassId && cs.SubjectSpecialtyId == dto.SubjectSpecialtyId
             );
             if (exists)
-                throw new InvalidOperationException($"A class-subject relationship with Class ID {dto.ClassId} and Subject ID {dto.SubjectId} already exists.");
+                throw new InvalidOperationException($"A class-subject relationship with Class ID {dto.ClassId} and SubjectSpecialty ID {dto.SubjectSpecialtyId} already exists.");
 
             // Create new ClassSubject entity
             var classSubject = new ClassSubject
             {
                 ClassSubjectId = await GenerateClassSubjectIdAsync(),
                 ClassId = dto.ClassId,
-                SubjectId = dto.SubjectId,
+                SubjectSpecialtyId = dto.SubjectSpecialtyId,
                 InstructorAssignmentID = dto.InstructorAssignmentID
             };
 
@@ -82,20 +85,22 @@ namespace OCMS_Services.Service
             if (classSubject == null)
                 return null;
 
-            // L?y các entity liên quan
+            // L?y cï¿½c entity liï¿½n quan
             var classEntity = await _unitOfWork.Context.Set<Class>().FindAsync(classSubject.ClassId);
-            var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(classSubject.SubjectId);
+            var subjectSpecialty = await _unitOfWork.SubjectSpecialtyRepository.GetByIdAsync(classSubject.SubjectSpecialtyId);
+            var subject = subjectSpecialty != null ?
+                await _unitOfWork.SubjectRepository.GetByIdAsync(subjectSpecialty.SubjectId) : null;
             var instructorAssignment = await _unitOfWork.InstructorAssignmentRepository.GetByIdAsync(classSubject.InstructorAssignmentID);
             var instructor = instructorAssignment != null ?
                 await _unitOfWork.UserRepository.GetByIdAsync(instructorAssignment.InstructorId) : null;
 
-            // T?o model th? công và gán giá tr? tr?c ti?p thay vì dùng AutoMapper
+            // T?o model th? cï¿½ng vï¿½ gï¿½n giï¿½ tr? tr?c ti?p thay vï¿½ dï¿½ng AutoMapper
             var model = new ClassSubjectModel
             {
                 ClassSubjectId = classSubject.ClassSubjectId,
                 ClassId = classSubject.ClassId,
                 ClassName = classEntity?.ClassName,
-                SubjectId = classSubject.SubjectId,
+                SubjectId = subjectSpecialty?.SubjectId, // Access SubjectId through SubjectSpecialty
                 SubjectName = subject?.SubjectName,
                 InstructorAssignmentID = classSubject.InstructorAssignmentID,
                 InstructorName = instructor?.FullName
@@ -133,13 +138,13 @@ namespace OCMS_Services.Service
         }
         #endregion
 
-        #region Get Class Subjects by Subject ID
-        public async Task<IEnumerable<ClassSubjectModel>> GetClassSubjectsBySubjectIdAsync(string subjectId)
+        #region Get Class Subjects by subject specialty ID
+        public async Task<IEnumerable<ClassSubjectModel>> GetClassSubjectsBySubjectIdAsync(string subjectSpecialtyId)
         {
-            if (string.IsNullOrEmpty(subjectId))
-                throw new ArgumentNullException(nameof(subjectId));
+            if (string.IsNullOrEmpty(subjectSpecialtyId))
+                throw new ArgumentNullException(nameof(subjectSpecialtyId));
 
-            var classSubjects = await _classSubjectRepository.GetClassSubjectsBySubjectIdAsync(subjectId);
+            var classSubjects = await _classSubjectRepository.GetClassSubjectsBySubjectSpecialtyIdAsync(subjectSpecialtyId);
             return await MapClassSubjectsToModelsAsync(classSubjects);
         }
         #endregion
@@ -174,26 +179,26 @@ namespace OCMS_Services.Service
             if (classEntity == null)
                 throw new KeyNotFoundException($"Class with ID {dto.ClassId} does not exist.");
 
-            // Check if subject exists
-            var subjectEntity = await _unitOfWork.SubjectRepository.GetByIdAsync(dto.SubjectId);
-            if (subjectEntity == null)
-                throw new KeyNotFoundException($"Subject with ID {dto.SubjectId} does not exist.");
+            // Check if subject specialty exists
+            var subjectSpecialty = await _unitOfWork.SubjectSpecialtyRepository.GetByIdAsync(dto.SubjectSpecialtyId);
+            if (subjectSpecialty == null)
+                throw new KeyNotFoundException($"SubjectSpecialty with ID {dto.SubjectSpecialtyId} does not exist.");
 
             // Check if instructor assignment exists
             var instructorAssignment = await _unitOfWork.InstructorAssignmentRepository.GetByIdAsync(dto.InstructorAssignmentID);
             if (instructorAssignment == null)
                 throw new KeyNotFoundException($"Instructor assignment with ID {dto.InstructorAssignmentID} does not exist.");
 
-            // Check if class-subject combination already exists (if changing either class or subject)
-            if (existingClassSubject.ClassId != dto.ClassId || existingClassSubject.SubjectId != dto.SubjectId)
+            // Check if class-subject specialty combination already exists (if changing either class or subject specialty)
+            if (existingClassSubject.ClassId != dto.ClassId || existingClassSubject.SubjectSpecialtyId != dto.SubjectSpecialtyId)
             {
                 bool exists = await _unitOfWork.ClassSubjectRepository.AnyAsync(
                     cs => cs.ClassId == dto.ClassId &&
-                          cs.SubjectId == dto.SubjectId &&
+                          cs.SubjectSpecialtyId == dto.SubjectSpecialtyId &&
                           cs.ClassSubjectId != id
                 );
                 if (exists)
-                    throw new InvalidOperationException($"A class-subject relationship with Class ID {dto.ClassId} and Subject ID {dto.SubjectId} already exists.");
+                    throw new InvalidOperationException($"A class-subject relationship with Class ID {dto.ClassId} and SubjectSpecialty ID {dto.SubjectSpecialtyId} already exists.");
             }
 
             // Update entity using AutoMapper
@@ -243,6 +248,9 @@ namespace OCMS_Services.Service
 
             return detailModel;
         }
+        #endregion
+
+        #region Helper Methods
         private async Task<string> GenerateClassSubjectIdAsync()
         {
             string prefix = "CSB";

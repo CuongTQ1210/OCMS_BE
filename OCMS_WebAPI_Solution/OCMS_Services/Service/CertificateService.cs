@@ -129,8 +129,8 @@ namespace OCMS_Services.Service
                     var assignments = traineeGroup.Value;
 
                     // Get specialty from the first assignment's ClassSubject
-                    var specialtyId = assignments.First().ClassSubject.Subject.SubjectId;
-                    if (assignments.Any(ta => ta.ClassSubject.Subject.SubjectId != specialtyId))
+                    var specialtyId = assignments.First().ClassSubject.SubjectSpecialty.SubjectId;
+                    if (assignments.Any(ta => ta.ClassSubject.SubjectSpecialty.SubjectId != specialtyId))
                     {
                         _logger.LogWarning($"Trainee {traineeId} has assignments for multiple specialties in course {courseId}");
                         continue;
@@ -324,7 +324,7 @@ namespace OCMS_Services.Service
                 // Get trainee assignments for this course with the assigned specialty
                 var traineeAssignments = await _unitOfWork.TraineeAssignRepository.GetAllAsync(
                     ta => ta.TraineeId == userId &&
-                         ta.ClassSubject.Subject.SubjectId == specialtyId &&
+                         ta.ClassSubject.SubjectSpecialty.SubjectId == specialtyId &&
                          ta.RequestStatus == RequestStatus.Approved);
 
                 if (!traineeAssignments.Any())
@@ -344,7 +344,7 @@ namespace OCMS_Services.Service
 
                 // Check if trainee is enrolled in all required subjects for their specialty
                 var assignedSubjectIds = traineeAssignments
-                    .Select(ta => ta.ClassSubject.SubjectId)
+                    .Select(ta => ta.ClassSubject.SubjectSpecialty.SubjectId)
                     .Distinct()
                     .ToList();
 
@@ -366,12 +366,12 @@ namespace OCMS_Services.Service
 
                     if (!grades.Any())
                     {
-                        throw new InvalidOperationException($"Trainee has not completed subject '{traineeAssignment.ClassSubject.Subject?.SubjectName ?? traineeAssignment.ClassSubjectId}' in this course");
+                        throw new InvalidOperationException($"Trainee has not completed subject '{traineeAssignment.ClassSubject.SubjectSpecialty.Subject?.SubjectName ?? traineeAssignment.ClassSubjectId}' in this course");
                     }
 
                     if (grades.Any(g => g.gradeStatus != GradeStatus.Pass))
                     {
-                        throw new InvalidOperationException($"Trainee has not passed subject '{traineeAssignment.ClassSubject.Subject?.SubjectName ?? traineeAssignment.ClassSubjectId}' in this course");
+                        throw new InvalidOperationException($"Trainee has not passed subject '{traineeAssignment.ClassSubject.SubjectSpecialty.Subject?.SubjectName ?? traineeAssignment.ClassSubjectId}' in this course");
                     }
                 }
 

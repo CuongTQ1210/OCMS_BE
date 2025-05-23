@@ -238,7 +238,8 @@ namespace OCMS_Services.Service
                 .Include(x => x.ClassSubject)
                     .ThenInclude(cs => cs.Class)
                 .Include(x => x.ClassSubject)
-                    .ThenInclude(cs => cs.Subject)
+                    .ThenInclude(cs => cs.SubjectSpecialty)
+                        .ThenInclude(ss => ss.Subject) 
                 .ToListAsync();
 
             var grades = await _unitOfWork.GradeRepository
@@ -258,11 +259,11 @@ namespace OCMS_Services.Service
                               CourseId = assign.ClassSubject.ClassId,
                               CourseName = assign.ClassSubject.Class?.ClassName ?? "Unknown",
                               AssignDate = assign.AssignDate,
-                              SubjectId = assign.ClassSubject.SubjectId,
+                              SubjectId = assign.ClassSubject.SubjectSpecialty.SubjectId,
                               TotalGrade = subGrade?.TotalScore,
                               Status = subGrade == null
                                   ? "N/A"
-                                  : (subGrade.TotalScore >= (assign.ClassSubject.Subject?.PassingScore ?? 5) ? "Pass" : "Fail")
+                                  : (subGrade.TotalScore >= (assign.ClassSubject.SubjectSpecialty.Subject?.PassingScore ?? 5) ? "Pass" : "Fail")
                           }).ToList();
 
             return report;
@@ -271,12 +272,13 @@ namespace OCMS_Services.Service
         public async Task<List<CourseResultReportDto>> GenerateAllCourseResultReportAsync()
         {
             var traineeAssigns = await _unitOfWork.TraineeAssignRepository
-                .GetQueryable()
-                .Include(x => x.ClassSubject)
-                    .ThenInclude(cs => cs.Class)
-                .Include(x => x.ClassSubject)
-                    .ThenInclude(cs => cs.Subject)
-                .ToListAsync();
+                 .GetQueryable()
+                 .Include(x => x.ClassSubject)
+                     .ThenInclude(cs => cs.Class)
+                 .Include(x => x.ClassSubject)
+                     .ThenInclude(cs => cs.SubjectSpecialty)
+                         .ThenInclude(ss => ss.Subject) // FIX: Use SubjectSpecialty.Subject
+                 .ToListAsync();
 
             var traineeAssignIds = traineeAssigns.Select(x => x.TraineeAssignId).ToList();
 
@@ -287,7 +289,8 @@ namespace OCMS_Services.Service
                         .ThenInclude(cs => cs.Class)
                 .Include(g => g.TraineeAssign)
                     .ThenInclude(ta => ta.ClassSubject)
-                        .ThenInclude(cs => cs.Subject)
+                        .ThenInclude(cs => cs.SubjectSpecialty)
+                            .ThenInclude(ss => ss.Subject) // FIX: Use SubjectSpecialty.Subject
                 .Where(g => traineeAssignIds.Contains(g.TraineeAssignID))
                 .ToListAsync();
 
@@ -298,7 +301,7 @@ namespace OCMS_Services.Service
                           {
                               CourseId = assign.ClassSubject.ClassId,
                               TotalScore = grade.TotalScore,
-                              PassingScore = assign.ClassSubject.Subject.PassingScore
+                              PassingScore = assign.ClassSubject.SubjectSpecialty.Subject.PassingScore
                           })
                           .GroupBy(x => x.CourseId)
                           .Select(g => new CourseResultReportDto

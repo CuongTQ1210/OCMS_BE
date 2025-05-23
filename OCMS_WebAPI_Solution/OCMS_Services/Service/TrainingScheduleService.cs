@@ -47,7 +47,8 @@ namespace OCMS_Services.Service
             var schedules = await _unitOfWork.TrainingScheduleRepository.GetAllAsync(
                 s => s.CreatedBy,
                 s => s.ClassSubject,
-                s => s.ClassSubject.Subject,
+                s => s.ClassSubject.SubjectSpecialty,
+                s => s.ClassSubject.SubjectSpecialty.Subject,
                 s => s.ClassSubject.InstructorAssignment,
                 s => s.ClassSubject.InstructorAssignment.Instructor
             );
@@ -68,7 +69,8 @@ namespace OCMS_Services.Service
                 s => s.ScheduleID == scheduleId,
                 s => s.CreatedBy,
                 s => s.ClassSubject,
-                s => s.ClassSubject.Subject,
+                s => s.ClassSubject.SubjectSpecialty,
+                s => s.ClassSubject.SubjectSpecialty.Subject,
                 s => s.ClassSubject.InstructorAssignment,
                 s => s.ClassSubject.InstructorAssignment.Instructor
             );
@@ -88,7 +90,8 @@ namespace OCMS_Services.Service
             var classSubject = await _unitOfWork.ClassSubjectRepository.GetAsync(
                 cs => cs.ClassSubjectId == dto.ClassSubjectId,
                 cs => cs.Class,
-                cs => cs.Subject
+                cs => cs.SubjectSpecialty,
+                cs => cs.SubjectSpecialty.Subject         
             );
 
             if (classSubject == null)
@@ -100,15 +103,15 @@ namespace OCMS_Services.Service
 
             // Verify that an instructor assignment already exists for this subject and instructor
             var existingAssignment = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
-                a => a.SubjectId == classSubject.SubjectId && a.InstructorId == instructor.UserId
+                a => a.SubjectId == classSubject.SubjectSpecialty.SubjectId && a.InstructorId == instructor.UserId
             );
 
             // Get the subject specialty through the SubjectSpecialty entity
             var subjectSpecialty = await _unitOfWork.SubjectSpecialtyRepository.FirstOrDefaultAsync(
-                ss => ss.SubjectId == classSubject.SubjectId);
+                ss => ss.SubjectId == classSubject.SubjectSpecialty.SubjectId);
                 
             if (subjectSpecialty == null)
-                throw new ArgumentException($"No specialty found for Subject with ID '{classSubject.SubjectId}'.");
+                throw new ArgumentException($"No specialty found for Subject with ID '{classSubject.SubjectSpecialty.SubjectId}'.");
 
             if (dto.StartDay >= dto.EndDay)
                 throw new ArgumentException("StartDay must be before EndDay.");
@@ -125,6 +128,24 @@ namespace OCMS_Services.Service
 
             await _unitOfWork.TrainingScheduleRepository.AddAsync(schedule);
             await _unitOfWork.SaveChangesAsync();
+
+            // Create approval request for the schedule
+            var requestDto = new RequestDTO
+            {
+                RequestEntityId = schedule.ScheduleID,
+                RequestType = RequestType.ClassSchedule,
+                Description = $"Request to approve schedule for class subject {dto.ClassSubjectId}",
+                Notes = $"Schedule details:\n" +
+                       $"Location: {schedule.Location}\n" +
+                       $"Room: {schedule.Room}\n" +
+                       $"Start Day: {schedule.StartDateTime}\n" +
+                       $"End Day: {schedule.EndDateTime}\n" +
+                       $"Days of Week: {schedule.DaysOfWeek}\n" +
+                       $"Class Time: {schedule.ClassTime}\n" +
+                       $"Subject Period: {schedule.SubjectPeriod}\n" +
+                       $"Notes: {schedule.Notes}"
+            };
+            await _requestService.CreateRequestAsync(requestDto, createdByUserId);
 
             return _mapper.Map<TrainingScheduleModel>(schedule);
         }
@@ -149,7 +170,8 @@ namespace OCMS_Services.Service
             var classSubject = await _unitOfWork.ClassSubjectRepository.GetAsync(
                 cs => cs.ClassSubjectId == dto.ClassSubjectId,
                 cs => cs.Class,
-                cs => cs.Subject
+                cs => cs.SubjectSpecialty,
+                cs => cs.SubjectSpecialty.Subject
             );
 
             if (classSubject == null)
@@ -165,10 +187,10 @@ namespace OCMS_Services.Service
 
             // Get the subject specialty through the SubjectSpecialty entity
             var subjectSpecialty = await _unitOfWork.SubjectSpecialtyRepository.FirstOrDefaultAsync(
-                ss => ss.SubjectId == classSubject.SubjectId);
+                ss => ss.SubjectId == classSubject.SubjectSpecialty.SubjectId);
                 
             if (subjectSpecialty == null)
-                throw new ArgumentException($"No specialty found for Subject with ID '{classSubject.SubjectId}'.");
+                throw new ArgumentException($"No specialty found for Subject with ID '{classSubject.SubjectSpecialty.SubjectId}'.");
 
             
             // Apply update
@@ -182,8 +204,8 @@ namespace OCMS_Services.Service
                 s => s.ScheduleID == scheduleId,
                 s => s.CreatedBy,
                 s => s.ClassSubject,
-                s => s.ClassSubject.Subject
-            );
+                s => s.ClassSubject.SubjectSpecialty,
+                s => s.ClassSubject.SubjectSpecialty.Subject);
 
             return _mapper.Map<TrainingScheduleModel>(updatedSchedule);
         }
@@ -211,7 +233,8 @@ namespace OCMS_Services.Service
             var classSubject = await _unitOfWork.ClassSubjectRepository.GetAsync(
                 cs => cs.ClassSubjectId == classSubjectId,
                 cs => cs.Class,
-                cs => cs.Subject);
+                cs => cs.SubjectSpecialty,
+                cs => cs.SubjectSpecialty.Subject);
 
             if (instructor == null)
                 throw new ArgumentException($"Instructor with ID '{instructorId}' not found");
@@ -221,22 +244,22 @@ namespace OCMS_Services.Service
 
             // Get the subject specialty through the SubjectSpecialty entity
             var subjectSpecialty = await _unitOfWork.SubjectSpecialtyRepository.FirstOrDefaultAsync(
-                ss => ss.SubjectId == classSubject.SubjectId);
+                ss => ss.SubjectId == classSubject.SubjectSpecialty.SubjectId);
                 
             if (subjectSpecialty == null)
-                throw new ArgumentException($"No specialty found for Subject with ID '{classSubject.SubjectId}'.");
+                throw new ArgumentException($"No specialty found for Subject with ID '{classSubject.SubjectSpecialty.SubjectId}'.");
 
 
             // Proceed with logic to assign instructor
             var existingAssignment = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
-                a => a.SubjectId == classSubject.SubjectId
+                a => a.SubjectId == classSubject.SubjectSpecialty.SubjectId
             );
 
             if (existingAssignment == null)
             {
                 var assignmentDto = new InstructorAssignmentDTO
                 {
-                    SubjectId = classSubject.SubjectId,
+                    SubjectId = classSubject.SubjectSpecialty.SubjectId,
                     InstructorId = instructorId,
                     Notes = "Automatically created from training schedule"
                 };
@@ -254,7 +277,7 @@ namespace OCMS_Services.Service
             {
                 var assignmentDto = new InstructorAssignmentDTO
                 {
-                    SubjectId = classSubject.SubjectId,
+                    SubjectId = classSubject.SubjectSpecialty.SubjectId,
                     InstructorId = instructorId,
                     Notes = existingAssignment.Notes ?? "Updated from training schedule"
                 };
@@ -291,52 +314,56 @@ namespace OCMS_Services.Service
 
             // Get the subjects assigned to this instructor
             var subjectIds = assignments.Select(a => a.SubjectId).ToList();
-            
+
             // Get class subjects related to these subjects
             var classSubjects = await _unitOfWork.ClassSubjectRepository.GetAllAsync(
-                cs => subjectIds.Contains(cs.SubjectId),
-                cs => cs.Subject,
+                cs => subjectIds.Contains(cs.SubjectSpecialty.SubjectId),
+                cs => cs.SubjectSpecialty,
+                cs => cs.SubjectSpecialty.Subject,
                 cs => cs.InstructorAssignment,
-                cs => cs.InstructorAssignment.Instructor);
-                
+                cs => cs.InstructorAssignment.Instructor
+            );
+
             // Get schedules for these class subjects
             var classSubjectIds = classSubjects.Select(cs => cs.ClassSubjectId).ToList();
             var schedules = await _unitOfWork.TrainingScheduleRepository.GetAllAsync(
                 s => classSubjectIds.Contains(s.ClassSubjectId),
                 s => s.ClassSubject,
-                s => s.ClassSubject.Subject,
+                s => s.ClassSubject.SubjectSpecialty,
+                s => s.ClassSubject.SubjectSpecialty.Subject,
                 s => s.ClassSubject.InstructorAssignment,
-                s => s.ClassSubject.InstructorAssignment.Instructor);
+                s => s.ClassSubject.InstructorAssignment.Instructor
+            );
 
             var result = classSubjects
-                .GroupBy(cs => cs.Subject)
-                .Select(group => new InstructorSubjectScheduleModel
-                {
-                    SubjectId = group.Key.SubjectId,
-                    SubjectName = group.Key.SubjectName,
-                    Description = group.Key.Description,
-                    Schedules = schedules
-                        .Where(s => group.Any(cs => cs.ClassSubjectId == s.ClassSubjectId))
-                        .Select(s => new TrainingScheduleModel
-                        {
-                            ScheduleID = s.ScheduleID,
-                            ClassSubjectId = s.ClassSubjectId,
-                            SubjectId = group.Key.SubjectId,
-                            SubjectName = group.Key.SubjectName,
-                            DaysOfWeek = string.Join(",", s.DaysOfWeek),
-                            InstructorID = instructorId,
-                            InstructorName = assignments.FirstOrDefault(a => a.SubjectId == group.Key.SubjectId)?.Instructor?.FullName,
-                            SubjectPeriod = s.SubjectPeriod,
-                            ClassTime = s.ClassTime,
-                            StartDateTime = s.StartDateTime,
-                            EndDateTime = s.EndDateTime,
-                            Location = s.Location,
-                            Room = s.Room,
-                            Status = s.Status.ToString(),
-                        })
-                        .ToList()
-                })
-                .ToList();
+            .GroupBy(cs => cs.SubjectSpecialty.Subject)
+            .Select(group => new InstructorSubjectScheduleModel
+            {
+                SubjectId = group.Key.SubjectId,
+                SubjectName = group.Key.SubjectName,
+                Description = group.Key.Description,
+                Schedules = schedules
+                    .Where(s => group.Any(cs => cs.ClassSubjectId == s.ClassSubjectId))
+                    .Select(s => new TrainingScheduleModel
+                    {
+                        ScheduleID = s.ScheduleID,
+                        ClassSubjectId = s.ClassSubjectId,
+                        SubjectId = group.Key.SubjectId,
+                        SubjectName = group.Key.SubjectName,
+                        DaysOfWeek = string.Join(",", s.DaysOfWeek),
+                        InstructorID = instructorId,
+                        InstructorName = assignments.FirstOrDefault(a => a.SubjectId == group.Key.SubjectId)?.Instructor?.FullName,
+                        SubjectPeriod = s.SubjectPeriod,
+                        ClassTime = s.ClassTime,
+                        StartDateTime = s.StartDateTime,
+                        EndDateTime = s.EndDateTime,
+                        Location = s.Location,
+                        Room = s.Room,
+                        Status = s.Status.ToString(),
+                    })
+                    .ToList()
+            })
+            .ToList();
 
             if (!result.Any())
                 throw new InvalidOperationException("No valid schedules found for this instructor's assigned subjects.");
@@ -351,40 +378,43 @@ namespace OCMS_Services.Service
             // Get trainee assignments
             var traineeAssignments = await _unitOfWork.TraineeAssignRepository
                 .GetAllAsync(ta => ta.TraineeId == traineeId);
-                
+
             if (traineeAssignments == null || !traineeAssignments.Any())
                 throw new InvalidOperationException("No course assignments found for this trainee.");
-                
+
             // Get class subjects for these assignments
             var classSubjectIds = traineeAssignments.Select(ta => ta.ClassSubjectId).ToList();
             var classSubjects = await _unitOfWork.ClassSubjectRepository.GetAllAsync(
-                cs => classSubjectIds.Contains(cs.ClassSubjectId),
-                cs => cs.Subject,
+                cs => classSubjectIds.Contains(cs.ClassSubjectId), // Fixed variable name
+                cs => cs.SubjectSpecialty,
+                cs => cs.SubjectSpecialty.Subject,
                 cs => cs.InstructorAssignment,
-                cs => cs.InstructorAssignment.Instructor);
-                
+                cs => cs.InstructorAssignment.Instructor
+            );
+
             // Get schedules for these class subjects
             var schedules = await _unitOfWork.TrainingScheduleRepository.GetAllAsync(
                 s => classSubjectIds.Contains(s.ClassSubjectId),
                 s => s.ClassSubject,
-                s => s.ClassSubject.Subject,
+                s => s.ClassSubject.SubjectSpecialty,
+                s => s.ClassSubject.SubjectSpecialty.Subject,
                 s => s.ClassSubject.InstructorAssignment,
                 s => s.ClassSubject.InstructorAssignment.Instructor);
-                
+
             var result = classSubjects
                 .Select(cs => new TraineeSubjectScheduleModel
                 {
-                    SubjectId = cs.SubjectId,
-                    SubjectName = cs.Subject.SubjectName,
-                    Description = cs.Subject.Description,
+                    SubjectId = cs.SubjectSpecialty.SubjectId,
+                    SubjectName = cs.SubjectSpecialty.Subject.SubjectName,
+                    Description = cs.SubjectSpecialty.Subject.Description,
                     Schedules = schedules
                         .Where(s => s.ClassSubjectId == cs.ClassSubjectId)
                         .Select(s => new TrainingScheduleModel
                         {
                             ScheduleID = s.ScheduleID,
                             ClassSubjectId = s.ClassSubjectId,
-                            SubjectId = cs.SubjectId,
-                            SubjectName = cs.Subject.SubjectName,
+                            SubjectId = cs.SubjectSpecialty.SubjectId,
+                            SubjectName = cs.SubjectSpecialty.Subject.SubjectName,
                             Notes = s.Notes,
                             DaysOfWeek = string.Join(",", s.DaysOfWeek),
                             InstructorID = cs.InstructorAssignment?.Instructor?.UserId,
@@ -406,6 +436,7 @@ namespace OCMS_Services.Service
         }
         #endregion
 
+
         #region Delete Training Schedule
         /// <summary>
         /// Deletes a training schedule by its ID. Instructor assignments are managed separately.
@@ -418,7 +449,8 @@ namespace OCMS_Services.Service
             var schedule = await _unitOfWork.TrainingScheduleRepository.GetAsync(
                 s => s.ScheduleID == scheduleId,
                 s => s.ClassSubject,
-                s => s.ClassSubject.Subject
+                s => s.ClassSubject.SubjectSpecialty,
+                s => s.ClassSubject.SubjectSpecialty.Subject
             );
             if (schedule == null)
                 throw new KeyNotFoundException($"Training schedule with ID {scheduleId} not found.");

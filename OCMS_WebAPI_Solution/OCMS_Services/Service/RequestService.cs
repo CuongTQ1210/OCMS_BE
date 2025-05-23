@@ -246,6 +246,8 @@ namespace OCMS_Services.Service
             var validRequestTypes = new[]
             {
                 RequestType.NewPlan,
+                RequestType.ClassSchedule,
+                RequestType.AssignInstructor,
                 RequestType.AddTraineeAssign,
                 RequestType.AssignTrainee,
                 RequestType.DecisionTemplate,
@@ -539,7 +541,7 @@ namespace OCMS_Services.Service
                             {
                                 // Find class subjects for this subject specialty
                                 var classSubjects = await _unitOfWork.ClassSubjectRepository.GetAllAsync(
-                                    cs => cs.SubjectId == ss.SubjectId);
+                                    cs => cs.SubjectSpecialty.SubjectId == ss.SubjectId);
 
                                 foreach (var classSubject in classSubjects)
                                 {
@@ -589,7 +591,7 @@ namespace OCMS_Services.Service
                             {
                                 // Find class subjects for this subject specialty
                                 var classSubjects = await _unitOfWork.ClassSubjectRepository.GetAllAsync(
-                                    cs => cs.SubjectId == ss.SubjectId);
+                                    cs => cs.SubjectSpecialty.SubjectId == ss.SubjectId);
 
                                 foreach (var classSubject in classSubjects)
                                 {
@@ -780,52 +782,28 @@ namespace OCMS_Services.Service
                         actionSuccessful = true;
                         break;
 
-                    //case RequestType.PlanChange:
-                    //    if (approver == null || approver.RoleId != 2)
-                    //    {
-                    //        throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
-                    //    }
+                    case RequestType.ClassSchedule:
+                        if (approver == null || approver.RoleId != 2)
+                        {
+                            throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
+                        }
 
-                    //    // Get training data from the request repository
-                    //    // Note: Not using TrainingPlanRepository directly
-                    //    if (request.Notes != null && request.Notes.Contains("Proposed changes:"))
-                    //    {
-                    //        var jsonStart = request.Notes.IndexOf("{");
-                    //        var jsonEnd = request.Notes.LastIndexOf("}") + 1;
-                    //        if (jsonStart >= 0 && jsonEnd > jsonStart)
-                    //        {
-                    //            var json = request.Notes.Substring(jsonStart, jsonEnd - jsonStart);
-                    //            // Deserialize using a dynamic approach instead of TrainingPlanDTO
-                    //            var changes = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+                        var classSchedule = await _unitOfWork.TrainingScheduleRepository.GetByIdAsync(request.RequestEntityId);
+                        if (classSchedule != null)
+                        {
+                            classSchedule.Status = ScheduleStatus.Incoming;
+                            await _unitOfWork.TrainingScheduleRepository.UpdateAsync(classSchedule);
 
-                    //            // Apply changes through notification
-                    //            await _notificationService.SendNotificationAsync(
-                    //                request.RequestUserId,
-                    //                "Plan Changes Approved",
-                    //                $"Your requested changes for plan have been approved.",
-                    //                "PlanChange"
-                    //            );
-                    //        }
-                    //    }
-                    //    actionSuccessful = true;
-                    //    break;
-
-                    //case RequestType.PlanDelete:
-                    //    if (approver == null || approver.RoleId != 2)
-                    //    {
-                    //        throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
-                    //    }
-
-                    //    // Simplified plan deletion logic
-                    //    await _notificationService.SendNotificationAsync(
-                    //        request.RequestUserId,
-                    //        "Plan Deletion Approved",
-                    //        $"Your request to delete plan has been approved.",
-                    //        "PlanDelete"
-                    //    );
-
-                    //    actionSuccessful = true;
-                    //    break;
+                            // Send notification to the requester
+                            await _notificationService.SendNotificationAsync(
+                                request.RequestUserId,
+                                "Schedule Approved",
+                                $"Your schedule request has been approved. Schedule ID: {classSchedule.ScheduleID}",
+                                "Schedule"
+                            );
+                        }
+                        actionSuccessful = true;
+                        break;
 
                     case RequestType.DecisionTemplate:
                         if (approver == null || approver.RoleId != 2)
@@ -963,7 +941,7 @@ namespace OCMS_Services.Service
 
                                 // Delete instructor assignments
                                 var instructorAssignments = await _unitOfWork.InstructorAssignmentRepository.GetAllAsync(
-                                    ia => ia.SubjectId == classSubject.SubjectId);
+                                    ia => ia.SubjectId == classSubject.SubjectSpecialty.SubjectId);
 
                                 foreach (var ia in instructorAssignments)
                                 {
@@ -984,6 +962,29 @@ namespace OCMS_Services.Service
                                 "Course Deletion Approved",
                                 $"Your request to delete course '{courseToDelete.CourseName}' has been approved.",
                                 "Course"
+                            );
+                        }
+                        actionSuccessful = true;
+                        break;
+
+                    case RequestType.AssignInstructor:
+                        if (approver == null || approver.RoleId != 2)
+                        {
+                            throw new UnauthorizedAccessException("Only HeadMaster can approve this request.");
+                        }
+
+                        var instructorAssignment = await _unitOfWork.InstructorAssignmentRepository.GetByIdAsync(request.RequestEntityId);
+                        if (instructorAssignment != null)
+                        {
+                            instructorAssignment.RequestStatus = RequestStatus.Approved;
+                            await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(instructorAssignment);
+
+                            // Send notification to the requester
+                            await _notificationService.SendNotificationAsync(
+                                request.RequestUserId,
+                                "Instructor Assignment Approved",
+                                $"Your instructor assignment request has been approved. Assignment ID: {instructorAssignment.AssignmentId}",
+                                "InstructorAssignment"
                             );
                         }
                         actionSuccessful = true;
@@ -1211,6 +1212,38 @@ namespace OCMS_Services.Service
                     }
 
                     notificationMessage = $"Your request for course {course?.CourseName ?? request.RequestEntityId} ({request.RequestType}) has been rejected. Reason: {rejectionReason}";
+                    break;
+
+                case RequestType.ClassSchedule:
+                    if (rejecter == null || rejecter.RoleId != 2)
+                    {
+                        throw new UnauthorizedAccessException("Only HeadMaster can reject this request.");
+                    }
+
+                    var rejectedSchedule = await _unitOfWork.TrainingScheduleRepository.GetByIdAsync(request.RequestEntityId);
+                    if (rejectedSchedule != null)
+                    {
+                        rejectedSchedule.Status = ScheduleStatus.Canceled;
+                        await _unitOfWork.TrainingScheduleRepository.UpdateAsync(rejectedSchedule);
+                    }
+
+                    notificationMessage = $"Your schedule request has been rejected. Reason: {rejectionReason}";
+                    break;
+
+                case RequestType.AssignInstructor:
+                    if (rejecter == null || rejecter.RoleId != 2)
+                    {
+                        throw new UnauthorizedAccessException("Only HeadMaster can reject this request.");
+                    }
+
+                    var rejectedAssignment = await _unitOfWork.InstructorAssignmentRepository.GetByIdAsync(request.RequestEntityId);
+                    if (rejectedAssignment != null)
+                    {
+                        rejectedAssignment.RequestStatus = RequestStatus.Rejected;
+                        await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(rejectedAssignment);
+                    }
+
+                    notificationMessage = $"Your instructor assignment request has been rejected. Reason: {rejectionReason}";
                     break;
 
                 default:

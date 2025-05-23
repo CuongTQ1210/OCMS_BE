@@ -37,11 +37,11 @@ namespace OCMS_Services.Service
         {
             // Fetch ClassSubjects for the subject
             var classSubjects = await _unitOfWork.ClassSubjectRepository.GetAllAsync(
-                cs => cs.SubjectId == subjectId,
+                cs => cs.SubjectSpecialty.SubjectId == subjectId, // FIXED
                 cs => cs.traineeAssigns,
                 cs => cs.Class
             );
-            
+
             if (!classSubjects.Any())
                 throw new ArgumentException($"No class-subject relationships found for Subject ID '{subjectId}'.");
 
@@ -86,7 +86,7 @@ namespace OCMS_Services.Service
 
             // Get ClassSubjects for this subject
             var classSubjects = await _unitOfWork.ClassSubjectRepository.GetAllAsync(
-                cs => cs.SubjectId == subjectId,
+                cs => cs.SubjectSpecialty.SubjectId == subjectId,
                 cs => cs.Class
             );
 
@@ -113,14 +113,14 @@ namespace OCMS_Services.Service
             // Get ClassSubjects for this course
             var classSubjects = await _unitOfWork.ClassSubjectRepository.GetAllAsync(
                 cs => cs.ClassId == courseId,
-                cs => cs.Subject
+                cs => cs.SubjectSpecialty.Subject
             );
 
             if (!classSubjects.Any())
                 throw new KeyNotFoundException("No subjects found for the given course ID.");
 
             // Extract subjects from ClassSubjects
-            var subjects = classSubjects.Select(cs => cs.Subject).Distinct().ToList();
+            var subjects = classSubjects.Select(cs => cs.SubjectSpecialty.Subject).Distinct().ToList(); // FIXED
             return _mapper.Map<List<SubjectModel>>(subjects);
         }
         #endregion
@@ -192,10 +192,10 @@ namespace OCMS_Services.Service
 
             // Check if subject is linked to any approved courses
             var classSubjects = await _unitOfWork.ClassSubjectRepository.GetAllAsync(
-                cs => cs.SubjectId == subjectId,
+                cs => cs.SubjectSpecialty.SubjectId == subjectId,
                 cs => cs.Class
             );
-            
+
             // Get all course IDs from class subjects
             var courseIds = classSubjects.Select(cs => cs.ClassId).Distinct().ToList();
             

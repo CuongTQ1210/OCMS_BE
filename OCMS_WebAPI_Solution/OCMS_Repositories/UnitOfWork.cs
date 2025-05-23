@@ -13,6 +13,7 @@ namespace OCMS_Repositories
     {
         private readonly OCMSDbContext _context;
         private IDbContextTransaction _transaction;
+        private GenericRepository<LoginLog> _loginLogRepository;
         private GenericRepository<User> _userRepository;
         private GenericRepository<Course> _courseRepository;
         private GenericRepository<Department> _departmentRepository;
@@ -151,6 +152,10 @@ namespace OCMS_Repositories
             get => _subjectSpecialtyRepository ??= new GenericRepository<SubjectSpecialty>(_context);
         }
 
+        public GenericRepository<LoginLog> LoginLogRepository
+        {
+            get => _loginLogRepository ??= new GenericRepository<LoginLog>(_context);
+        }
 
         public async Task<IDbContextTransaction> BeginTransactionAsync()
         {

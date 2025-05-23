@@ -22,21 +22,21 @@ namespace OCMS_Repositories.Repository
         {
             return await _context.ClassSubjects
                 .Include(cs => cs.Class)
-                .Include(cs => cs.Subject)
+                .Include(cs => cs.SubjectSpecialty)
                 .Include(cs => cs.InstructorAssignment)
                 .ThenInclude(ia => ia.Instructor)
                 .Where(cs => cs.ClassId == classId)
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<ClassSubject>> GetClassSubjectsBySubjectIdAsync(string subjectId)
+        public async Task<IEnumerable<ClassSubject>> GetClassSubjectsBySubjectSpecialtyIdAsync(string subjectSpecialtyId)
         {
             return await _context.ClassSubjects
                 .Include(cs => cs.Class)
-                .Include(cs => cs.Subject)
+                .Include(cs => cs.SubjectSpecialty)
                 .Include(cs => cs.InstructorAssignment)
                 .ThenInclude(ia => ia.Instructor)
-                .Where(cs => cs.SubjectId == subjectId)
+                .Where(cs => cs.SubjectSpecialtyId == subjectSpecialtyId)
                 .ToListAsync();
         }
 
@@ -44,7 +44,7 @@ namespace OCMS_Repositories.Repository
         {
             return await _context.ClassSubjects
                 .Include(cs => cs.Class)
-                .Include(cs => cs.Subject)
+                .Include(cs => cs.SubjectSpecialty)
                 .Include(cs => cs.InstructorAssignment)
                 .ThenInclude(ia => ia.Instructor)
                 .Where(cs => cs.InstructorAssignment.InstructorId == instructorId)
@@ -55,7 +55,7 @@ namespace OCMS_Repositories.Repository
         {
             return await _context.ClassSubjects
                 .Include(cs => cs.Class)
-                .Include(cs => cs.Subject)
+                .Include(cs => cs.SubjectSpecialty)
                 .Include(cs => cs.InstructorAssignment)
                 .ThenInclude(ia => ia.Instructor)
                 .Include(cs => cs.traineeAssigns)

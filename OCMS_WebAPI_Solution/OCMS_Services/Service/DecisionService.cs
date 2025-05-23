@@ -74,7 +74,7 @@ namespace OCMS_Services.Service
                     {
                         IEnumerable<Certificate> certificates = new List<Certificate>();
                         IEnumerable<TraineeAssign> traineeAssigns = await _unitOfWork.TraineeAssignRepository
-                            .GetAllAsync(t => t.ClassSubject.Subject.SubjectId == request.CourseId && t.RequestStatus == RequestStatus.Approved);
+                            .GetAllAsync(t => t.ClassSubject.SubjectSpecialty.SubjectId == request.CourseId && t.RequestStatus == RequestStatus.Approved);
 
                         if (!traineeAssigns.Any())
                             throw new InvalidOperationException("No approved trainees found for this course");
@@ -184,7 +184,7 @@ namespace OCMS_Services.Service
                             traineeAssigns.Select(ta => new Certificate { UserId = ta.TraineeId, CourseId = request.CourseId }));
 
                         var courseSchedules = await _unitOfWork.TrainingScheduleRepository
-                            .GetAllAsync(ts => ts.ClassSubject.Subject.SubjectId == request.CourseId);
+                            .GetAllAsync(ts => ts.ClassSubject.SubjectSpecialty.SubjectId == request.CourseId);
 
                         var startDate = courseSchedules.Any() ? courseSchedules.Min(s => s.StartDateTime) : issueDate;
                         var endDate = courseSchedules.Any() ? courseSchedules.Max(s => s.EndDateTime) : issueDate;

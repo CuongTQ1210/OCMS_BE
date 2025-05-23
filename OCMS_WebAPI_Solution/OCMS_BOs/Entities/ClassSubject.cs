@@ -17,10 +17,13 @@ namespace OCMS_BOs.Entities
         public string ClassId { get; set; }
         public Class Class { get; set; }
 
-        [ForeignKey("Subject")]
-        public string SubjectId { get; set; }
-        public Subject Subject { get; set; }
+        //[ForeignKey("Subject")]
+        //public string SubjectId { get; set; }
+        //public Subject Subject { get; set; }
 
+        [ForeignKey("SubjectSpecialty")]
+        public string SubjectSpecialtyId { get; set; }
+        public SubjectSpecialty SubjectSpecialty { get; set; }
 
         [ForeignKey("InstructorAssignment")]
         public string InstructorAssignmentID { get; set; }
