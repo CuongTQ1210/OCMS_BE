@@ -129,6 +129,24 @@ namespace OCMS_Services.Service
             await _unitOfWork.TrainingScheduleRepository.AddAsync(schedule);
             await _unitOfWork.SaveChangesAsync();
 
+            // Create approval request for the schedule
+            var requestDto = new RequestDTO
+            {
+                RequestEntityId = schedule.ScheduleID,
+                RequestType = RequestType.ClassSchedule,
+                Description = $"Request to approve schedule for class subject {dto.ClassSubjectId}",
+                Notes = $"Schedule details:\n" +
+                       $"Location: {schedule.Location}\n" +
+                       $"Room: {schedule.Room}\n" +
+                       $"Start Day: {schedule.StartDateTime}\n" +
+                       $"End Day: {schedule.EndDateTime}\n" +
+                       $"Days of Week: {schedule.DaysOfWeek}\n" +
+                       $"Class Time: {schedule.ClassTime}\n" +
+                       $"Subject Period: {schedule.SubjectPeriod}\n" +
+                       $"Notes: {schedule.Notes}"
+            };
+            await _requestService.CreateRequestAsync(requestDto, createdByUserId);
+
             return _mapper.Map<TrainingScheduleModel>(schedule);
         }
         #endregion

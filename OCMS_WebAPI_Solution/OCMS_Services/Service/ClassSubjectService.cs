@@ -46,8 +46,11 @@ namespace OCMS_Services.Service
             var instructorAssignment = await _unitOfWork.InstructorAssignmentRepository.GetByIdAsync(dto.InstructorAssignmentID);
             if (instructorAssignment == null)
                 throw new KeyNotFoundException($"Instructor assignment with ID {dto.InstructorAssignmentID} does not exist.");
-
-            // Check if class-subject specialty combination already exists
+            if (instructorAssignment.RequestStatus!= RequestStatus.Approved)
+            {
+                throw new KeyNotFoundException($"Instructor assignment hasn't been approved yet.");
+            }
+            // Check if class-subject combination already exists
             bool exists = await _unitOfWork.ClassSubjectRepository.AnyAsync(
                 cs => cs.ClassId == dto.ClassId && cs.SubjectSpecialtyId == dto.SubjectSpecialtyId
             );
@@ -82,7 +85,7 @@ namespace OCMS_Services.Service
             if (classSubject == null)
                 return null;
 
-            // Get related entities
+            // L?y c�c entity li�n quan
             var classEntity = await _unitOfWork.Context.Set<Class>().FindAsync(classSubject.ClassId);
             var subjectSpecialty = await _unitOfWork.SubjectSpecialtyRepository.GetByIdAsync(classSubject.SubjectSpecialtyId);
             var subject = subjectSpecialty != null ?
@@ -91,7 +94,7 @@ namespace OCMS_Services.Service
             var instructor = instructorAssignment != null ?
                 await _unitOfWork.UserRepository.GetByIdAsync(instructorAssignment.InstructorId) : null;
 
-            // Create model manually and assign values directly instead of using AutoMapper
+            // T?o model th? c�ng v� g�n gi� tr? tr?c ti?p thay v� d�ng AutoMapper
             var model = new ClassSubjectModel
             {
                 ClassSubjectId = classSubject.ClassSubjectId,
