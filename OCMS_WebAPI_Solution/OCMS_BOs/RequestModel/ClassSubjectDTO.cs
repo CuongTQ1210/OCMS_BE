@@ -13,7 +13,7 @@ namespace OCMS_BOs.RequestModel
         public string ClassId { get; set; }
 
         [Required]
-        public string SubjectId { get; set; }
+        public string SubjectSpecialtyId { get; set; }
 
         [Required]
         public string InstructorAssignmentID { get; set; }

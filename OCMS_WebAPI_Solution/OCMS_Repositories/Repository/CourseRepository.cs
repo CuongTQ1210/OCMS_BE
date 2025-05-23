@@ -64,7 +64,7 @@ namespace OCMS_Repositories.Repository
                     .Include(cs => cs.Schedules)
                     .Include(cs => cs.traineeAssigns)
                         .ThenInclude(ta => ta.Trainee)
-                    .Where(cs => subjectIds.Contains(cs.SubjectId))
+                    .Where(cs => subjectIds.Contains(cs.SubjectSpecialty.SubjectId))
                     .ToListAsync();
             }
 

@@ -42,10 +42,12 @@ namespace OCMS_Services.Service
         #region Get All Grades
         public async Task<IEnumerable<GradeModel>> GetAllAsync()
         {
-            var grades = await _unitOfWork.GradeRepository.GetAllAsync(
+            var grades = await _unitOfWork.GradeRepository.FindAsync(
+                g => true, // Use a predicate that returns a boolean
                 g => g.TraineeAssign,
                 g => g.TraineeAssign.ClassSubject,
-                g => g.TraineeAssign.ClassSubject.Subject,
+                g => g.TraineeAssign.ClassSubject.SubjectSpecialty,
+                g => g.TraineeAssign.ClassSubject.SubjectSpecialty.Subject,
                 g => g.TraineeAssign.Trainee);
 
             return _mapper.Map<IEnumerable<GradeModel>>(grades);
@@ -59,7 +61,8 @@ namespace OCMS_Services.Service
                 g => g.GradeId == id,
                 g => g.TraineeAssign,
                 g => g.TraineeAssign.ClassSubject,
-                g => g.TraineeAssign.ClassSubject.Subject,
+                g => g.TraineeAssign.ClassSubject.SubjectSpecialty,
+                g => g.TraineeAssign.ClassSubject.SubjectSpecialty.Subject,
                 g => g.TraineeAssign.Trainee);
             if (grade == null)
                 throw new KeyNotFoundException($"Grade with ID '{id}' not found.");
@@ -74,12 +77,13 @@ namespace OCMS_Services.Service
             var traineeAssign = await _unitOfWork.TraineeAssignRepository.GetAsync(
                 t => t.TraineeAssignId == dto.TraineeAssignID,
                 t => t.ClassSubject,
-                t => t.ClassSubject.Subject,
+                t => t.ClassSubject.SubjectSpecialty,
+                t => t.ClassSubject.SubjectSpecialty.Subject,
                 t => t.ClassSubject.Class);
             if (traineeAssign == null)
                 throw new KeyNotFoundException($"Trainee assignment with ID '{dto.TraineeAssignID}' not found.");
 
-            var subject = traineeAssign.ClassSubject.Subject;
+            var subject = traineeAssign.ClassSubject.SubjectSpecialty.Subject;
             var classInfo = traineeAssign.ClassSubject.Class;
             if (subject == null || classInfo == null)
                 throw new Exception("Subject or Class not found.");
@@ -90,7 +94,7 @@ namespace OCMS_Services.Service
                 throw new Exception("Course not found for the class.");
 
             var instructorAssign = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
-                ia => ia.SubjectId == traineeAssign.ClassSubject.SubjectId && ia.InstructorId == gradedByUserId);
+                ia => ia.SubjectId == traineeAssign.ClassSubject.SubjectSpecialty.SubjectId && ia.InstructorId == gradedByUserId);
             if (instructorAssign == null)
                 throw new InvalidOperationException("User is not authorized to grade this subject.");
 
@@ -150,7 +154,7 @@ namespace OCMS_Services.Service
                 g => g.GradeId == id,
                 g => g.TraineeAssign,
                 g => g.TraineeAssign.ClassSubject,
-                g => g.TraineeAssign.ClassSubject.Subject,
+                g => g.TraineeAssign.ClassSubject.SubjectSpecialty.Subject,
                 g => g.TraineeAssign.ClassSubject.Class);
             if (existing == null)
                 throw new KeyNotFoundException($"Grade with ID '{id}' not found.");
@@ -163,7 +167,7 @@ namespace OCMS_Services.Service
             if (assignTrainee == null)
                 throw new KeyNotFoundException($"Trainee assignment not found for this grade.");
 
-            var subject = assignTrainee.ClassSubject.Subject;
+            var subject = assignTrainee.ClassSubject.SubjectSpecialty.Subject;
             var classInfo = assignTrainee.ClassSubject.Class;
             if (subject == null || classInfo == null)
                 throw new Exception("Subject or Class not found.");
@@ -174,7 +178,7 @@ namespace OCMS_Services.Service
                 throw new Exception("Course not found for the class.");
 
             var instructorAssign = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
-                ia => ia.SubjectId == assignTrainee.ClassSubject.SubjectId && ia.InstructorId == gradedByUserId);
+                ia => ia.SubjectId == assignTrainee.ClassSubject.SubjectSpecialty.SubjectId && ia.InstructorId == gradedByUserId);
             if (instructorAssign == null)
                 throw new InvalidOperationException("User is not authorized to grade this subject.");
 
@@ -303,11 +307,12 @@ namespace OCMS_Services.Service
 
             // Fetch grades for the subject with authorization check integrated
             var grades = await _unitOfWork.GradeRepository.FindIncludeAsync(
-                g => g.TraineeAssign.ClassSubject.SubjectId == subjectId,
+                g => g.TraineeAssign.ClassSubject.SubjectSpecialty.SubjectId == subjectId,
                 include => include.TraineeAssign,
                 include => include.TraineeAssign.Trainee,
                 include => include.TraineeAssign.ClassSubject,
-                include => include.TraineeAssign.ClassSubject.Subject);
+                include => include.TraineeAssign.ClassSubject.SubjectSpecialty,
+                include => include.TraineeAssign.ClassSubject.SubjectSpecialty.Subject);
 
             return _mapper.Map<List<GradeModel>>(grades);
         }
@@ -321,7 +326,7 @@ namespace OCMS_Services.Service
                 include => include.TraineeAssign,
                 include => include.TraineeAssign.Trainee,
                 include => include.TraineeAssign.ClassSubject,
-                include => include.TraineeAssign.ClassSubject.Subject);
+                g => g.TraineeAssign.ClassSubject.SubjectSpecialty.Subject);
 
             return _mapper.Map<List<GradeModel>>(grades);
         }
@@ -335,7 +340,7 @@ namespace OCMS_Services.Service
                 g => g.TraineeAssign,
                 g => g.TraineeAssign.Trainee,
                 g => g.TraineeAssign.ClassSubject,
-                g => g.TraineeAssign.ClassSubject.Subject);
+                g => g.TraineeAssign.ClassSubject.SubjectSpecialty.Subject);
 
             return _mapper.Map<List<GradeModel>>(grades);
         }
@@ -362,11 +367,13 @@ namespace OCMS_Services.Service
             var subjectIds = instructorAssignments.Select(a => a.SubjectId).Distinct().ToList();
 
             var grades = await _unitOfWork.GradeRepository.FindIncludeAsync(
-                g => g.TraineeAssign.ClassSubject.SubjectId != null && subjectIds.Contains(g.TraineeAssign.ClassSubject.SubjectId),
+                g => g.TraineeAssign.ClassSubject.SubjectSpecialty.SubjectId != null &&
+                subjectIds.Contains(g.TraineeAssign.ClassSubject.SubjectSpecialty.SubjectId),
                 include => include.TraineeAssign,
                 include => include.TraineeAssign.Trainee,
                 include => include.TraineeAssign.ClassSubject,
-                include => include.TraineeAssign.ClassSubject.Subject);
+                include => include.TraineeAssign.ClassSubject.SubjectSpecialty,
+                include => include.TraineeAssign.ClassSubject.SubjectSpecialty.Subject);
 
             return _mapper.Map<List<GradeModel>>(grades);
         }
@@ -452,9 +459,10 @@ namespace OCMS_Services.Service
 
                     // Find ClassSubjects that match the subject and course
                     var classSubjects = await _unitOfWork.ClassSubjectRepository.FindAsync(
-                        cs => cs.ClassId == courseId && cs.SubjectId == subject.SubjectId,
+                        cs => cs.ClassId == courseId && cs.SubjectSpecialty.SubjectId == subject.SubjectId,
                         cs => cs.Class,
-                        cs => cs.Subject);
+                        cs => cs.SubjectSpecialty,
+                        cs => cs.SubjectSpecialty.Subject);
 
                     if (!classSubjects.Any())
                     {
@@ -491,15 +499,17 @@ namespace OCMS_Services.Service
                         .ToHashSet();
 
                     // Get all trainees with their user information
-                    var existingTraineeAssigns = await _unitOfWork.TraineeAssignRepository.GetAllAsync(
+                    var existingTraineeAssigns = await _unitOfWork.TraineeAssignRepository.FindAsync(
+                        t => true, // Use a predicate that returns a boolean
                         t => t.ClassSubject,
                         t => t.ClassSubject.Class,
-                        t => t.ClassSubject.Subject,
+                        t => t.ClassSubject.SubjectSpecialty,
+                        t => t.ClassSubject.SubjectSpecialty.Subject,
                         t => t.Trainee);
 
                     var assignMap = existingTraineeAssigns
                         .Where(a => a.ClassSubject.ClassId == courseId &&
-                                   a.ClassSubject.SubjectId == subject.SubjectId)
+                                   a.ClassSubject.SubjectSpecialty.SubjectId == subject.SubjectId)
                         .ToDictionary(a => a.TraineeId, a => (a.TraineeAssignId, a.TraineeId, a.Trainee));
                     var newGrades = new List<Grade>();
                     int rowCount = worksheet.Dimension.Rows;
@@ -668,11 +678,11 @@ namespace OCMS_Services.Service
             var traineeAssign = await _unitOfWork.TraineeAssignRepository.GetAsync(
                 t => t.TraineeAssignId == dto.TraineeAssignID,
                 t => t.ClassSubject,
-                t => t.ClassSubject.Subject);
+                t => t.ClassSubject.SubjectSpecialty.SubjectId);
             if (traineeAssign == null)
                 throw new InvalidOperationException("Trainee assignment not found.");
 
-            if (traineeAssign.ClassSubject?.Subject == null)
+            if (traineeAssign.ClassSubject?.SubjectSpecialty.SubjectId == null)
                 throw new InvalidOperationException("Subject not found for this trainee assignment.");
         }
 
@@ -700,7 +710,7 @@ namespace OCMS_Services.Service
                         g => g.TraineeAssignID == traineeAssign.TraineeAssignId);
 
                     if (gradeForSubject != null && gradeForSubject.gradeStatus == GradeStatus.Fail)
-                        failedSubjects.Add(cs.SubjectId);
+                        failedSubjects.Add(cs.SubjectSpecialty.SubjectId);
                 }
             }
 
@@ -727,11 +737,11 @@ namespace OCMS_Services.Service
 
             // 7. Get the list of subjects in the relearn course
             var relearnSubjectIds = relearnClassSubjects
-                .Select(cs => cs.SubjectId)
+                .Select(cs => cs.SubjectSpecialty.Subject)
                 .ToList();
 
             // 8. Check if all failed subjects are included in the relearn course
-            bool allFailedSubjectsIncluded = failedSubjects.All(s => relearnSubjectIds.Contains(s));
+            bool allFailedSubjectsIncluded = failedSubjects.All(s => relearnSubjectIds.Any(rs => rs.SubjectId == s)); 
             if (!allFailedSubjectsIncluded)
             {
                 throw new InvalidOperationException("Relearn course does not contain all failed subjects from the original course");
@@ -742,7 +752,7 @@ namespace OCMS_Services.Service
             foreach (var subjectId in failedSubjects)
             {
                 var classSubjectForSubject = relearnClassSubjects.FirstOrDefault(cs =>
-                    cs.SubjectId == subjectId);
+                    cs.SubjectSpecialty.SubjectId == subjectId);
 
                 if (classSubjectForSubject != null)
                 {
@@ -809,7 +819,7 @@ namespace OCMS_Services.Service
             // Get all ClassSubjects linked to this course
             var classSubjects = await _unitOfWork.ClassSubjectRepository.FindAsync(
                 cs => cs.ClassId == courseId,
-                cs => cs.Subject);
+                cs => cs.SubjectSpecialty.Subject);
 
             // Get all trainee assignments for this trainee in the course
             var traineeAssignments = await _unitOfWork.TraineeAssignRepository.FindAsync(
@@ -833,7 +843,7 @@ namespace OCMS_Services.Service
                     var classSubject = classSubjects.FirstOrDefault(cs => cs.ClassSubjectId == traineeAssign.ClassSubjectId);
                     if (classSubject != null)
                     {
-                        subjectsWithPassingGrades.Add(classSubject.SubjectId);
+                        subjectsWithPassingGrades.Add(classSubject.SubjectSpecialty.SubjectId);
                     }
                 }
             }
@@ -903,9 +913,9 @@ namespace OCMS_Services.Service
             // Get all ClassSubjects linked to this course
             var classSubjects = await _unitOfWork.ClassSubjectRepository.FindAsync(
                 cs => cs.ClassId == course.CourseId,
-                cs => cs.Subject);
+                cs => cs.SubjectSpecialty.Subject);
 
-            return classSubjects.Select(cs => cs.SubjectId).ToList();
+            return classSubjects.Select(cs => cs.SubjectSpecialty.SubjectId).ToList();
         }
 
         private async Task<List<Grade>> CollectBestGradesForAllSubjects(Course rootCourse, string traineeId)
@@ -917,10 +927,10 @@ namespace OCMS_Services.Service
             // Get all ClassSubjects from these courses
             var classSubjects = await _unitOfWork.ClassSubjectRepository.FindAsync(
                 cs => courseIds.Contains(cs.ClassId),
-                cs => cs.Subject);
+                cs => cs.SubjectSpecialty.Subject);
 
             // Group ClassSubjects by SubjectId
-            var subjectGroups = classSubjects.GroupBy(cs => cs.SubjectId).ToDictionary(g => g.Key, g => g.ToList());
+            var subjectGroups = classSubjects.GroupBy(cs => cs.SubjectSpecialty.SubjectId).ToDictionary(g => g.Key, g => g.ToList());
 
             // Get all trainee assignments for this trainee across all courses
             var traineeAssignments = await _unitOfWork.TraineeAssignRepository.FindAsync(
@@ -944,7 +954,7 @@ namespace OCMS_Services.Service
                     var classSubject = classSubjects.FirstOrDefault(cs => cs.ClassSubjectId == traineeAssign.ClassSubjectId);
                     if (classSubject != null)
                     {
-                        var subjectId = classSubject.SubjectId;
+                        var subjectId = classSubject.SubjectSpecialty.SubjectId;
                         if (!gradesBySubject.ContainsKey(subjectId))
                         {
                             gradesBySubject[subjectId] = new List<Grade>();
@@ -1037,7 +1047,7 @@ namespace OCMS_Services.Service
             var originalClassSubjects = await _unitOfWork.ClassSubjectRepository.FindAsync(
                 cs => cs.ClassId == originalCourse.CourseId);
 
-            var requiredSubjectIds = originalClassSubjects.Select(cs => cs.SubjectId).Distinct().ToList();
+            var requiredSubjectIds = originalClassSubjects.Select(cs => cs.SubjectSpecialty.SubjectId).Distinct().ToList();
             var passedSubjectIds = new HashSet<string>();
 
             // Tìm tất cả khóa học relearn liên quan
@@ -1065,7 +1075,7 @@ namespace OCMS_Services.Service
 
                 foreach (var cs in courseClassSubjects)
                 {
-                    if (requiredSubjectIds.Contains(cs.SubjectId))
+                    if (requiredSubjectIds.Contains(cs.SubjectSpecialty.SubjectId))
                     {
                         var traineeAssigns = await _unitOfWork.TraineeAssignRepository.FindAsync(
                             ta => ta.ClassSubjectId == cs.ClassSubjectId && ta.TraineeId == traineeId);
@@ -1077,7 +1087,7 @@ namespace OCMS_Services.Service
 
                             if (grade != null)
                             {
-                                passedSubjectIds.Add(cs.SubjectId);
+                                passedSubjectIds.Add(cs.SubjectSpecialty.SubjectId);
                             }
                         }
                     }
