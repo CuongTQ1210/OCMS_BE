@@ -139,7 +139,7 @@ namespace OCMS_Services.Service
             // Tạo Username từ họ tên (loại bỏ dấu)
             string fullNameWithoutDiacritics = RemoveDiacritics(user.FullName);
             string lastName = fullNameWithoutDiacritics.Split(' ').Last().ToLower();
-            string userName = $"{lastName}_{userId.ToLower()}";
+            string userName = $"{lastName}{userId.ToLower()}";
 
             // Đảm bảo Username là duy nhất
             int usernameSuffix = 1;
@@ -369,7 +369,7 @@ Trân trọng,
 
             // Tạo UserId mới với số tiếp theo
             int nextNumber = maxNumber + 1;
-            return $"{specialtyPrefix}{nextNumber:D3}"; // Format: GO001, GO002...
+            return $"{specialtyPrefix}{nextNumber:D6}"; // Format: GO001, GO002...
         }
 
         /// <summary>
