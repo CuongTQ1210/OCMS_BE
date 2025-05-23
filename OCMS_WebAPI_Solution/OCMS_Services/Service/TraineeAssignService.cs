@@ -99,12 +99,12 @@ namespace OCMS_Services.Service
                 throw new Exception($"Course with ID {classSubject.ClassId} not found.");
 
             // Get specialty through SubjectSpecialty
-            var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(classSubject.SubjectId);
+            var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(classSubject.SubjectSpecialty.SubjectId);
             if (subject == null)
             {
-                throw new Exception($"Subject with ID {classSubject.SubjectId} not found.");
+                throw new Exception($"Subject with ID {classSubject.SubjectSpecialty.SubjectId} not found.");
             }
-            
+
             // Find the specialty for this subject
             var subjectSpecialty = await _unitOfWork.SubjectSpecialtyRepository.FirstOrDefaultAsync(
                 ss => ss.SubjectId == subject.SubjectId);
@@ -226,12 +226,12 @@ namespace OCMS_Services.Service
             }
 
             // Get specialty through SubjectSpecialty
-            var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(classSubject.SubjectId);
+            var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(classSubject.SubjectSpecialty.SubjectId);
             if (subject == null)
             {
-                throw new Exception($"Subject with ID {classSubject.SubjectId} not found.");
+                throw new Exception($"Subject with ID {classSubject.SubjectSpecialty.SubjectId} not found.");
             }
-            
+
             // Find the specialty for this subject
             var subjectSpecialty = await _unitOfWork.SubjectSpecialtyRepository.FirstOrDefaultAsync(
                 ss => ss.SubjectId == subject.SubjectId);
@@ -393,7 +393,7 @@ namespace OCMS_Services.Service
                         return result;
                     }
                     var cssEntity = await _unitOfWork.ClassSubjectRepository.FirstOrDefaultAsync(
-                        css => css.ClassId == courseId && css.SubjectId == subjectId);
+                        css => css.ClassId == courseId && css.SubjectSpecialty.SubjectId == subjectId);
 
                     if (cssEntity == null)
                     {
@@ -461,7 +461,7 @@ namespace OCMS_Services.Service
                         }
 
                         // Get subject to check specialty
-                        var subjectForSpecialty = await _unitOfWork.SubjectRepository.GetByIdAsync(css.SubjectId);
+                        var subjectForSpecialty = await _unitOfWork.SubjectRepository.GetByIdAsync(css.SubjectSpecialty.SubjectId);
                         var subjectSpecialtyMapping = await _unitOfWork.SubjectSpecialtyRepository.FirstOrDefaultAsync(
                             ss => ss.SubjectId == subjectForSpecialty.SubjectId);
                             
@@ -506,7 +506,7 @@ namespace OCMS_Services.Service
                             await _unitOfWork.SaveChangesAsync();
                         }
                         traineeAssignments.Add(traineeAssign);
-                        existingAssignmentPairs.Add(new { TraineeId = userId, ClassSubjectId = cssId });
+                        existingAssignmentPairs.Add(new { TraineeId = userId, ClassSubjectId = cssId.ToString() });
                         processedUserIds.Add(userId);
                         result.SuccessCount++;
                     }
@@ -568,8 +568,8 @@ namespace OCMS_Services.Service
                 throw new ArgumentException("Subject ID cannot be null or empty.");
 
             var classSubjects = await _unitOfWork.ClassSubjectRepository.GetAllAsync(
-                cs => cs.SubjectId == subjectId);
-                
+                cs => cs.SubjectSpecialty.SubjectId == subjectId);
+
             var classSubjectIds = classSubjects.Select(cs => cs.ClassSubjectId).ToList();
             
             var assignments = await _unitOfWork.TraineeAssignRepository.GetAllAsync(

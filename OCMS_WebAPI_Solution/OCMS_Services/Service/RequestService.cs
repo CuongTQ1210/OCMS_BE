@@ -539,7 +539,7 @@ namespace OCMS_Services.Service
                             {
                                 // Find class subjects for this subject specialty
                                 var classSubjects = await _unitOfWork.ClassSubjectRepository.GetAllAsync(
-                                    cs => cs.SubjectId == ss.SubjectId);
+                                    cs => cs.SubjectSpecialty.SubjectId == ss.SubjectId);
 
                                 foreach (var classSubject in classSubjects)
                                 {
@@ -589,7 +589,7 @@ namespace OCMS_Services.Service
                             {
                                 // Find class subjects for this subject specialty
                                 var classSubjects = await _unitOfWork.ClassSubjectRepository.GetAllAsync(
-                                    cs => cs.SubjectId == ss.SubjectId);
+                                    cs => cs.SubjectSpecialty.SubjectId == ss.SubjectId);
 
                                 foreach (var classSubject in classSubjects)
                                 {
@@ -963,7 +963,7 @@ namespace OCMS_Services.Service
 
                                 // Delete instructor assignments
                                 var instructorAssignments = await _unitOfWork.InstructorAssignmentRepository.GetAllAsync(
-                                    ia => ia.SubjectId == classSubject.SubjectId);
+                                    ia => ia.SubjectId == classSubject.SubjectSpecialty.SubjectId);
 
                                 foreach (var ia in instructorAssignments)
                                 {

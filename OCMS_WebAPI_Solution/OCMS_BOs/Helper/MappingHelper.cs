@@ -192,10 +192,19 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.Specialty, opt => opt.MapFrom(src => src.Specialty))
                 .ForMember(dest => dest.Subject, opt => opt.MapFrom(src => src.Subject));
 
+            CreateMap<SubjectSpecialtyDTO, SubjectSpecialty>()
+                .ForMember(dest => dest.SubjectSpecialtyId, opt => opt.Ignore())
+                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.SubjectId))
+                .ForMember(dest => dest.SpecialtyId, opt => opt.MapFrom(src => src.SpecialtyId))
+                .ForMember(dest => dest.Subject, opt => opt.Ignore())
+                .ForMember(dest => dest.Specialty, opt => opt.Ignore())
+                .ForMember(dest => dest.Courses, opt => opt.Ignore());
+
+
             // Training Schedule Mappings
             CreateMap<TrainingSchedule, TrainingScheduleModel>()
-                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.ClassSubject.SubjectId))
-                .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.ClassSubject.Subject != null ? src.ClassSubject.Subject.SubjectName : null))
+                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.ClassSubject.SubjectSpecialty.SubjectId))
+                .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.ClassSubject.SubjectSpecialty.Subject != null ? src.ClassSubject.SubjectSpecialty.Subject.SubjectName : null))
                 .ForMember(dest => dest.InstructorID, opt => opt.MapFrom(src => src.ClassSubject.InstructorAssignment != null ? src.ClassSubject.InstructorAssignment.Instructor.UserId : null))
                 .ForMember(dest => dest.InstructorName, opt => opt.MapFrom(src => src.ClassSubject.InstructorAssignment != null ? src.ClassSubject.InstructorAssignment.Instructor.FullName : null))
                 .ForMember(dest => dest.StartDateTime, opt => opt.MapFrom(src => src.StartDateTime))
@@ -243,8 +252,8 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.TraineeId, opt => opt.MapFrom(src => src.TraineeAssign.TraineeId))
                 .ForMember(dest => dest.CourseId, opt => opt.Ignore())
                 .ForMember(dest => dest.Fullname, opt => opt.MapFrom(src => src.TraineeAssign.Trainee.FullName))
-                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.TraineeAssign.ClassSubject.SubjectId))
-                .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.TraineeAssign.ClassSubject.Subject.SubjectName))
+                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.TraineeAssign.ClassSubject.SubjectSpecialty.SubjectId))
+                .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.TraineeAssign.ClassSubject.SubjectSpecialty.Subject.SubjectName))
                 .ReverseMap()
                 .ForMember(dest => dest.gradeStatus, opt => opt.MapFrom(src => Enum.Parse<GradeStatus>(src.GradeStatus)));
 
@@ -423,8 +432,8 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.ClassSubjectId, opt => opt.MapFrom(src => src.ClassSubjectId))
                 .ForMember(dest => dest.ClassId, opt => opt.MapFrom(src => src.ClassId))
                 .ForMember(dest => dest.ClassName, opt => opt.MapFrom(src => src.Class.ClassName))
-                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.SubjectId))
-                .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.Subject.SubjectName))
+                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.SubjectSpecialty.SubjectId))
+                .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.SubjectSpecialty.Subject.SubjectName))
                 .ForMember(dest => dest.InstructorAssignmentID, opt => opt.MapFrom(src => src.InstructorAssignmentID))
                 .ForMember(dest => dest.InstructorName, opt => opt.MapFrom(src => src.InstructorAssignment.Instructor.FullName));
 
@@ -433,11 +442,11 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.ClassSubjectId, opt => opt.MapFrom(src => src.ClassSubjectId))
                 .ForMember(dest => dest.ClassId, opt => opt.MapFrom(src => src.ClassId))
                 .ForMember(dest => dest.ClassName, opt => opt.MapFrom(src => src.Class.ClassName))
-                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.SubjectId))
-                .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.Subject.SubjectName))
-                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Subject.Description))
-                .ForMember(dest => dest.Credits, opt => opt.MapFrom(src => src.Subject.Credits))
-                .ForMember(dest => dest.PassingScore, opt => opt.MapFrom(src => src.Subject.PassingScore))
+                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.SubjectSpecialty.SubjectId))
+                .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.SubjectSpecialty.Subject.SubjectName))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.SubjectSpecialty.Subject.Description))
+                .ForMember(dest => dest.Credits, opt => opt.MapFrom(src => src.SubjectSpecialty.Subject.Credits))
+                .ForMember(dest => dest.PassingScore, opt => opt.MapFrom(src => src.SubjectSpecialty.Subject.PassingScore))
                 .ForMember(dest => dest.InstructorAssignmentID, opt => opt.MapFrom(src => src.InstructorAssignmentID))
                 .ForMember(dest => dest.InstructorId, opt => opt.MapFrom(src => src.InstructorAssignment.InstructorId))
                 .ForMember(dest => dest.InstructorName, opt => opt.MapFrom(src => src.InstructorAssignment.Instructor.FullName))
