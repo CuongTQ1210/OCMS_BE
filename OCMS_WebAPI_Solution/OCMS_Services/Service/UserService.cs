@@ -68,24 +68,13 @@ namespace OCMS_Services.Service
 
             if (candidate.CandidateStatus != CandidateStatus.Approved)
                 throw new Exception("Candidate must be approved first.");
+
             // Lấy Specialty
             var specialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(candidate.SpecialtyId);
-            var parentSpecialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(specialty.ParentSpecialtyId);
-            string specialtyInitial = specialty.SpecialtyId.Substring(0, 2).ToUpper();
-            if (parentSpecialty != null)
-            {
-                 specialtyInitial = parentSpecialty.SpecialtyId.Substring(0, 2).ToUpper();
-            }
-            // Tạo userId
-            Random random = new Random();
-            string userId;
-            do
-            {
-                int randomNumber = random.Next(0, 1000000); // 0 to 999999
-                string formattedNumber = randomNumber.ToString("D6"); // Pads with leading zeros
-                userId = $"{specialtyInitial}{formattedNumber}";
-            }
-            while (await IsUserIdExists(userId));
+            var specialtyPrefix = GetSpecialtyPrefix(specialty.SpecialtyName);
+
+            // Tạo userId với format mới
+            string userId = await GenerateNextUserIdAsync(specialtyPrefix);
 
             // Tạo userName
             string fullNameWithoutDiacritics = RemoveDiacritics(candidate.FullName);
@@ -128,27 +117,29 @@ namespace OCMS_Services.Service
         #region Create User
         public async Task<User> CreateUserAsync(CreateUserDTO userDto)
         {
+            if (!Regex.IsMatch(userDto.Email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+                throw new Exception("Invalid email format.");
+
             // Ánh xạ DTO sang User entity
             var user = _mapper.Map<User>(userDto);
 
-            // Xử lý tạo UserId
-            string specialtyInitial = user.SpecialtyId?.Substring(0, 1) ?? "U";
-            string lastUserId = await GetLastUserIdAsync();
-            int nextNumber = lastUserId != null ? int.Parse(lastUserId.Substring(1)) + 1 : 1;
-            string userId = $"{specialtyInitial}{nextNumber:D6}";
-
-            // Đảm bảo UserId là duy nhất
-            while (await IsUserIdExists(userId))
+            // Xử lý tạo UserId với format mới
+            string specialtyPrefix = "US"; // Default prefix
+            if (!string.IsNullOrEmpty(user.SpecialtyId))
             {
-                nextNumber++;
-                userId = $"{specialtyInitial}{nextNumber:D6}";
+                var specialty = await _unitOfWork.SpecialtyRepository.GetByIdAsync(user.SpecialtyId);
+                if (specialty != null)
+                {
+                    specialtyPrefix = GetSpecialtyPrefix(specialty.SpecialtyName);
+                }
             }
+            string userId = await GenerateNextUserIdAsync(specialtyPrefix);
             user.UserId = userId;
 
             // Tạo Username từ họ tên (loại bỏ dấu)
             string fullNameWithoutDiacritics = RemoveDiacritics(user.FullName);
             string lastName = fullNameWithoutDiacritics.Split(' ').Last().ToLower();
-            string userName = $"{lastName}_{userId.ToLower()}";
+            string userName = $"{lastName}{userId.ToLower()}";
 
             // Đảm bảo Username là duy nhất
             int usernameSuffix = 1;
@@ -346,21 +337,71 @@ Trân trọng,
             await _emailService.SendEmailAsync(email, subject, body);
         }
 
-        private async Task<string> GetLastUserIdAsync()
+        /// <summary>
+        /// Tạo UserId tiếp theo với format: prefix của specialty + 3 số tăng dần bắt đầu từ 1
+        /// VD: GO001, GO002, IT001, IT002...
+        /// </summary>
+        /// <param name="specialtyPrefix">Prefix của specialty (VD: GO, IT, HR...)</param>
+        /// <returns>UserId mới</returns>
+        private async Task<string> GenerateNextUserIdAsync(string specialtyPrefix)
         {
+            // Lấy tất cả UserId có cùng prefix
             var userIds = await _unitOfWork.UserRepository
                 .GetQuery()
+                .Where(u => u.UserId.StartsWith(specialtyPrefix))
                 .Select(u => u.UserId)
-                .Where(id => Regex.IsMatch(id, @"^[A-Z]+\d{6}$"))
-                .OrderByDescending(id => id)
-                .ToListAsync(); // ✅ Chuyển sang List
+                .ToListAsync();
 
-            return userIds.FirstOrDefault(); // ✅ Lấy phần tử đầu tiên từ List
+            int maxNumber = 0;
+
+            // Tìm số lớn nhất trong các UserId có cùng prefix
+            foreach (var userId in userIds)
+            {
+                if (userId.Length == specialtyPrefix.Length + 3) // Format: XX000 (prefix + 3 số)
+                {
+                    string numericPart = userId.Substring(specialtyPrefix.Length); // Lấy 3 số cuối
+                    if (int.TryParse(numericPart, out int number))
+                    {
+                        maxNumber = Math.Max(maxNumber, number);
+                    }
+                }
+            }
+
+            // Tạo UserId mới với số tiếp theo
+            int nextNumber = maxNumber + 1;
+            return $"{specialtyPrefix}{nextNumber:D6}"; // Format: GO001, GO002...
         }
-        private async Task<bool> IsUserIdExists(string userId)
+
+        /// <summary>
+        /// Lấy prefix cho specialty từ tên specialty
+        /// VD: "Ground Operation" → "GO", "Information Technology" → "IT"
+        /// </summary>
+        /// <param name="specialtyName">Tên specialty</param>
+        /// <returns>Prefix 2 ký tự</returns>
+        private string GetSpecialtyPrefix(string specialtyName)
         {
-            return await _unitOfWork.UserRepository.GetQuery().AnyAsync(u => u.UserId == userId);
+            if (string.IsNullOrWhiteSpace(specialtyName))
+                return "US"; // Default prefix
+
+            // Tách các từ và lấy chữ cái đầu
+            var words = specialtyName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            if (words.Length >= 2)
+            {
+                // Lấy chữ cái đầu của 2 từ đầu tiên
+                return $"{words[0][0]}{words[1][0]}".ToUpper();
+            }
+            else if (words.Length == 1)
+            {
+                // Nếu chỉ có 1 từ, lấy 2 ký tự đầu
+                return words[0].Length >= 2 ?
+                    words[0].Substring(0, 2).ToUpper() :
+                    words[0].ToUpper().PadRight(2, 'X');
+            }
+
+            return "US"; // Default prefix
         }
+
         private async Task<bool> IsUsernameExists(string username)
         {
             return await _unitOfWork.UserRepository.ExistsAsync(u => u.Username == username);
