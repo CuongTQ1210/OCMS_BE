@@ -88,11 +88,6 @@ namespace OCMS_Services.Service
             if (subject == null || classInfo == null)
                 throw new Exception("Subject or Class not found.");
 
-            // Get the course information for the class
-            var course = await _unitOfWork.CourseRepository.GetByIdAsync(classInfo.ClassId);
-            if (course == null)
-                throw new Exception("Course not found for the class.");
-
             var instructorAssign = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
                 ia => ia.SubjectId == traineeAssign.ClassSubject.SubjectSpecialty.SubjectId && ia.InstructorId == gradedByUserId);
             if (instructorAssign == null)
@@ -101,10 +96,6 @@ namespace OCMS_Services.Service
             var schedule = await _trainingScheduleRepository.GetSchedulesByClassSubjectIdAsync(traineeAssign.ClassSubjectId);
             if (schedule == null)
                 throw new InvalidOperationException("ClassSubject does not have any training schedule.");
-
-            if (course.Status == CourseStatus.Pending || course.Status == CourseStatus.Rejected ||
-                course.Progress == Progress.NotYet || course.Progress == Progress.Completed)
-                throw new InvalidOperationException("Course isn't suitable to create grade.");
 
             // Check if the trainee already has a grade
             var existingGrade = await _unitOfWork.GradeRepository.GetFirstOrDefaultAsync(g => g.TraineeAssignID == traineeAssign.TraineeAssignId);
@@ -119,29 +110,17 @@ namespace OCMS_Services.Service
             grade.EvaluationDate = DateTime.UtcNow;
             grade.TraineeAssignID = traineeAssign.TraineeAssignId;
 
-            var passScore = subject.PassingScore;
-            grade.TotalScore = CalculateTotalScore(grade);
-
-            grade.gradeStatus = (grade.ParticipantScore == 0 || grade.AssignmentScore == 0)
-                ? GradeStatus.Fail
-                : grade.TotalScore >= passScore ? GradeStatus.Pass : GradeStatus.Fail;
+            // Set initial scores to -1
+            grade.ParticipantScore = -1;
+            grade.AssignmentScore = -1;
+            grade.FinalExamScore = -1;
+            grade.FinalResitScore = -1;
+            grade.TotalScore = -1;
+            grade.gradeStatus = GradeStatus.Pending;
 
             await _unitOfWork.GradeRepository.AddAsync(grade);
-
-            // Update the TraineeAssign with the reference to this grade
-            //traineeAssign.GradeId = grade.GradeId;
             await _unitOfWork.TraineeAssignRepository.UpdateAsync(traineeAssign);
-
             await _unitOfWork.SaveChangesAsync();
-
-            // If grade is passing, check course completion status
-            if (grade.gradeStatus == GradeStatus.Pass)
-            {
-                await CheckAndProcessCourseCompletion(course.CourseId, traineeAssign.TraineeId, gradedByUserId);
-            }
-
-            await _unitOfWork.SaveChangesAsync();
-            await _progressTrackingService.CheckAndUpdateClassSubjectStatus(traineeAssign.ClassSubjectId);
 
             return grade.GradeId;
         }
@@ -195,12 +174,12 @@ namespace OCMS_Services.Service
             await ValidateGradeDto(dto);
 
             _mapper.Map(dto, existing);
+            
             existing.TotalScore = CalculateTotalScore(existing);
             var passScore = subject.PassingScore;
 
-            existing.gradeStatus = (existing.ParticipantScore == 0 || existing.AssignmentScore == 0)
-                ? GradeStatus.Fail
-                : existing.TotalScore >= passScore ? GradeStatus.Pass : GradeStatus.Fail;
+            // Update grade status based on total score
+            existing.gradeStatus = existing.TotalScore >= passScore ? GradeStatus.Pass : GradeStatus.Fail;
 
             existing.UpdateDate = DateTime.UtcNow;
             existing.GradedByInstructorId = gradedByUserId;

@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using OCMS_BOs.Entities;
 using OCMS_BOs.ResponseModel;
 using OCMS_Repositories.IRepository;
@@ -25,6 +25,7 @@ namespace OCMS_Services.Service
         private readonly ICandidateRepository _candidateRepository;
         private readonly ICourseRepository _courseRepository;
         private readonly ITraineeAssignRepository _traineeAssignRepository;
+        private readonly IGradeService _gradeService;
 
         public TraineeAssignService(
             UnitOfWork unitOfWork,
@@ -33,7 +34,8 @@ namespace OCMS_Services.Service
             IUserRepository userRepository,
             ICandidateRepository candidateRepository,
             ICourseRepository courseRepository,
-            ITraineeAssignRepository traineeAssignRepository)
+            ITraineeAssignRepository traineeAssignRepository,
+            IGradeService gradeService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
@@ -42,6 +44,7 @@ namespace OCMS_Services.Service
             _candidateRepository = candidateRepository;
             _courseRepository = courseRepository;
             _traineeAssignRepository = traineeAssignRepository;
+            _gradeService = gradeService;
         }
 
         #region Get All Trainee Assignments

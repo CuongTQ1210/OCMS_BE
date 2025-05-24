@@ -30,6 +30,7 @@ namespace OCMS_Services.Service
         private readonly ICourseRepository _courseRepository;
         private readonly IInstructorAssignmentRepository _instructorAssignmentRepository;
         private readonly ITraineeAssignRepository _traineeAssignRepository;
+        private readonly IGradeService _gradeService;
         public RequestService(
             UnitOfWork unitOfWork,
             IMapper mapper,
@@ -40,7 +41,8 @@ namespace OCMS_Services.Service
             ITrainingScheduleRepository trainingScheduleRepository,
             ICourseRepository courseRepository,
             IInstructorAssignmentRepository instructorAssignmentRepository,
-            ITraineeAssignRepository traineeAssignRepository)
+            ITraineeAssignRepository traineeAssignRepository,
+            IGradeService gradeService)
         {
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
@@ -52,6 +54,7 @@ namespace OCMS_Services.Service
             _courseRepository = courseRepository ?? throw new ArgumentNullException(nameof(courseRepository));
             _instructorAssignmentRepository = instructorAssignmentRepository ?? throw new ArgumentNullException(nameof(instructorAssignmentRepository));
             _traineeAssignRepository = traineeAssignRepository ?? throw new ArgumentNullException(nameof(traineeAssignRepository));
+            _gradeService = gradeService ?? throw new ArgumentNullException(nameof(gradeService));
         }
         public RequestService(UnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService, IUserRepository userRepository, ICandidateRepository candidateRepository)
         {
@@ -726,6 +729,19 @@ namespace OCMS_Services.Service
                                 traineeAssign.ApprovalDate = DateTime.UtcNow;
 
                                 await _unitOfWork.TraineeAssignRepository.UpdateAsync(traineeAssign);
+
+                                // Create new grade for the approved trainee assignment
+                                var gradeDto = new GradeDTO
+                                {
+                                    TraineeAssignID = traineeAssign.TraineeAssignId,
+                                    ParticipantScore = -1,
+                                    AssignmentScore = -1,
+                                    FinalExamScore = -1,
+                                    FinalResitScore = -1,
+                                    Remarks = "Grade initialized after assignment approval"
+                                };
+
+                                await _gradeService.CreateAsync(gradeDto, approvedByUserId);
                             }
 
                             actionSuccessful = true;
@@ -746,10 +762,25 @@ namespace OCMS_Services.Service
 
                             if (traineeAssign.RequestStatus != RequestStatus.Pending)
                                 throw new Exception("TraineeAssign is not in a pending state.");
+
                             traineeAssign.RequestStatus = RequestStatus.Approved;
                             traineeAssign.ApproveByUserId = approvedByUserId;
                             traineeAssign.ApprovalDate = DateTime.UtcNow;
                             await _unitOfWork.TraineeAssignRepository.UpdateAsync(traineeAssign);
+
+                            // Create new grade for the approved trainee assignment
+                            var gradeDto = new GradeDTO
+                            {
+                                TraineeAssignID = traineeAssign.TraineeAssignId,
+                                ParticipantScore = -1,
+                                AssignmentScore = -1,
+                                FinalExamScore = -1,
+                                FinalResitScore = -1,
+                                Remarks = "Grade initialized after assignment approval"
+                            };
+
+                            await _gradeService.CreateAsync(gradeDto, approvedByUserId);
+
                             actionSuccessful = true;
                             break;
                         }
