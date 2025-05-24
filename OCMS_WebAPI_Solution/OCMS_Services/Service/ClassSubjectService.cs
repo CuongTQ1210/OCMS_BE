@@ -50,6 +50,11 @@ namespace OCMS_Services.Service
             {
                 throw new KeyNotFoundException($"Instructor assignment hasn't been approved yet.");
             }
+            if (instructorAssignment.SubjectId != subjectSpecialty.SubjectId)
+            {
+                throw new InvalidOperationException($"Instructor with id {instructorAssignment.InstructorId} can't teach {subjectSpecialty.SubjectId}.");
+            }
+
             // Check if class-subject combination already exists
             bool exists = await _unitOfWork.ClassSubjectRepository.AnyAsync(
                 cs => cs.ClassId == dto.ClassId && cs.SubjectSpecialtyId == dto.SubjectSpecialtyId
