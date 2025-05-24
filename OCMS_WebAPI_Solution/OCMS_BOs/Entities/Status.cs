@@ -84,7 +84,9 @@ namespace OCMS_BOs.Entities
     }
     public enum GradeStatus
     {
-        Pass = 1, Fail = 0
+        Pending = -1,
+        Pass = 1, 
+        Fail = 0
     }
     public enum GradeComponentType
     {
