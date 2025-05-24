@@ -396,7 +396,7 @@ namespace OCMS_BOs.Helper
             // Trainee Assignment Mappings
             CreateMap<TraineeAssign, TraineeAssignModel>()
                 .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => src.RequestStatus.ToString()))
-                .ForMember(dest => dest.ClassId, opt => opt.Ignore()) // No direct ClassId reference
+                .ForMember(dest => dest.ClassId, opt => opt.MapFrom(src => src.ClassSubject.ClassId))
                 .ReverseMap()
                 .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => Enum.Parse<RequestStatus>(src.RequestStatus)))
                 .ForMember(dest => dest.AssignDate, opt => opt.MapFrom(src => src.AssignDate == default ? DateTime.Now : src.AssignDate))

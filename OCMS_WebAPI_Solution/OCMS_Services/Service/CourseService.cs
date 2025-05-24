@@ -602,23 +602,31 @@ namespace OCMS_Services.Service
                                 var subject = subjectDict[subjectNames[subjectIndex]];
                                 var key = (subject.SubjectId, specialty.SpecialtyId);
 
-                                // Check if we already created this SubjectSpecialty
+                                // Check if we already created this SubjectSpecialty in this import session
                                 if (!subjectSpecialtyDict.TryGetValue(key, out var subjectSpecialty))
                                 {
-                                    // Generate new SubjectSpecialty ID
-                                    string subjectSpecialtyId = await GenerateSubjectSpecialtyId(subject.SubjectName, specialty.SpecialtyName);
+                                    // Check if SubjectSpecialty already exists in the database
+                                    subjectSpecialty = await _unitOfWork.SubjectSpecialtyRepository.FirstOrDefaultAsync(
+                                        ss => ss.SubjectId == subject.SubjectId && ss.SpecialtyId == specialty.SpecialtyId);
 
-                                    // Create new SubjectSpecialty
-                                    subjectSpecialty = new SubjectSpecialty
+                                    if (subjectSpecialty == null)
                                     {
-                                        SubjectSpecialtyId = subjectSpecialtyId,
-                                        SubjectId = subject.SubjectId,
-                                        SpecialtyId = specialty.SpecialtyId,
-                                        Subject = subject,
-                                        Specialty = specialty
-                                    };
-                                    await _unitOfWork.SubjectSpecialtyRepository.AddAsync(subjectSpecialty);
-                                    await _unitOfWork.SaveChangesAsync(); // Save to get the ID
+                                        // Generate new SubjectSpecialty ID
+                                        string subjectSpecialtyId = await GenerateSubjectSpecialtyId(subject.SubjectName, specialty.SpecialtyName);
+
+                                        // Create new SubjectSpecialty
+                                        subjectSpecialty = new SubjectSpecialty
+                                        {
+                                            SubjectSpecialtyId = subjectSpecialtyId,
+                                            SubjectId = subject.SubjectId,
+                                            SpecialtyId = specialty.SpecialtyId,
+                                            Subject = subject,
+                                            Specialty = specialty
+                                        };
+                                        await _unitOfWork.SubjectSpecialtyRepository.AddAsync(subjectSpecialty);
+                                        await _unitOfWork.SaveChangesAsync(); // Save to get the ID
+                                    }
+                                    // Store in the import session dictionary for reuse
                                     subjectSpecialtyDict[key] = subjectSpecialty;
                                 }
 
