@@ -88,10 +88,6 @@ namespace OCMS_Services.Service
             if (subject == null || classInfo == null)
                 throw new Exception("Subject or Class not found.");
 
-            var instructorAssign = await _unitOfWork.InstructorAssignmentRepository.GetAsync(
-                ia => ia.SubjectId == traineeAssign.ClassSubject.SubjectSpecialty.SubjectId && ia.InstructorId == gradedByUserId);
-            if (instructorAssign == null)
-                throw new InvalidOperationException("User is not authorized to grade this subject.");
 
             var schedule = await _trainingScheduleRepository.GetSchedulesByClassSubjectIdAsync(traineeAssign.ClassSubjectId);
             if (schedule == null)
