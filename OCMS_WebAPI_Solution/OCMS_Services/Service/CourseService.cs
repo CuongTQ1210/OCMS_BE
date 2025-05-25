@@ -169,6 +169,16 @@ namespace OCMS_Services.Service
         }
         #endregion
 
+        #region Get Course by Class Id
+        public async Task<CourseModel>GetCourseByClassIdAsync(string classId)
+        {
+            if (string.IsNullOrEmpty(classId))
+                throw new ArgumentException("Class ID cannot be empty.");
+            var course = await _courseRepository.GetCourseByClassIdAsync(classId);
+            return _mapper.Map<CourseModel>(course);
+        }
+        #endregion
+
         #region Delete Course
         public async Task<bool> DeleteCourseAsync(string id)
         {
