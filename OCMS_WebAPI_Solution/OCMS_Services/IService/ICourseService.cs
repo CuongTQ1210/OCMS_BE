@@ -21,5 +21,6 @@ namespace OCMS_Services.IService
         Task<ImportResult> ImportCoursesAsync(Stream excelStream, string importedByUserId);
 
         Task<CourseModel> AssignSubjectSpecialtyAsync(string courseId, string subjectSpecialtyId);
+        Task<CourseModel> GetCourseByClassIdAsync(string classId);
     }
 }

@@ -44,7 +44,7 @@ namespace OCMS_Services.Service
             }
             // Create the class entity
             var classEntity = new Class
-            {
+            {   
                 ClassId = classId,
                 ClassName = dto.ClassName
             };

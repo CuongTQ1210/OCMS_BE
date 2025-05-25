@@ -105,10 +105,8 @@ namespace OCMS_Services.Service
                 ClassSubjectId = classSubject.ClassSubjectId,
                 ClassId = classSubject.ClassId,
                 ClassName = classEntity?.ClassName,
-                SubjectId = subjectSpecialty?.SubjectId, // Access SubjectId through SubjectSpecialty
-                SubjectName = subject?.SubjectName,
+                SubjectSpecialtyId = classSubject.SubjectSpecialtyId,
                 InstructorAssignmentID = classSubject.InstructorAssignmentID,
-                InstructorName = instructor?.FullName
             };
 
             return model;

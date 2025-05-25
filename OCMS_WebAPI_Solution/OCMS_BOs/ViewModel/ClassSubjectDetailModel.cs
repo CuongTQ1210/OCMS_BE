@@ -16,6 +16,8 @@ namespace OCMS_BOs.ViewModel
         public string Description { get; set; }
         public int Credits { get; set; }
         public double PassingScore { get; set; }
+        public string SpecialtyId { get; set; }
+        public string SpecialtyName { get; set; }
         public string InstructorAssignmentID { get; set; }
         public string InstructorId { get; set; }
         public string InstructorName { get; set; }

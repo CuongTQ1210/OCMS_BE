@@ -56,8 +56,11 @@ namespace OCMS_Repositories.Repository
             return await _context.ClassSubjects
                 .Include(cs => cs.Class)
                 .Include(cs => cs.SubjectSpecialty)
+                    .ThenInclude(ss => ss.Subject)
+                .Include(cs => cs.SubjectSpecialty)
+                    .ThenInclude(ss => ss.Specialty)
                 .Include(cs => cs.InstructorAssignment)
-                .ThenInclude(ia => ia.Instructor)
+                    .ThenInclude(ia => ia.Instructor)
                 .Include(cs => cs.traineeAssigns)
                 .Include(cs => cs.Schedules)
                 .FirstOrDefaultAsync(cs => cs.ClassSubjectId == id);
