@@ -119,6 +119,18 @@ builder.Services.AddScoped<ISubjectSpecialtyService, SubjectSpecialtyService>();
 // Register Lazy<T> factories
 builder.Services.AddScoped(provider => new Lazy<ITrainingScheduleService>(() => provider.GetRequiredService<ITrainingScheduleService>()));
 
+// Register services with lazy loading to break circular dependencies
+builder.Services.AddScoped<IRequestService, RequestService>();
+builder.Services.AddScoped<IGradeService, GradeService>();
+builder.Services.AddScoped<IDecisionService, DecisionService>();
+builder.Services.AddScoped<IDecisionTemplateService, DecisionTemplateService>();
+
+// Register services with lazy loading
+builder.Services.AddScoped(sp => new Lazy<IRequestService>(() => sp.GetRequiredService<IRequestService>()));
+builder.Services.AddScoped(sp => new Lazy<IGradeService>(() => sp.GetRequiredService<IGradeService>()));
+builder.Services.AddScoped(sp => new Lazy<IDecisionService>(() => sp.GetRequiredService<IDecisionService>()));
+builder.Services.AddScoped(sp => new Lazy<IDecisionTemplateService>(() => sp.GetRequiredService<IDecisionTemplateService>()));
+
 builder.Services.AddMemoryCache();
 
 builder.Services.AddAuthentication(options =>

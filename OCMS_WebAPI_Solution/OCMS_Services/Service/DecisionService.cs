@@ -26,24 +26,27 @@ namespace OCMS_Services.Service
         private readonly ICourseRepository _courseRepository;
         private readonly INotificationService _notificationService;
         private readonly IMapper _mapper;
-        private readonly IDecisionTemplateService _templateService;
+        private readonly Lazy<IDecisionTemplateService> _decisionTemplateService;
+        private readonly Lazy<IRequestService> _requestService;
 
         public DecisionService(
-            IDecisionTemplateService templateService,
+            Lazy<IDecisionTemplateService> decisionTemplateService,
             IBlobService blobService,
             UnitOfWork unitOfWork,
             IUserRepository userRepository,
             ICourseRepository courseRepository,
             INotificationService notificationService,
-            IMapper mapper)
+            IMapper mapper,
+            Lazy<IRequestService> requestService)
         {
-            _templateService = templateService ?? throw new ArgumentNullException(nameof(templateService));
+            _decisionTemplateService = decisionTemplateService ?? throw new ArgumentNullException(nameof(decisionTemplateService));
             _blobService = blobService ?? throw new ArgumentNullException(nameof(blobService));
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
             _courseRepository = courseRepository ?? throw new ArgumentNullException(nameof(courseRepository));
             _notificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+            _requestService = requestService ?? throw new ArgumentNullException(nameof(requestService));
         }
 
         #region Create Decision

@@ -24,11 +24,11 @@ namespace OCMS_Services.Service
         private readonly ITrainingScheduleRepository _trainingScheduleRepository;
         private readonly IDecisionService _decisionService;
         private readonly IProgressTrackingService _progressTrackingService;
-        private readonly IRequestService _requestService;
+        private readonly Lazy<IRequestService> _requestService;
 
         public GradeService(UnitOfWork unitOfWork, IMapper mapper, ICertificateService certificateService,
             ITrainingScheduleRepository trainingScheduleRepository, IDecisionService decisionService,
-            IProgressTrackingService progressTrackingService, IRequestService requestService)
+            IProgressTrackingService progressTrackingService, Lazy<IRequestService> requestService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
@@ -225,7 +225,7 @@ namespace OCMS_Services.Service
                         Description = $"Request to revoke certificate for TraineeAssignID '{existing.TraineeAssignID}' in Course '{course.CourseId}' due to failed grade status.",
                         Notes = "Automated revoke request due to grade failure."
                     };
-                    await _requestService.CreateRequestAsync(requestDto, gradedByUserId);
+                    await _requestService.Value.CreateRequestAsync(requestDto, gradedByUserId);
                 }
             }
 
