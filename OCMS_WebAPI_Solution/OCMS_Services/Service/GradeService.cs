@@ -98,7 +98,6 @@ namespace OCMS_Services.Service
             if (existingGrade != null)
                 throw new InvalidOperationException("Grade for this trainee assignment already exists.");
 
-            await ValidateGradeDto(dto);
 
             var grade = _mapper.Map<Grade>(dto);
             grade.GradeId = $"G-{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
