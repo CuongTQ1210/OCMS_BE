@@ -38,15 +38,18 @@ namespace OCMS_Services.Service
             var existingClass = await _unitOfWork.ClassRepository.GetByIdAsync(classId);
             if (existingClass != null)
                 throw new InvalidOperationException($"Class with ID {classId} already exists.");
-            if(existingClass.ClassName == dto.ClassName)
+
+            if (existingClass != null && existingClass.ClassName == dto.ClassName)
             {
                 throw new InvalidOperationException($"Class with this name {dto.ClassName} already exists.");
             }
+
             // Create the class entity
             var classEntity = new Class
-            {   
+            {
                 ClassId = classId,
-                ClassName = dto.ClassName
+                ClassName = dto.ClassName,
+                CourseId = dto.CourseId,
             };
 
             await _unitOfWork.ClassRepository.AddAsync(classEntity);
