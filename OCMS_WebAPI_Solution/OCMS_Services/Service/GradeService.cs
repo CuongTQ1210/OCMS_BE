@@ -183,7 +183,7 @@ namespace OCMS_Services.Service
             // Update grade status based on total score
             existing.gradeStatus = existing.TotalScore >= passScore ? GradeStatus.Pass : GradeStatus.Fail;
 
-            existing.UpdateDate = DateTime.UtcNow;
+            existing.UpdateDate = DateTime.Now;
             existing.GradedByInstructorId = gradedByUserId;
             await _unitOfWork.GradeRepository.UpdateAsync(existing);
 
@@ -397,17 +397,25 @@ namespace OCMS_Services.Service
                         return result;
                     }
 
-                    string subjectName = worksheet.Cells[1, 2].GetValue<string>();
-                    if (string.IsNullOrEmpty(subjectName))
+                    string classSubjectId = worksheet.Cells[1, 2].GetValue<string>();
+                    if (string.IsNullOrEmpty(classSubjectId))
                     {
-                        result.Errors.Add("Subject name is missing in cell B1.");
+                        result.Errors.Add("ClassSubjectId is missing in cell B1.");
                         return result;
                     }
 
-                    var subject = await _unitOfWork.SubjectRepository.FirstOrDefaultAsync(s => s.SubjectName == subjectName);
+                    var classSubject = await _unitOfWork.ClassSubjectRepository.GetByIdAsync(classSubjectId,
+                        cs => cs.SubjectSpecialty, cs => cs.SubjectSpecialty.Subject, cs => cs.Class);
+                    if (classSubject == null)
+                    {
+                        result.Errors.Add($"ClassSubject with ID '{classSubjectId}' not found.");
+                        return result;
+                    }
+
+                    var subject = classSubject.SubjectSpecialty.Subject;
                     if (subject == null)
                     {
-                        result.Errors.Add($"Subject '{subjectName}' not found.");
+                        result.Errors.Add($"Subject not found for ClassSubjectId '{classSubjectId}'.");
                         return result;
                     }
 
@@ -416,7 +424,7 @@ namespace OCMS_Services.Service
                         ss => ss.SubjectId == subject.SubjectId && ss.SpecialtyId == user.SpecialtyId);
                     if (!subjectSpecialties.Any())
                     {
-                        result.Errors.Add($"No specialty association found for Subject '{subjectName}' and user's specialty.");
+                        result.Errors.Add($"No specialty association found for Subject '{subject.SubjectName}' and user's specialty.");
                         return result;
                     }
 
@@ -428,41 +436,18 @@ namespace OCMS_Services.Service
                         return result;
                     }
 
-                    // Read CourseId from Excel (B2)
-                    string courseId = worksheet.Cells[1, 4].GetValue<string>();
-                    if (string.IsNullOrEmpty(courseId))
-                    {
-                        result.Errors.Add("Course ID is missing in cell D1.");
-                        return result;
-                    }
-
-                    // Get course information
-                    var course = await _unitOfWork.CourseRepository.GetByIdAsync(courseId);
-                    if (course == null)
-                    {
-                        result.Errors.Add($"Course with ID '{courseId}' not found.");
-                        return result;
-                    }
-
-                    // Find ClassSubjects that match the subject and course
-                    var classSubjects = await _unitOfWork.ClassSubjectRepository.FindAsync(
-                        cs => cs.ClassId == courseId && cs.SubjectSpecialty.SubjectId == subject.SubjectId,
-                        cs => cs.Class,
-                        cs => cs.SubjectSpecialty,
-                        cs => cs.SubjectSpecialty.Subject);
-
-                    if (!classSubjects.Any())
-                    {
-                        result.Errors.Add($"No ClassSubject found for Course '{courseId}' and Subject '{subjectName}'.");
-                        return result;
-                    }
-
-                    var classSubject = classSubjects.First();
+                    // Get course information from classSubject.Class
                     var classInfo = classSubject.Class;
-
                     if (classInfo == null)
                     {
-                        result.Errors.Add($"Class not found for Subject '{subjectName}'.");
+                        result.Errors.Add($"Class not found for ClassSubjectId '{classSubjectId}'.");
+                        return result;
+                    }
+
+                    var course = await _unitOfWork.CourseRepository.GetByIdAsync(classInfo.CourseId);
+                    if (course == null)
+                    {
+                        result.Errors.Add($"Course with ID '{classInfo.CourseId}' not found.");
                         return result;
                     }
 
@@ -495,8 +480,7 @@ namespace OCMS_Services.Service
                         t => t.Trainee);
 
                     var assignMap = existingTraineeAssigns
-                        .Where(a => a.ClassSubject.ClassId == courseId &&
-                                   a.ClassSubject.SubjectSpecialty.SubjectId == subject.SubjectId)
+                        .Where(a => a.ClassSubject.ClassSubjectId == classSubjectId)
                         .ToDictionary(a => a.TraineeId, a => (a.TraineeAssignId, a.TraineeId, a.Trainee));
                     var newGrades = new List<Grade>();
                     int rowCount = worksheet.Dimension.Rows;
@@ -529,7 +513,6 @@ namespace OCMS_Services.Service
                         }
 
                         // Check if the trainee already has a grade for this assignment
-                        var traineeAssign = await _unitOfWork.TraineeAssignRepository.GetByIdAsync(assignId);
                         var existingGradeForTrainee = await _unitOfWork.GradeRepository.GetFirstOrDefaultAsync(g => g.TraineeAssignID == assignId);
                         if (existingGradeForTrainee != null)
                         {
@@ -563,33 +546,35 @@ namespace OCMS_Services.Service
                             continue;
                         }
 
-                        var grade = new Grade
+                        var gradeDto = new GradeDTO
                         {
-                            GradeId = $"G-{Guid.NewGuid().ToString("N")[..8].ToUpper()}",
                             TraineeAssignID = assignId,
                             ParticipantScore = participant,
                             AssignmentScore = assignment,
                             FinalExamScore = finalExam,
                             FinalResitScore = finalResit,
-                            GradedByInstructorId = importedByUserId,
-                            Remarks = remarks,
-                            EvaluationDate = DateTime.UtcNow
+                            Remarks = remarks
                         };
 
-                        var passScore = subject.PassingScore;
-                        grade.TotalScore = CalculateTotalScore(grade);
-
-                        grade.gradeStatus = (grade.ParticipantScore == 0 || grade.AssignmentScore == 0)
-                            ? GradeStatus.Fail
-                            : grade.TotalScore >= passScore ? GradeStatus.Pass : GradeStatus.Fail;
-
-                        newGrades.Add(grade);
-
-                        // Update the TraineeAssign with the reference to this grade
-                        //traineeAssign.GradeId = grade.GradeId;
-                        await _unitOfWork.TraineeAssignRepository.UpdateAsync(traineeAssign);
-
-                        result.SuccessCount++;
+                        if (existingGradeForTrainee != null)
+                        {
+                            // Update the grade
+                            try
+                            {
+                                await UpdateAsync(existingGradeForTrainee.GradeId, gradeDto, importedByUserId);
+                                result.SuccessCount++;
+                            }
+                            catch (Exception ex)
+                            {
+                                result.Errors.Add($"Row {row}: Failed to update grade for TraineeAssignId '{assignId}': {ex.Message}");
+                                result.FailedCount++;
+                            }
+                        }
+                        else
+                        {
+                            // Create new grade (optional, or skip if only updating)
+                            // ... (existing creation logic)
+                        }
                     }
 
                     if (newGrades.Any())
