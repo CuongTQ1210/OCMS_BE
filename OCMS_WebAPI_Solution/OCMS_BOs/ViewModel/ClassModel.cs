@@ -10,5 +10,6 @@ namespace OCMS_BOs.ViewModel
     {
         public string ClassId { get; set; }
         public string ClassName { get; set; }
+        public string CourseId { get; set; }
     }
 }

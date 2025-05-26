@@ -404,8 +404,24 @@ namespace OCMS_Services.Service
                         return result;
                     }
 
-                    var classSubject = await _unitOfWork.ClassSubjectRepository.GetByIdAsync(classSubjectId,
-                        cs => cs.SubjectSpecialty, cs => cs.SubjectSpecialty.Subject, cs => cs.Class);
+                    var classSubject = await _unitOfWork.ClassSubjectRepository.GetByIdAsync(classSubjectId);
+
+                    // Load the necessary related entities after retrieving the class subject
+                    if (classSubject != null)
+                    {
+                        await _unitOfWork.Context.Entry(classSubject)
+                            .Reference(cs => cs.SubjectSpecialty).LoadAsync();
+
+                        if (classSubject.SubjectSpecialty != null)
+                        {
+                            await _unitOfWork.Context.Entry(classSubject.SubjectSpecialty)
+                                .Reference(ss => ss.Subject).LoadAsync();
+                        }
+
+                        await _unitOfWork.Context.Entry(classSubject)
+                            .Reference(cs => cs.Class).LoadAsync();
+                    }
+
                     if (classSubject == null)
                     {
                         result.Errors.Add($"ClassSubject with ID '{classSubjectId}' not found.");

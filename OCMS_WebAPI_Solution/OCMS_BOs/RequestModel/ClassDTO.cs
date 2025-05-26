@@ -9,5 +9,6 @@ namespace OCMS_BOs.RequestModel
     public class ClassDTO
     {
         public string ClassName { get; set; }
+        public string CourseId { get; set; }
     }
 }
