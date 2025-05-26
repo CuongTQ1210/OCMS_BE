@@ -523,20 +523,14 @@ namespace OCMS_Services.Service
                         string traineeUserId = assignData.TraineeId;
                         User traineeUser = assignData.Trainee;
 
-                        if (traineeUser.SpecialtyId != user.SpecialtyId)
+                        if (traineeUser.SpecialtyId != classSubject.SubjectSpecialty.SpecialtyId)
                         {
-                            result.Warnings.Add($"Row {row}: Trainee '{traineeId}' specialty ({traineeUser.SpecialtyId}) doesn't match course specialty ({user.SpecialtyId}).");
+                            result.Warnings.Add($"Row {row}: Trainee '{traineeId}' specialty ({traineeUser.SpecialtyId}) doesn't match subject specialty ({classSubject.SubjectSpecialty.SpecialtyId}).");
                         }
 
                         // Check if the trainee already has a grade for this assignment
                         var existingGradeForTrainee = await _unitOfWork.GradeRepository.GetFirstOrDefaultAsync(g => g.TraineeAssignID == assignId);
-                        if (existingGradeForTrainee != null)
-                        {
-                            result.Errors.Add($"Row {row}: Grade already exists for TraineeAssignId '{assignId}'.");
-                            result.FailedCount++;
-                            continue;
-                        }
-
+                        
                         bool validScores = true;
 
                         double TryParseScore(int col)
