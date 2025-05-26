@@ -498,7 +498,7 @@ namespace OCMS_Services.Service
                     var assignMap = existingTraineeAssigns
                         .Where(a => a.ClassSubject.ClassSubjectId == classSubjectId)
                         .ToDictionary(a => a.TraineeId, a => (a.TraineeAssignId, a.TraineeId, a.Trainee));
-                    var newGrades = new List<Grade>();
+                    var updateGrades = new List<Grade>();
                     int rowCount = worksheet.Dimension.Rows;
                     result.TotalRecords = rowCount - 2;
 
@@ -587,15 +587,18 @@ namespace OCMS_Services.Service
                         }
                     }
 
-                    if (newGrades.Any())
+                    if (updateGrades.Any())
                     {
-                        // Add all the new grades
-                        await _unitOfWork.GradeRepository.AddRangeAsync(newGrades);
+                        // Update all the grades
+                        foreach (var grade in updateGrades)
+                        {
+                            await _unitOfWork.GradeRepository.UpdateAsync(grade);
+                        }
                         await _unitOfWork.SaveChangesAsync();
 
                         try
                         {
-                            var passingGrades = newGrades.Where(g => g.gradeStatus == GradeStatus.Pass).ToList();
+                            var passingGrades = updateGrades.Where(g => g.gradeStatus == GradeStatus.Pass).ToList();
                             if (passingGrades.Any())
                             {
                                 // Process all grades first
@@ -613,7 +616,7 @@ namespace OCMS_Services.Service
                         }
                         catch (Exception ex)
                         {
-                            result.Warnings.Add($"Grades were imported successfully, but certificate/decision generation failed: {ex.Message}");
+                            result.Warnings.Add($"Grades were updated successfully, but certificate/decision generation failed: {ex.Message}");
                         }
                     }
                 }
