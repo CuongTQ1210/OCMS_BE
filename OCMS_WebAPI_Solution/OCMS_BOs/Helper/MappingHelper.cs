@@ -428,9 +428,6 @@ namespace OCMS_BOs.Helper
             // ClassModel to Class reverse mapping
             CreateMap<ClassModel, Class>();
 
-            // ClassModel to Class reverse mapping
-            CreateMap<ClassModel, Class>();
-
             // ClassSubject to ClassSubjectModel mapping
             CreateMap<ClassSubject, ClassSubjectModel>()
                 .ForMember(dest => dest.ClassSubjectId, opt => opt.MapFrom(src => src.ClassSubjectId))
