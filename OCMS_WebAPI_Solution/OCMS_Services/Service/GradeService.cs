@@ -186,6 +186,7 @@ namespace OCMS_Services.Service
             existing.UpdateDate = DateTime.Now;
             existing.GradedByInstructorId = gradedByUserId;
             await _unitOfWork.GradeRepository.UpdateAsync(existing);
+            await _unitOfWork.SaveChangesAsync();
 
             if (existing.gradeStatus == GradeStatus.Pass)
             {
@@ -231,7 +232,6 @@ namespace OCMS_Services.Service
                 }
             }
 
-            await _unitOfWork.SaveChangesAsync();
             await _progressTrackingService.CheckAndUpdateClassSubjectStatus(assignTrainee.ClassSubjectId);
 
             return true;
@@ -667,7 +667,10 @@ namespace OCMS_Services.Service
                 t => t.ClassSubject.SubjectSpecialty.Subject);
             if (traineeAssign == null)
                 throw new InvalidOperationException("Trainee assignment not found.");
-
+            if(traineeAssign.RequestStatus != RequestStatus.Approved)
+            {
+                throw new InvalidOperationException("Trainee assignment not approved yet.");
+            }
             if (traineeAssign.ClassSubject?.SubjectSpecialty.SubjectId == null)
                 throw new InvalidOperationException("Subject not found for this trainee assignment.");
         }

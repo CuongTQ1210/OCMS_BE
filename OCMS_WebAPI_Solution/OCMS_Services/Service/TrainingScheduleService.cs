@@ -90,12 +90,22 @@ namespace OCMS_Services.Service
             var classSubject = await _unitOfWork.ClassSubjectRepository.GetAsync(
                 cs => cs.ClassSubjectId == dto.ClassSubjectId,
                 cs => cs.Class,
+                cs => cs.Class.Course,
                 cs => cs.SubjectSpecialty,
                 cs => cs.SubjectSpecialty.Subject         
             );
 
             if (classSubject == null)
                 throw new ArgumentException($"ClassSubject with ID '{dto.ClassSubjectId}' not found.");
+
+            // Check if course is approved
+            if (classSubject.Class.Course.Status != CourseStatus.Approved)
+                throw new ArgumentException($"Cannot create schedule for class '{classSubject.ClassId}' because the course '{classSubject.Class.Course.CourseId}' is not approved yet.");
+
+            // Check if schedule dates are within course dates
+            if (dto.StartDay < classSubject.Class.Course.StartDateTime || dto.EndDay > classSubject.Class.Course.EndDateTime)
+                throw new ArgumentException($"Schedule dates must be within course dates. Course runs from {classSubject.Class.Course.StartDateTime:d} to {classSubject.Class.Course.EndDateTime:d}");
+
             var instructorAssignment = await _unitOfWork.InstructorAssignmentRepository.GetByIdAsync(classSubject.InstructorAssignmentID);
             var instructor =  await _unitOfWork.UserRepository.GetByIdAsync(instructorAssignment.InstructorId);
             if (instructor == null)
@@ -122,8 +132,8 @@ namespace OCMS_Services.Service
             schedule.ScheduleID = GenerateScheduleId();
             schedule.ClassSubjectId = dto.ClassSubjectId; // Ensure this is explicitly set
             schedule.CreatedByUserId = createdByUserId;
-            schedule.CreatedDate = DateTime.UtcNow;
-            schedule.ModifiedDate = DateTime.UtcNow;
+            schedule.CreatedDate = DateTime.Now;
+            schedule.ModifiedDate = DateTime.Now;
             schedule.Status = ScheduleStatus.Pending;
 
             await _unitOfWork.TrainingScheduleRepository.AddAsync(schedule);

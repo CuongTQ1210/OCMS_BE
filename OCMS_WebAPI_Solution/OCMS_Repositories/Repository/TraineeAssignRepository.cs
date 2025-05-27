@@ -45,7 +45,7 @@ namespace OCMS_Repositories.Repository
             return await _context.TraineeAssignments
                 .Include(ta => ta.Trainee)
                 .Include(ta => ta.ClassSubject)
-                .Where(ta => ta.ClassSubject.ClassId == courseId && ta.RequestStatus == RequestStatus.Approved)
+                .Where(ta => ta.ClassSubject.Class.CourseId == courseId && ta.RequestStatus == RequestStatus.Approved)
                 .ToListAsync();
         }
         public async Task<List<TraineeAssignModel>> GetTraineeAssignmentsByRequestIdAsync(string requestId)
