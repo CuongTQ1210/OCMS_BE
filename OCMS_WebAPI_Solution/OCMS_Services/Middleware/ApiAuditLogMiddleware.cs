@@ -205,13 +205,35 @@ namespace OCMS_Services.Middleware
 
         private async Task<int> GenerateSequentialLogId(OCMSDbContext dbContext)
         {
-            // Get the last log ID from the database
-            var lastLog = await dbContext.AuditLogs
-                .OrderByDescending(l => l.LogId)
-                .FirstOrDefaultAsync();
+            // Create an execution strategy specific to this operation
+            var strategy = dbContext.Database.CreateExecutionStrategy();
 
-            // If there are no logs yet, start from 1, otherwise increment the last ID
-            return lastLog == null ? 1 : lastLog.LogId + 1;
+            // Use the strategy to execute our transaction logic
+            return await strategy.ExecuteAsync(async () =>
+            {
+                // Start a transaction within the execution strategy
+                using var transaction = await dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+                try
+                {
+                    // Get the maximum log ID from the database
+                    var maxLogId = await dbContext.AuditLogs
+                        .MaxAsync(l => (int?)l.LogId) ?? 0;
+
+                    // Increment the value by 1
+                    int newLogId = maxLogId + 1;
+
+                    // Commit the transaction
+                    await transaction.CommitAsync();
+
+                    return newLogId;
+                }
+                catch
+                {
+                    // If anything goes wrong, roll back the transaction
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            });
         }
     }
 

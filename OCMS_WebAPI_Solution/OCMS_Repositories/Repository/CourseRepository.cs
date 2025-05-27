@@ -41,6 +41,19 @@ namespace OCMS_Repositories.Repository
         //    return trainingPlan?.Course;
         //}
 
+        public async Task<Course> GetCourseByClassIdAsync(string classId)
+        {
+            return await _context.Set<Class>()
+                .Where(c => c.ClassId == classId)
+                .Include(c => c.Course)
+                    .ThenInclude(course => course.SubjectSpecialties)
+                        .ThenInclude(ss => ss.Subject)
+                .Include(c => c.Course)
+                    .ThenInclude(course => course.CreatedByUser)
+                .Select(c => c.Course)
+                .FirstOrDefaultAsync();
+        }
+
         public async Task<Course?> GetCourseWithDetailsAsync(string courseId)
         {
             var course = await _context.Courses

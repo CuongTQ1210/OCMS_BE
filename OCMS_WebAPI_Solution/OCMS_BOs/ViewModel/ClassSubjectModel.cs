@@ -11,9 +11,7 @@ namespace OCMS_BOs.ViewModel
         public string ClassSubjectId { get; set; }
         public string ClassId { get; set; }
         public string ClassName { get; set; }
-        public string SubjectId { get; set; }
-        public string SubjectName { get; set; }
+        public string SubjectSpecialtyId { get; set; }
         public string InstructorAssignmentID { get; set; }
-        public string InstructorName { get; set; }
     }
 }
