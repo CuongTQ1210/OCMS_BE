@@ -36,5 +36,6 @@ namespace OCMS_BOs.Entities
 
         // Many-to-many relationship with SubjectSpecialty
         public ICollection<SubjectSpecialty> SubjectSpecialties { get; set; }
+        public ICollection<Class> Classes { get; set; } = new List<Class>();
     }
 }

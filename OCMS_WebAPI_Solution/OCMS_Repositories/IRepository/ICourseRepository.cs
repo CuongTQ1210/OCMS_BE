@@ -14,7 +14,7 @@ namespace OCMS_Repositories.IRepository
         Task<Course?> GetLastObjectIdAsync();
 
         //Task<Course?> GetCourseByTrainingPlanIdAsync(string trainingPlanId);
-
+        Task<Course> GetCourseByClassIdAsync(string classId);
         Task<Course?> GetCourseWithDetailsAsync(string courseId);
         Task<IEnumerable<Course>> GetAllWithIncludesAsync(Func<IQueryable<Course>, IQueryable<Course>> includes);
         Task<Course> GetWithIncludesAsync(Expression<Func<Course, bool>> predicate, Func<IQueryable<Course>, IQueryable<Course>> includes);

@@ -17,14 +17,14 @@ namespace OCMS_Services.Service
     {
         private readonly UnitOfWork _unitOfWork;
         private readonly IBlobService _blobService;
-        private readonly IRequestService _requestService;
+        private readonly Lazy<IRequestService> _requestService;
         private readonly IMapper _mapper;
         private const string CONTAINER_NAME = "decision-templates";
 
         public DecisionTemplateService(
             UnitOfWork unitOfWork,
             IBlobService blobService,
-            IRequestService requestService,
+            Lazy<IRequestService> requestService,
             IMapper mapper)
         {
             _unitOfWork = unitOfWork;
@@ -80,7 +80,7 @@ namespace OCMS_Services.Service
                         Description = $"Request to approve Decision Template {template.DecisionTemplateId}",
                         Notes = "Please review the template and approve as soon as possible.",
                     };
-                    await _requestService.CreateRequestAsync(requestDto, currentUserId);
+                    await _requestService.Value.CreateRequestAsync(requestDto, currentUserId);
 
                     return response;
                 }

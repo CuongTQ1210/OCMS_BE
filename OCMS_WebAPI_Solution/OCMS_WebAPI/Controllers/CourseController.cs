@@ -300,5 +300,33 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
+
+        #region Get Course By Class ID
+        [HttpGet("by-class/{classId}")]
+        public async Task<IActionResult> GetCourseByClassId(string classId)
+        {
+            try
+            {
+                var course = await _courseService.GetCourseByClassIdAsync(classId);
+                if (course == null)
+                    return NotFound(new { success = false, message = "Course not found for the specified class." });
+                return Ok(new
+                {
+                    success = true,
+                    message = "Course retrieved successfully.",
+                    data = course
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Failed to retrieve course by class ID.",
+                    error = ex.Message
+                });
+            }
+        }
+        #endregion
     }
 }
