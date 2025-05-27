@@ -238,7 +238,7 @@ namespace OCMS_Services.Service
                 RequestId = $"REQ-{Guid.NewGuid().ToString("N")[..6].ToUpper()}",
                 RequestType = RequestType.AddTraineeAssign,
                 RequestUserId = createdByUserId,
-                RequestDate = DateTime.UtcNow,
+                RequestDate = DateTime.Now,
                 Status = RequestStatus.Pending,
                 Description = $"Assign trainee {dto.TraineeId} to ClassSubject {dto.ClassSubjectId}.",
                 Notes = $"Request to assign Trainee {dto.TraineeId} to ClassSubject {dto.ClassSubjectId}."

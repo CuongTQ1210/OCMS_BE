@@ -156,17 +156,20 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.CourseLevel, opt => opt.MapFrom(src => src.CourseLevel.ToString()));
 
             CreateMap<CourseUpdateDTO, Course>()
-                .ForMember(dest => dest.CourseId, opt => opt.Ignore())
-                .ForMember(dest => dest.CourseName, opt => opt.MapFrom(src => src.CourseName))
-                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
-                .ForMember(dest => dest.RelatedCourseId, opt => opt.MapFrom(src => src.CourseRelatedId))
-                .ForMember(dest => dest.Status, opt => opt.Ignore())
-                .ForMember(dest => dest.Progress, opt => opt.Ignore())
-                .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
-                .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
-                .ForMember(dest => dest.CreatedByUserId, opt => opt.Ignore())
-                .ForMember(dest => dest.SubjectSpecialties, opt => opt.Ignore())
-                .ForMember(dest => dest.RelatedCourses, opt => opt.Ignore());
+     .ForMember(dest => dest.CourseId, opt => opt.Ignore())
+     .ForMember(dest => dest.CourseName, opt => opt.MapFrom(src => src.CourseName))
+     .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
+     .ForMember(dest => dest.RelatedCourseId, opt => opt.MapFrom(src => src.CourseRelatedId))
+     .ForMember(dest => dest.Status, opt => opt.Ignore())
+     .ForMember(dest => dest.Progress, opt => opt.Ignore())
+     .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
+     .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(_ => DateTime.Now))
+     .ForMember(dest => dest.CreatedByUserId, opt => opt.Ignore())
+     .ForMember(dest => dest.SubjectSpecialties, opt => opt.Ignore())
+     .ForMember(dest => dest.RelatedCourses, opt => opt.Ignore())
+     .ForMember(dest => dest.StartDateTime, opt => opt.MapFrom(src => src.StartDate))
+     .ForMember(dest => dest.EndDateTime, opt => opt.MapFrom(src => src.EndDate));
+
 
 
             // Subject Mappings
