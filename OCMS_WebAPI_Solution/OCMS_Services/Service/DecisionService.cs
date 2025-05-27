@@ -77,7 +77,7 @@ namespace OCMS_Services.Service
                     {
                         IEnumerable<Certificate> certificates = new List<Certificate>();
                         IEnumerable<TraineeAssign> traineeAssigns = await _unitOfWork.TraineeAssignRepository
-                            .GetAllAsync(t => t.ClassSubject.SubjectSpecialty.SubjectId == request.CourseId && t.RequestStatus == RequestStatus.Approved);
+                            .GetAllAsync(t => t.ClassSubject.Class.CourseId == request.CourseId && t.RequestStatus == RequestStatus.Approved);
 
                         if (!traineeAssigns.Any())
                             throw new InvalidOperationException("No approved trainees found for this course");
