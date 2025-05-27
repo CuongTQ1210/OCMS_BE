@@ -129,8 +129,8 @@ namespace OCMS_Services.Service
                     var assignments = traineeGroup.Value;
 
                     // Get specialty from the first assignment's ClassSubject
-                    var specialtyId = assignments.First().ClassSubject.SubjectSpecialty.SubjectId;
-                    if (assignments.Any(ta => ta.ClassSubject.SubjectSpecialty.SubjectId != specialtyId))
+                    var specialtyId = assignments.First().ClassSubject.SubjectSpecialty.SpecialtyId;
+                    if (assignments.Any(ta => ta.ClassSubject.SubjectSpecialty.SpecialtyId != specialtyId))
                     {
                         _logger.LogWarning($"Trainee {traineeId} has assignments for multiple specialties in course {courseId}");
                         continue;
