@@ -110,6 +110,8 @@ namespace OCMS_Services.Service
             course.UpdatedAt = DateTime.Now;
             course.Status = CourseStatus.Pending;
             course.Progress = Progress.NotYet;
+            course.StartDateTime= DateTime.Now;
+            course.EndDateTime = DateTime.Now.AddDays(365);
             course.CourseLevel = courseLevel;
 
             // Add course to repository and save
@@ -309,6 +311,19 @@ namespace OCMS_Services.Service
                 throw new ArgumentException("Unsupported CourseLevel in course.");
             }
 
+            
+            if (dto.StartDate < DateTime.Today)
+                throw new ArgumentException("StartDate cannot be in the past.");
+            // Parse and validate dates
+            if (!dto.StartDate.HasValue || !dto.EndDate.HasValue)
+                throw new ArgumentException("StartDate and EndDate are required.");
+
+            if (dto.StartDate.Value >= dto.EndDate.Value)
+                throw new ArgumentException("StartDate must be earlier than EndDate.");
+
+
+            if (dto.StartDate >= dto.EndDate)
+                throw new ArgumentException("StartDate must be earlier than EndDate.");
             // Map DTO to course entity
             _mapper.Map(dto, course);
             course.UpdatedAt = DateTime.Now;
@@ -592,7 +607,7 @@ namespace OCMS_Services.Service
                             Status = CourseStatus.Pending,
                             Progress = Progress.NotYet,
                             StartDateTime = DateTime.Now,
-                            EndDateTime = DateTime.Now.AddDays(30),
+                            EndDateTime = DateTime.Now.AddDays(365),
                             CreatedByUserId = importedByUserId,
                             CreatedAt = DateTime.Now,
                             UpdatedAt = DateTime.Now,
