@@ -432,10 +432,7 @@ namespace OCMS_Services.Service
                     if (courseDetail == null)
                         throw new KeyNotFoundException("Course not found.");
 
-                    // Check if course has subject specialties
-                    if (courseDetail.SubjectSpecialties == null || !courseDetail.SubjectSpecialties.Any())
-                        throw new InvalidOperationException($"Course '{courseDetail.CourseName}' must have at least one subject.");
-
+                   
                     foreach (var subjectSpecialty in courseDetail.SubjectSpecialties)
                     {
                         // Verify subject exists
@@ -887,6 +884,10 @@ namespace OCMS_Services.Service
                         }
 
                         var course = await _unitOfWork.CourseRepository.GetByIdAsync(request.RequestEntityId);
+                        // Check if course has subject specialties
+                        if (course.SubjectSpecialties == null || !course.SubjectSpecialties.Any())
+                            throw new InvalidOperationException($"Course '{course.CourseName}' must have at least one subject.");
+
                         if (course != null)
                         {
                             course.Status = CourseStatus.Approved;

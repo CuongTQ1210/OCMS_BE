@@ -718,14 +718,35 @@ namespace OCMS_Services.Service
             if (course == null)
                 throw new KeyNotFoundException($"Course with ID {courseId} does not exist.");
 
-            // Get SubjectSpecialty
-            var subjectSpecialty = await _unitOfWork.SubjectSpecialtyRepository.GetByIdAsync(subjectSpecialtyId);
+            // Get SubjectSpecialty with its Specialty
+            var subjectSpecialty = await _unitOfWork.SubjectSpecialtyRepository.GetAsync(
+                ss => ss.SubjectSpecialtyId == subjectSpecialtyId,
+                ss => ss.Specialty
+            );
+
             if (subjectSpecialty == null)
                 throw new KeyNotFoundException($"SubjectSpecialty with ID {subjectSpecialtyId} does not exist.");
 
             // Check if the SubjectSpecialty is already assigned to the course
             if (course.SubjectSpecialties.Any(ss => ss.SubjectSpecialtyId == subjectSpecialtyId))
                 throw new InvalidOperationException($"SubjectSpecialty {subjectSpecialtyId} is already assigned to course {courseId}.");
+
+            // If course already has SubjectSpecialties, validate specialty match
+            if (course.SubjectSpecialties.Any())
+            {
+                // Get the specialty of the first existing SubjectSpecialty
+                var existingSubjectSpecialty = await _unitOfWork.SubjectSpecialtyRepository.GetAsync(
+                    ss => ss.SubjectSpecialtyId == course.SubjectSpecialties.First().SubjectSpecialtyId,
+                    ss => ss.Specialty
+                );
+
+                if (existingSubjectSpecialty == null)
+                    throw new InvalidOperationException("Error retrieving existing SubjectSpecialty information.");
+
+                // Compare specialties
+                if (existingSubjectSpecialty.SpecialtyId != subjectSpecialty.SpecialtyId)
+                    throw new InvalidOperationException($"Cannot assign SubjectSpecialty with specialty {subjectSpecialty.Specialty.SpecialtyName} to a course that already has subjects from specialty {existingSubjectSpecialty.Specialty.SpecialtyName}.");
+            }
 
             // Add SubjectSpecialty to course
             course.SubjectSpecialties.Add(subjectSpecialty);
