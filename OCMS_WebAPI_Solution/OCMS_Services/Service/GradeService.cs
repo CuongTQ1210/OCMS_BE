@@ -186,6 +186,7 @@ namespace OCMS_Services.Service
             existing.UpdateDate = DateTime.Now;
             existing.GradedByInstructorId = gradedByUserId;
             await _unitOfWork.GradeRepository.UpdateAsync(existing);
+            await _unitOfWork.SaveChangesAsync();
 
             if (existing.gradeStatus == GradeStatus.Pass)
             {
@@ -231,7 +232,6 @@ namespace OCMS_Services.Service
                 }
             }
 
-            await _unitOfWork.SaveChangesAsync();
             await _progressTrackingService.CheckAndUpdateClassSubjectStatus(assignTrainee.ClassSubjectId);
 
             return true;

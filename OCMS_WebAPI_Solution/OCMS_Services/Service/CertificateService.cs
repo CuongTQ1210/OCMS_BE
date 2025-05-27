@@ -144,7 +144,7 @@ namespace OCMS_Services.Service
 
                     var traineeGrades = assignments.SelectMany(ta => gradesByTraineeAssign.GetValueOrDefault(ta.TraineeAssignId, new List<Grade>()));
                     var passedCssIds = traineeGrades.Where(g => g.gradeStatus == GradeStatus.Pass)
-                                                    .Select(g => g.TraineeAssign.ClassSubjectId)
+                                                    .Select(g => g.TraineeAssign.ClassSubject.SubjectSpecialtyId)
                                                     .ToHashSet();
                     var requiredCssIds = requiredCss.Select(css => css.SubjectSpecialtyId).ToHashSet();
 
