@@ -309,14 +309,14 @@ namespace OCMS_Services.Service
             else
             {
                 throw new ArgumentException("Unsupported CourseLevel in course.");
-            }
+            }            
 
-            
-            if (dto.StartDate < DateTime.Today)
-                throw new ArgumentException("StartDate cannot be in the past.");
             // Parse and validate dates
             if (!dto.StartDate.HasValue || !dto.EndDate.HasValue)
                 throw new ArgumentException("StartDate and EndDate are required.");
+
+            if (dto.StartDate < DateTime.Today)
+                throw new ArgumentException("StartDate cannot be in the past.");
 
             if (dto.StartDate.Value >= dto.EndDate.Value)
                 throw new ArgumentException("StartDate must be earlier than EndDate.");
