@@ -31,18 +31,15 @@ namespace OCMS_Services.Service
             if (string.IsNullOrEmpty(dto.ClassName))
                 throw new ArgumentException("Class name cannot be empty.");
 
+            // Check if class with the same name already exists
+            var classWithSameName = await _unitOfWork.ClassRepository.GetFirstOrDefaultAsync(c => c.ClassName == dto.ClassName);
+            if (classWithSameName != null)
+            {
+                throw new InvalidOperationException($"Class with name '{dto.ClassName}' already exists.");
+            }
+
             // Generate a new ClassId
             var classId = await GenerateClassId();
-
-            // Check if the class already exists
-            var existingClass = await _unitOfWork.ClassRepository.GetByIdAsync(classId);
-            if (existingClass != null)
-                throw new InvalidOperationException($"Class with ID {classId} already exists.");
-
-            if (existingClass != null && existingClass.ClassName == dto.ClassName)
-            {
-                throw new InvalidOperationException($"Class with this name {dto.ClassName} already exists.");
-            }
 
             // Create the class entity
             var classEntity = new Class
@@ -53,6 +50,7 @@ namespace OCMS_Services.Service
             };
 
             await _unitOfWork.ClassRepository.AddAsync(classEntity);
+            await _unitOfWork.SaveChangesAsync();
 
             return _mapper.Map<ClassModel>(classEntity);
         }
