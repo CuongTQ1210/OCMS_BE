@@ -321,9 +321,6 @@ namespace OCMS_Services.Service
             if (dto.StartDate.Value >= dto.EndDate.Value)
                 throw new ArgumentException("StartDate must be earlier than EndDate.");
 
-
-            if (dto.StartDate >= dto.EndDate)
-                throw new ArgumentException("StartDate must be earlier than EndDate.");
             // Map DTO to course entity
             _mapper.Map(dto, course);
             course.UpdatedAt = DateTime.Now;
