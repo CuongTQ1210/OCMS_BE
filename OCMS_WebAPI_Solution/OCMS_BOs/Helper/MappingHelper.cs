@@ -431,6 +431,21 @@ namespace OCMS_BOs.Helper
             // ClassModel to Class reverse mapping
             CreateMap<ClassModel, Class>();
 
+            CreateMap<ClassSubjectDTO, ClassSubject>()
+                .ForMember(dest => dest.ClassSubjectId, opt => opt.Ignore())
+                .ForMember(dest => dest.ClassId, opt => opt.MapFrom(src => src.ClassId))
+                .ForMember(dest => dest.SubjectSpecialtyId, opt => opt.MapFrom(src => src.SubjectSpecialtyId))
+                .ForMember(dest => dest.InstructorAssignmentID, opt => opt.MapFrom(src => src.InstructorAssignmentID))
+                .ForMember(dest => dest.Class, opt => opt.Ignore())
+                .ForMember(dest => dest.SubjectSpecialty, opt => opt.Ignore())
+                .ForMember(dest => dest.InstructorAssignment, opt => opt.Ignore())
+                .ForMember(dest => dest.traineeAssigns, opt => opt.Ignore())
+                .ForMember(dest => dest.Schedules, opt => opt.Ignore());
+
+            CreateMap<ClassSubject, ClassSubjectDTO>()
+                .ForMember(dest => dest.ClassId, opt => opt.MapFrom(src => src.ClassId))
+                .ForMember(dest => dest.SubjectSpecialtyId, opt => opt.MapFrom(src => src.SubjectSpecialtyId))
+                .ForMember(dest => dest.InstructorAssignmentID, opt => opt.MapFrom(src => src.InstructorAssignmentID));
             // ClassSubject to ClassSubjectModel mapping
             CreateMap<ClassSubject, ClassSubjectModel>()
                 .ForMember(dest => dest.ClassSubjectId, opt => opt.MapFrom(src => src.ClassSubjectId))
@@ -488,5 +503,5 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.Notes, opt => opt.MapFrom(src => src.Notes))
                 .ForMember(dest => dest.CourseSubjectSpecialtyId, opt => opt.MapFrom(src => src.SubjectId));
         }
-    }
+    }       
 }
