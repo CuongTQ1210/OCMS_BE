@@ -324,8 +324,9 @@ namespace OCMS_Services.Service
                 // Get trainee assignments for this course with the assigned specialty
                 var traineeAssignments = await _unitOfWork.TraineeAssignRepository.GetAllAsync(
                     ta => ta.TraineeId == userId &&
-                         ta.ClassSubject.SubjectSpecialty.SubjectId == specialtyId &&
-                         ta.RequestStatus == RequestStatus.Approved);
+                          ta.ClassSubject.Class.CourseId == courseId &&
+                          ta.ClassSubject.SubjectSpecialty.SpecialtyId == specialtyId &&
+                          ta.RequestStatus == RequestStatus.Approved);
 
                 if (!traineeAssignments.Any())
                 {

@@ -107,7 +107,7 @@ namespace OCMS_Services.Middleware
                 else if (includeToday && now < runTime2)
                     return runTime2;
                 else
-                    return today.AddDays(1); // Ngày tiếp theo, 00:00
+                    return today.AddDays(1).AddHours(0); // Ngày tiếp theo, 00:00
             }
             // Nếu interval là 24 giờ, chạy vào 00:00
             else if (_checkInterval.TotalHours == 24)
