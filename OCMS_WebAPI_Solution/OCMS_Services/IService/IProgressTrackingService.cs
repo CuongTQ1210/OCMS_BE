@@ -11,7 +11,6 @@ namespace OCMS_Services.IService
         Task CheckAndUpdateCourseSubjectSpecialtyStatus(string courseSubjectSpecialtyId);
         Task CheckAndUpdateClassSubjectStatus(string classSubjectId);
         Task CheckAndUpdateCourseStatus(string courseId);
-        Task CheckAndUpdateTrainingPlanStatus(string planId);
         Task CheckAndUpdateAllStatuses();
     }
 }

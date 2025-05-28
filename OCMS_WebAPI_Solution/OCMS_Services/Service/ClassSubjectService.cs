@@ -72,6 +72,7 @@ namespace OCMS_Services.Service
                 ClassSubjectId = await GenerateClassSubjectIdAsync(),
                 ClassId = dto.ClassId,
                 SubjectSpecialtyId = dto.SubjectSpecialtyId,
+                SubjectSpecialty = subjectSpecialty,
                 InstructorAssignmentID = dto.InstructorAssignmentID
             };
 
