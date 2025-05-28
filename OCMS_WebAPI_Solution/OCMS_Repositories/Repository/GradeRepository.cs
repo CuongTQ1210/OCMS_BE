@@ -21,19 +21,21 @@ namespace OCMS_Repositories.Repository
         public async Task<IEnumerable<Grade>> GetGradesByTraineeAssignIdAsync(string traineeAssignId)
         {
             return await _context.Grades
-                .Where(g => g.GradeId == traineeAssignId)
+                .Where(g => g.TraineeAssignID == traineeAssignId)
                 .ToListAsync();
         }
         
         public async Task<IEnumerable<Grade>> GetGradesByClassSubjectIdAsync(string classSubjectId)
         {
             return await _context.Grades
+                .Where(g => g.TraineeAssign.ClassSubjectId == classSubjectId)
                 .ToListAsync();
         }
 
         public async Task<IEnumerable<Grade>> GetGradesByCourseIdAsync(string courseId)
         {
             return await _context.Grades
+                .Where(g => g.TraineeAssign.ClassSubject.Class.CourseId == courseId)
                 .ToListAsync();
         }
     }

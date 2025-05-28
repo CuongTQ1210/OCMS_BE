@@ -44,32 +44,37 @@ namespace OCMS_Services.Service
             {
                 _logger.LogInformation($"Checking status for ClassSubject ID: {classSubjectId}");
 
-                var classSubject = await _unitOfWork.ClassSubjectRepository.GetByIdAsync(classSubjectId);
+                // Sử dụng GetAsync với includes thay vì GetByIdAsync với multiple parameters
+                var classSubject = (await _unitOfWork.ClassSubjectRepository
+                    .FindIncludeAsync(cs => cs.ClassSubjectId == classSubjectId,
+                                      cs => cs.Class, cs => cs.traineeAssigns))
+                    .FirstOrDefault();
+
                 if (classSubject == null)
                 {
                     _logger.LogWarning($"ClassSubject with ID {classSubjectId} not found");
                     return;
                 }
 
-                // Get all schedules for this ClassSubject
-                var schedules = await _scheduleRepository.GetSchedulesByClassSubjectIdAsync(classSubjectId);
+                if (classSubject?.traineeAssigns == null)
+                {
+                    _logger.LogWarning($"ClassSubject {classSubjectId} has no trainee assignments");
+                    return;
+                }
+
+                // Lấy tất cả schedules cho ClassSubject này
+                var schedules = await _scheduleRepository
+                    .GetSchedulesByClassSubjectIdAsync(classSubjectId);
+
                 if (schedules == null || !schedules.Any())
                 {
                     _logger.LogWarning($"No schedules found for ClassSubject {classSubjectId}");
                     return;
                 }
 
-                // Check if the subject has started yet
-                bool hasStarted = schedules.Any(s => DateTime.Now >= s.StartDateTime);
-                if (!hasStarted)
-                {
-                    _logger.LogInformation($"ClassSubject {classSubjectId} has not started yet");
-                    return;
-                }
-
-                // Check if all schedules have ended
+                // Kiểm tra xem tất cả schedules đã kết thúc chưa
                 bool allSchedulesEnded = schedules.All(s =>
-                    DateTime.Now > s.EndDateTime && s.Status != ScheduleStatus.Completed);
+                    DateTime.Now > s.EndDateTime || s.Status == ScheduleStatus.Completed);
 
                 if (!allSchedulesEnded)
                 {
@@ -77,47 +82,15 @@ namespace OCMS_Services.Service
                     return;
                 }
 
-                // Get all trainee assignments for this ClassSubject
-                var traineeAssigns = await _unitOfWork.TraineeAssignRepository.FindAsync(ta =>
-                    ta.ClassSubjectId == classSubjectId);
+                // Lấy tất cả traineeAssigns và grades trong một truy vấn
+                var traineeAssigns = classSubject.traineeAssigns.ToList();
+                var traineeAssignIds = traineeAssigns.Select(ta => ta.TraineeAssignId).ToList();
+                var grades = await _unitOfWork.GradeRepository
+                    .FindAsync(g => traineeAssignIds.Contains(g.TraineeAssignID));
 
-                if (traineeAssigns == null || !traineeAssigns.Any())
-                {
-                    _logger.LogWarning($"No trainees assigned to ClassSubject {classSubjectId}");
-                    // If there are no trainees assigned, we can still mark schedules as completed
-                    // as there might be theoretical subjects with no student attendance required
-                    foreach (var schedule in schedules)
-                    {
-                        if (schedule.Status != ScheduleStatus.Completed && schedule.Status != ScheduleStatus.Canceled)
-                        {
-                            schedule.Status = ScheduleStatus.Completed;
-                            schedule.ModifiedDate = DateTime.Now;
-                            await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
-                        }
-                    }
-                    await _unitOfWork.SaveChangesAsync();
-
-                    // Still check the course status as this might be the last subject
-                    await CheckAndUpdateCourseStatus(classSubject.ClassId);
-                    return;
-                }
-
-                // Get all grades for this ClassSubject
-                var grades = await _unitOfWork.GradeRepository.FindAsync(g =>
-                    traineeAssigns.Select(ta => ta.TraineeAssignId).Contains(g.TraineeAssignID));
-
-                // Check if all assigned trainees have grades
-                bool allTraineesGraded = true;
-                foreach (var traineeAssign in traineeAssigns)
-                {
-                    bool hasGrade = grades.Any(g => g.TraineeAssignID == traineeAssign.TraineeAssignId);
-                    if (!hasGrade)
-                    {
-                        allTraineesGraded = false;
-                        _logger.LogInformation($"Trainee assign {traineeAssign.TraineeAssignId} doesn't have grade for ClassSubject {classSubjectId}");
-                        break;
-                    }
-                }
+                // Kiểm tra xem tất cả traineeAssigns đều có grades
+                bool allTraineesGraded = traineeAssigns.All(ta =>
+                    grades.Any(g => g.TraineeAssignID == ta.TraineeAssignId));
 
                 if (!allTraineesGraded)
                 {
@@ -125,7 +98,7 @@ namespace OCMS_Services.Service
                     return;
                 }
 
-                // Update all schedules to Completed status
+                // Cập nhật tất cả schedules thành Completed
                 foreach (var schedule in schedules)
                 {
                     if (schedule.Status != ScheduleStatus.Completed && schedule.Status != ScheduleStatus.Canceled)
@@ -133,15 +106,14 @@ namespace OCMS_Services.Service
                         schedule.Status = ScheduleStatus.Completed;
                         schedule.ModifiedDate = DateTime.Now;
                         await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
-                        _logger.LogInformation($"Updated Schedule {schedule.ScheduleID} to Completed");
                     }
                 }
 
                 await _unitOfWork.SaveChangesAsync();
                 _logger.LogInformation($"All schedules for ClassSubject {classSubjectId} marked as Completed");
 
-                // Check and update the related Course status
-                await CheckAndUpdateCourseStatus(classSubject.ClassId);
+                // Kiểm tra và cập nhật Course status
+                await CheckAndUpdateCourseStatus(classSubject.Class.CourseId);
             }
             catch (Exception ex)
             {
@@ -177,43 +149,39 @@ namespace OCMS_Services.Service
             {
                 _logger.LogInformation($"Checking status for Course ID: {courseId}");
 
-                var course = await _unitOfWork.CourseRepository.GetByIdAsync(courseId);
+                // Sử dụng GetAsync thay vì GetByIdAsync với includes
+                var course = await _unitOfWork.CourseRepository
+                    .GetAsync(c => c.CourseId == courseId, c => c.Classes);
+
                 if (course == null)
                 {
                     _logger.LogWarning($"Course with ID {courseId} not found");
                     return;
                 }
 
-                // If the course is already completed or not yet started, skip
                 if (course.Progress == Progress.Completed || course.Progress == Progress.NotYet)
                 {
                     _logger.LogInformation($"Course {courseId} is already {course.Progress}, no update needed");
                     return;
                 }
 
-                // Get all ClassSubject entries for this course
-                var classSubjects = await _unitOfWork.ClassSubjectRepository.FindAsync(cs =>
-                    cs.ClassId == courseId);
+                // Lấy tất cả class ids để lấy class subjects
+                var classIds = course.Classes.Select(c => c.ClassId).ToList();
+                var classSubjects = await _unitOfWork.ClassSubjectRepository
+                    .FindAsync(cs => classIds.Contains(cs.ClassId));
 
-                if (classSubjects == null || !classSubjects.Any())
+                if (!classSubjects.Any())
                 {
                     _logger.LogWarning($"No ClassSubjects found for Course {courseId}");
                     return;
                 }
 
-                // Check if all ClassSubjects are completed
+                // Kiểm tra xem tất cả classSubjects đã hoàn thành chưa
                 bool allClassSubjectsCompleted = true;
                 foreach (var classSubject in classSubjects)
                 {
-                    // Get all schedules for this ClassSubject
-                    var schedules = await _scheduleRepository.GetSchedulesByClassSubjectIdAsync(classSubject.ClassSubjectId);
-
-                    if (schedules == null || !schedules.Any())
-                    {
-                        allClassSubjectsCompleted = false;
-                        _logger.LogInformation($"ClassSubject {classSubject.ClassSubjectId} has no schedules");
-                        break;
-                    }
+                    var schedules = await _scheduleRepository
+                        .GetSchedulesByClassSubjectIdAsync(classSubject.ClassSubjectId);
 
                     bool subjectCompleted = schedules.All(s =>
                         s.Status == ScheduleStatus.Completed || s.Status == ScheduleStatus.Canceled);
@@ -221,30 +189,24 @@ namespace OCMS_Services.Service
                     if (!subjectCompleted)
                     {
                         allClassSubjectsCompleted = false;
-                        _logger.LogInformation($"ClassSubject {classSubject.ClassSubjectId} has incomplete schedules");
                         break;
                     }
 
-                    // Check if all trainees have grades
-                    var traineeAssigns = await _unitOfWork.TraineeAssignRepository.FindAsync(ta =>
-                        ta.ClassSubjectId == classSubject.ClassSubjectId);
+                    // Kiểm tra grades cho traineeAssigns
+                    var traineeAssigns = await _unitOfWork.TraineeAssignRepository
+                        .FindAsync(ta => ta.ClassSubjectId == classSubject.ClassSubjectId);
 
-                    var grades = await _unitOfWork.GradeRepository.FindAsync(g =>
-                        traineeAssigns.Select(ta => ta.TraineeAssignId).Contains(g.TraineeAssignID));
+                    var grades = await _unitOfWork.GradeRepository
+                        .FindAsync(g => traineeAssigns.Select(ta => ta.TraineeAssignId).Contains(g.TraineeAssignID));
 
-                    foreach (var traineeAssign in traineeAssigns)
+                    bool allGraded = traineeAssigns.All(ta =>
+                        grades.Any(g => g.TraineeAssignID == ta.TraineeAssignId));
+
+                    if (!allGraded)
                     {
-                        bool hasGrade = grades.Any(g => g.TraineeAssignID == traineeAssign.TraineeAssignId);
-                        if (!hasGrade)
-                        {
-                            allClassSubjectsCompleted = false;
-                            _logger.LogInformation($"Trainee {traineeAssign.TraineeId} has no grade for ClassSubject {classSubject.ClassSubjectId}");
-                            break;
-                        }
-                    }
-
-                    if (!allClassSubjectsCompleted)
+                        allClassSubjectsCompleted = false;
                         break;
+                    }
                 }
 
                 if (allClassSubjectsCompleted)
@@ -254,9 +216,6 @@ namespace OCMS_Services.Service
                     await _unitOfWork.CourseRepository.UpdateAsync(course);
                     await _unitOfWork.SaveChangesAsync();
                     _logger.LogInformation($"Updated Course {courseId} to Completed");
-
-                    // Check and update all related TrainingPlans
-                    // Note: TrainingPlan entity has been removed according to comments
                 }
                 else
                 {
@@ -268,20 +227,6 @@ namespace OCMS_Services.Service
                 _logger.LogError(ex, $"Error checking status for Course {courseId}");
                 throw;
             }
-        }
-        #endregion
-
-        #region Check and update TrainingPlan progress
-        /// <summary>
-        /// Checks and updates the TrainingPlan status based on the related Course progress.
-        /// A TrainingPlan is considered completed when its associated Course is completed.
-        /// This will update the TrainingPlanStatus from Approved/Pending to Completed when appropriate.
-        /// </summary>
-        /// <param name="planId">The ID of the TrainingPlan to check</param>
-        public async Task CheckAndUpdateTrainingPlanStatus(string planId)
-        {
-            // Method disabled as TrainingPlan entity has been removed
-            await Task.CompletedTask;
         }
         #endregion
 

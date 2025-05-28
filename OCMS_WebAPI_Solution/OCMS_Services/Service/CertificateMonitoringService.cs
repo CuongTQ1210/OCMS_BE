@@ -43,12 +43,14 @@ namespace OCMS_Services.Service
                 var today = DateTime.Now;
                 var expirationThreshold = today.AddMonths(_monthsPriorToExpiration);
 
-                // Get all active certificates that expire within the notification period
-                var expiringCertificates = await _unitOfWork.CertificateRepository.FindAsync(c =>
-                    c.Status == CertificateStatus.Active &&
-                    c.ExpirationDate.HasValue &&
-                    c.ExpirationDate.Value <= expirationThreshold &&
-                    c.ExpirationDate.Value > today);
+                // Lấy tất cả chứng chỉ sắp hết hạn với eager loading
+
+                var expiringCertificates = await _unitOfWork.CertificateRepository
+                    .FindIncludeAsync(c => c.Status == CertificateStatus.Active &&
+                                           c.ExpirationDate.HasValue &&
+                                           c.ExpirationDate.Value <= expirationThreshold &&
+                                           c.ExpirationDate.Value > today,
+                                      c => c.User, c => c.Course);
 
                 if (!expiringCertificates.Any())
                 {
@@ -58,8 +60,37 @@ namespace OCMS_Services.Service
 
                 _logger.LogInformation($"Found {expiringCertificates.Count()} certificates expiring within the next {_monthsPriorToExpiration} months");
 
-                // Lọc danh sách chứng chỉ cần gửi thông báo (chưa gửi hoặc đã quá thời gian cho phép)
-                var certificatesToNotify = await FilterCertificatesForNotificationAsync(expiringCertificates);
+                // Lấy tất cả thông báo liên quan trong một truy vấn
+                var userIds = expiringCertificates.Select(c => c.UserId).Distinct().ToList();
+                var recentNotifications = await _unitOfWork.NotificationRepository
+                    .FindAsync(n => userIds.Contains(n.UserId) &&
+                                    n.NotificationType == "CertificateExpiration" &&
+                                    n.CreatedAt > today.AddDays(-_notificationFrequencyDays));
+
+                // Tạo dictionary để tra cứu nhanh thông báo gần nhất cho mỗi chứng chỉ
+                var notificationLookup = recentNotifications
+                    .GroupBy(n => n.UserId)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+
+                // Lọc chứng chỉ cần thông báo
+                var certificatesToNotify = expiringCertificates
+                    .Where(c =>
+                    {
+                        var userNotifications = notificationLookup.GetValueOrDefault(c.UserId);
+                        if (userNotifications == null) return true;
+
+                        var recentNotification = userNotifications
+                            .Where(n => n.Title.Contains(c.CertificateCode))
+                            .OrderByDescending(n => n.CreatedAt)
+                            .FirstOrDefault();
+
+                        if (recentNotification == null) return true;
+
+                        int daysRemaining = (c.ExpirationDate.Value - today).Days;
+                        int requiredDays = GetRequiredDaysSinceLastNotification(daysRemaining);
+                        return (today - recentNotification.CreatedAt).TotalDays >= requiredDays;
+                    })
+                    .ToList();
 
                 if (!certificatesToNotify.Any())
                 {
@@ -67,9 +98,9 @@ namespace OCMS_Services.Service
                     return;
                 }
 
-                _logger.LogInformation($"Sending notifications for {certificatesToNotify.Count()} certificates after filtering already notified ones");
+                _logger.LogInformation($"Sending notifications for {certificatesToNotify.Count()} certificates after filtering");
 
-                // Group certificates by user to handle multiple expiring certificates
+                // Group certificates by user
                 var certificatesByUser = certificatesToNotify
                     .GroupBy(c => c.UserId)
                     .ToDictionary(g => g.Key, g => g.ToList());
@@ -86,62 +117,14 @@ namespace OCMS_Services.Service
         }
 
         /// <summary>
-        /// Lọc danh sách chứng chỉ để chỉ gửi thông báo cho những chứng chỉ chưa được thông báo gần đây
-        /// </summary>
-        private async Task<IEnumerable<Certificate>> FilterCertificatesForNotificationAsync(IEnumerable<Certificate> certificates)
-        {
-            var result = new List<Certificate>();
-            var cutoffDate = DateTime.Now.AddDays(-_notificationFrequencyDays);
-
-            foreach (var certificate in certificates)
-            {
-                // Tìm thông báo gần nhất cho chứng chỉ này
-                var recentNotification = await _unitOfWork.NotificationRepository.GetQueryable()
-                    .Where(n => n.UserId == certificate.UserId &&
-                    n.NotificationType == "CertificateExpiration" &&
-                    n.Title.Contains(certificate.CertificateCode) &&
-                    n.CreatedAt > cutoffDate)
-                    .OrderByDescending(n => n.CreatedAt)
-                    .FirstOrDefaultAsync();
-
-                // Nếu không tìm thấy thông báo gần đây hoặc thông báo đã cũ, thêm vào danh sách cần gửi
-                if (recentNotification == null)
-                {
-                    result.Add(certificate);
-                }
-                else
-                {
-                    // Tính số ngày còn lại đến ngày hết hạn
-                    int daysRemaining = (certificate.ExpirationDate.Value - DateTime.Now).Days;
-
-                    // Điều chỉnh tần suất thông báo dựa trên thời gian còn lại
-                    int requiredDaysSinceLastNotification = GetRequiredDaysSinceLastNotification(daysRemaining);
-
-                    // Nếu đã đủ thời gian để gửi thông báo tiếp theo
-                    if ((DateTime.Now - recentNotification.CreatedAt).TotalDays >= requiredDaysSinceLastNotification)
-                    {
-                        result.Add(certificate);
-                    }
-                }
-            }
-
-            return result;
-        }
-
-        /// <summary>
         /// Xác định số ngày cần đợi trước khi gửi thông báo tiếp theo dựa trên số ngày còn lại
         /// </summary>
         private int GetRequiredDaysSinceLastNotification(int daysRemaining)
         {
-            // Điều chỉnh tần suất gửi thông báo dựa trên thời gian còn lại đến ngày hết hạn
-            if (daysRemaining <= 14) // Nếu còn dưới 2 tuần
-                return 3; // Gửi thông báo mỗi 3 ngày
-            else if (daysRemaining <= 30) // Nếu còn dưới 1 tháng
-                return 7; // Gửi thông báo mỗi 1 tuần
-            else if (daysRemaining <= 90) // Nếu còn dưới 3 tháng
-                return 14; // Gửi thông báo mỗi 2 tuần
-            else
-                return 30; // Mặc định gửi thông báo mỗi 1 tháng
+            // Ví dụ logic: khoảng cách thông báo phụ thuộc vào số ngày còn lại
+            if (daysRemaining <= 30) return 7;  // Thông báo hàng tuần nếu còn dưới 1 tháng
+            if (daysRemaining <= 90) return 14; // Thông báo 2 tuần/lần nếu còn dưới 3 tháng
+            return _notificationFrequencyDays;  // Mặc định 30 ngày
         }
 
         /// <summary>
