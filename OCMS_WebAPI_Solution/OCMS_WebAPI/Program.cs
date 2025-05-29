@@ -17,6 +17,11 @@ using StackExchange.Redis;
 using OfficeOpenXml;
 using OCMS_Services.Middleware;
 using System.Text.Json.Serialization;
+using Hangfire;
+using Hangfire.AspNetCore;
+using Hangfire.Redis.StackExchange;
+using Hangfire.Dashboard;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,12 +48,18 @@ builder.Services.AddDbContext<OCMSDbContext>(options =>
 builder.Services.AddAzureClients(azureBuilder =>
     azureBuilder.AddBlobServiceClient(builder.Configuration.GetValue<string>("AzureBlobStorage")));
 
-builder.Services.AddHostedService<StatusCheckBackgroundService>();
+//builder.Services.AddHostedService<StatusCheckBackgroundService>();
 
 // Add Redis
 builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(builder.Configuration.GetValue<string>("Redis:ConnectionString")));
 
+builder.Services.AddHangfire(configuration => configuration
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UseRedisStorage(builder.Configuration.GetValue<string>("Redis:ConnectionString")));
 
+builder.Services.AddHangfireServer();
 
 // Add Email Service
 builder.Services.AddTransient<IEmailService>(provider =>
@@ -214,6 +225,16 @@ app.UseExceptionHandler(errorApp => {
             Message = "An unexpected error occurred. Please try again later."
         });
     });
+});
+
+app.Lifetime.ApplicationStarted.Register(async () =>
+{
+    using var scope = app.Services.CreateScope();
+    var progressService = scope.ServiceProvider.GetRequiredService<IProgressTrackingService>();
+    var certificateService = scope.ServiceProvider.GetRequiredService<ICertificateMonitoringService>();
+
+    await progressService.ScheduleCourseStatusUpdatesAsync();
+    await certificateService.ScheduleCertificateExpirationChecksAsync();
 });
 
 // Configure the HTTP request pipeline.
