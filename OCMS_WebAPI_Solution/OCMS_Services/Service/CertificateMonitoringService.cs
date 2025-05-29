@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Hangfire;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using OCMS_BOs.Entities;
 using OCMS_Repositories;
@@ -16,6 +17,7 @@ namespace OCMS_Services.Service
         private readonly UnitOfWork _unitOfWork;
         private readonly INotificationService _notificationService;
         private readonly ILogger<CertificateMonitoringService> _logger;
+        private readonly IBackgroundJobClient _backgroundJobClient;
         private readonly int _monthsPriorToExpiration = 6; // Default notification period
         private readonly int _maxConcurrentTasks = 10; // Giới hạn số lượng tác vụ đồng thời
         private readonly int _notificationFrequencyDays = 30; // Default frequency for notifications
@@ -23,14 +25,62 @@ namespace OCMS_Services.Service
         public CertificateMonitoringService(
             UnitOfWork unitOfWork,
             INotificationService notificationService,
-            ILogger<CertificateMonitoringService> logger)
+            ILogger<CertificateMonitoringService> logger,
+            IBackgroundJobClient backgroundJobClient)
         {
             _unitOfWork = unitOfWork;
             _notificationService = notificationService;
             _logger = logger;
+            _backgroundJobClient = backgroundJobClient;
         }
 
         #region Check and Notify Expiring Certificates
+
+        public async Task ScheduleCertificateExpirationChecksAsync()
+        {
+            try
+            {
+                _logger.LogInformation("Scheduling certificate expiration checks");
+
+                var today = DateTime.Now;
+                var expirationThreshold = today.AddMonths(_monthsPriorToExpiration);
+
+                var certificates = await _unitOfWork.CertificateRepository.FindIncludeAsync(
+                    c => c.Status == CertificateStatus.Active &&
+                         c.ExpirationDate.HasValue &&
+                         c.ExpirationDate.Value <= expirationThreshold &&
+                         c.ExpirationDate.Value > today,
+                    c => c.User, c => c.Course);
+
+                foreach (var certificate in certificates)
+                {
+                    var notificationDate = CalculateNextNotificationDate(certificate.ExpirationDate.Value, today);
+                    if (notificationDate > today)
+                    {
+                        _backgroundJobClient.Schedule(
+                            () => CheckAndNotifySingleCertificateAsync(certificate.CertificateId),
+                            notificationDate);
+                        _logger.LogInformation($"Scheduled notification for certificate {certificate.CertificateId} at {notificationDate}");
+                    }
+                    else
+                    {
+                        await CheckAndNotifySingleCertificateAsync(certificate.CertificateId);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error scheduling certificate expiration checks");
+                throw;
+            }
+        }
+        private DateTime CalculateNextNotificationDate(DateTime expirationDate, DateTime today)
+        {
+            var daysRemaining = (expirationDate - today).Days;
+            var requiredDays = GetRequiredDaysSinceLastNotification(daysRemaining);
+            return today.AddDays(requiredDays);
+        }
+
         /// <summary>
         /// Checks all active certificates and sends notifications for those expiring within the next months
         /// </summary>
