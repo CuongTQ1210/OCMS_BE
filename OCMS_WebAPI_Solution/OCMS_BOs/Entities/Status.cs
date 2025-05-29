@@ -72,16 +72,7 @@ namespace OCMS_BOs.Entities
         Recurrent = 1,
         Relearn = 2
     }
-    public enum TrainingPlanStatus
-    {
-        Draft = 0,
-        Pending = 1,
-        Approved = 2,
-        Rejected = 3,
-        Completed = 4,
-        Updating = 5,
-        Deleting = 6
-    }
+
     public enum GradeStatus
     {
         Pending = -1,
