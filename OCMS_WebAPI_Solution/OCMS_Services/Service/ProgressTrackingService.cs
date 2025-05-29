@@ -8,11 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
-/// <summary>
-/// Service for tracking and updating the progress status of educational entities:
-/// ClassSubject, Course, and other relevant entities.
-/// </summary>
+using Hangfire;
 
 namespace OCMS_Services.Service
 {
@@ -21,30 +17,224 @@ namespace OCMS_Services.Service
         private readonly UnitOfWork _unitOfWork;
         private readonly ITrainingScheduleRepository _scheduleRepository;
         private readonly ILogger<ProgressTrackingService> _logger;
+        private readonly IBackgroundJobClient _backgroundJobClient;
+
 
         public ProgressTrackingService(
             UnitOfWork unitOfWork,
             ITrainingScheduleRepository scheduleRepository,
-            ILogger<ProgressTrackingService> logger)
+            ILogger<ProgressTrackingService> logger,
+            IBackgroundJobClient backgroundJobClient)
         {
             _unitOfWork = unitOfWork;
             _scheduleRepository = scheduleRepository;
             _logger = logger;
+            _backgroundJobClient = backgroundJobClient;
         }
 
-        #region Check and update ClassSubject progress
+        #region Main System Status Check
+
+        /// <summary>
+        /// System-wide status check - focuses on Course Progress management
+        /// </summary>
+        //public async Task CheckAndUpdateAllStatuses()
+        //{
+        //    try
+        //    {
+        //        _logger.LogInformation("Starting Course Progress status check");
+
+        //        // 1. Update Course Progress: NotYet → Ongoing (when StartDate begins)
+        //        await UpdateCoursesToOngoing();
+
+        //        // 2. Update Course Progress: Ongoing → Completed (when all conditions met)
+        //        await UpdateCoursesToCompleted();
+
+        //        _logger.LogInformation("Course Progress status check completed");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "Error during Course Progress status check");
+        //        throw;
+        //    }
+        //}
+
+        public async Task ScheduleCourseStatusUpdatesAsync()
+        {
+            try
+            {
+                _logger.LogInformation("Scheduling course status updates");
+
+                var courses = await _unitOfWork.CourseRepository.FindAsync(
+                    c => c.Status == CourseStatus.Approved &&
+                         (c.Progress == Progress.NotYet || c.Progress == Progress.Ongoing));
+
+                foreach (var course in courses)
+                {
+                    if (course.Progress == Progress.NotYet && course.StartDateTime > DateTime.Now)
+                    {
+                        // Schedule transition to Ongoing
+                        _backgroundJobClient.Schedule(
+                            () => UpdateCourseToOngoingAsync(course.CourseId),
+                            course.StartDateTime);
+                        _logger.LogInformation($"Scheduled course {course.CourseId} to Ongoing at {course.StartDateTime}");
+                    }
+                    else if (course.Progress == Progress.Ongoing)
+                    {
+                        // Schedule recurring check for completion
+                        _backgroundJobClient.Schedule(
+                            () => CheckAndUpdateCourseToCompletedAsync(course.CourseId),
+                            TimeSpan.FromMinutes(5)); // Check every 30 minutes
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error scheduling course status updates");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Update courses from NotYet to Ongoing when StartDate begins
+        /// </summary>
+        public async Task UpdateCourseToOngoingAsync(string courseId)
+        {
+            try
+            {
+                var course = await _unitOfWork.CourseRepository.GetAsync(c => c.CourseId == courseId);
+                if (course == null || course.Progress != Progress.NotYet || course.Status != CourseStatus.Approved)
+                    return;
+
+                course.Progress = Progress.Ongoing;
+                course.UpdatedAt = DateTime.Now;
+                await _unitOfWork.CourseRepository.UpdateAsync(course);
+                await _unitOfWork.SaveChangesAsync();
+
+                _logger.LogInformation($"Course {courseId} updated to Ongoing");
+
+                // Schedule completion check
+                _backgroundJobClient.Schedule(
+                    () => CheckAndUpdateCourseToCompletedAsync(courseId),
+                    TimeSpan.FromMinutes(5));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error updating course {courseId} to Ongoing");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Update courses from Ongoing to Completed when all conditions are met
+        /// </summary>
+        public async Task CheckAndUpdateCourseToCompletedAsync(string courseId)
+        {
+            try
+            {
+                var course = await _unitOfWork.CourseRepository.GetAsync(
+                    c => c.CourseId == courseId, c => c.Classes);
+
+                if (course == null || course.Progress != Progress.Ongoing)
+                    return;
+
+                if (await IsCourseCompleted(courseId))
+                {
+                    course.Progress = Progress.Completed;
+                    course.UpdatedAt = DateTime.Now;
+                    await _unitOfWork.CourseRepository.UpdateAsync(course);
+                    await _unitOfWork.SaveChangesAsync();
+                    _logger.LogInformation($"Course {courseId} updated to Completed");
+                }
+                else
+                {
+                    // Reschedule completion check
+                    _backgroundJobClient.Schedule(
+                        () => CheckAndUpdateCourseToCompletedAsync(courseId),
+                        TimeSpan.FromMinutes(5));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error checking course {courseId} for completion");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Check if a course is completed based on all conditions
+        /// </summary>
+        private async Task<bool> IsCourseCompleted(string courseId)
+        {
+            try
+            {
+                // Get course with classes
+                var course = await _unitOfWork.CourseRepository.GetAsync(
+                    c => c.CourseId == courseId, c => c.Classes);
+
+                if (course?.Classes == null || !course.Classes.Any())
+                    return false;
+
+                // Check each class in the course
+                foreach (var classEntity in course.Classes)
+                {
+                    var classSubjects = await _unitOfWork.ClassSubjectRepository
+                        .FindAsync(cs => cs.ClassId == classEntity.ClassId);
+
+                    foreach (var classSubject in classSubjects)
+                    {
+                        // Check if all schedules for this ClassSubject are completed
+                        var schedules = await _scheduleRepository
+                            .GetSchedulesByClassSubjectIdAsync(classSubject.ClassSubjectId);
+
+                        if (schedules == null || !schedules.Any())
+                            continue;
+
+                        bool allSchedulesCompleted = schedules.All(s =>
+                            s.Status == ScheduleStatus.Completed || s.Status == ScheduleStatus.Canceled);
+
+                        if (!allSchedulesCompleted)
+                            return false;
+
+                        // Check if all trainees have grades
+                        var traineeAssigns = await _unitOfWork.TraineeAssignRepository
+                            .FindAsync(ta => ta.ClassSubjectId == classSubject.ClassSubjectId);
+
+                        if (traineeAssigns.Any())
+                        {
+                            var grades = await _unitOfWork.GradeRepository
+                                .FindAsync(g => traineeAssigns.Select(ta => ta.TraineeAssignId).Contains(g.TraineeAssignID));
+
+                            bool allGraded = traineeAssigns.All(ta =>
+                                grades.Any(g => g.TraineeAssignID == ta.TraineeAssignId));
+
+                            if (!allGraded)
+                                return false;
+                        }
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error checking if course {courseId} is completed");
+                return false;
+            }
+        }
+
+        #endregion
+
+        #region Existing Methods (Kept for backward compatibility)
+
         /// <summary>
         /// Checks and updates the progress status of a ClassSubject based on schedules and grades.
-        /// A ClassSubject is considered completed when all schedules have ended and all trainees have grades.
         /// </summary>
-        /// <param name="classSubjectId">The ID of the ClassSubject to check</param>
         public async Task CheckAndUpdateClassSubjectStatus(string classSubjectId)
         {
             try
             {
                 _logger.LogInformation($"Checking status for ClassSubject ID: {classSubjectId}");
 
-                // Sử dụng GetAsync với includes thay vì GetByIdAsync với multiple parameters
                 var classSubject = (await _unitOfWork.ClassSubjectRepository
                     .FindIncludeAsync(cs => cs.ClassSubjectId == classSubjectId,
                                       cs => cs.Class, cs => cs.traineeAssigns))
@@ -62,7 +252,6 @@ namespace OCMS_Services.Service
                     return;
                 }
 
-                // Lấy tất cả schedules cho ClassSubject này
                 var schedules = await _scheduleRepository
                     .GetSchedulesByClassSubjectIdAsync(classSubjectId);
 
@@ -72,7 +261,6 @@ namespace OCMS_Services.Service
                     return;
                 }
 
-                // Kiểm tra xem tất cả schedules đã kết thúc chưa
                 bool allSchedulesEnded = schedules.All(s =>
                     DateTime.Now > s.EndDateTime || s.Status == ScheduleStatus.Completed);
 
@@ -82,13 +270,11 @@ namespace OCMS_Services.Service
                     return;
                 }
 
-                // Lấy tất cả traineeAssigns và grades trong một truy vấn
                 var traineeAssigns = classSubject.traineeAssigns.ToList();
                 var traineeAssignIds = traineeAssigns.Select(ta => ta.TraineeAssignId).ToList();
                 var grades = await _unitOfWork.GradeRepository
                     .FindAsync(g => traineeAssignIds.Contains(g.TraineeAssignID));
 
-                // Kiểm tra xem tất cả traineeAssigns đều có grades
                 bool allTraineesGraded = traineeAssigns.All(ta =>
                     grades.Any(g => g.TraineeAssignID == ta.TraineeAssignId));
 
@@ -98,7 +284,6 @@ namespace OCMS_Services.Service
                     return;
                 }
 
-                // Cập nhật tất cả schedules thành Completed
                 foreach (var schedule in schedules)
                 {
                     if (schedule.Status != ScheduleStatus.Completed && schedule.Status != ScheduleStatus.Canceled)
@@ -112,7 +297,7 @@ namespace OCMS_Services.Service
                 await _unitOfWork.SaveChangesAsync();
                 _logger.LogInformation($"All schedules for ClassSubject {classSubjectId} marked as Completed");
 
-                // Kiểm tra và cập nhật Course status
+                // Check if course should be updated to Completed
                 await CheckAndUpdateCourseStatus(classSubject.Class.CourseId);
             }
             catch (Exception ex)
@@ -121,35 +306,25 @@ namespace OCMS_Services.Service
                 throw;
             }
         }
-        #endregion
 
-        #region Maintain for backward compatibility - CourseSubjectSpecialty
         /// <summary>
         /// Legacy method maintained for backward compatibility.
-        /// Redirects to the new ClassSubjectStatus method.
         /// </summary>
         public async Task CheckAndUpdateCourseSubjectSpecialtyStatus(string courseSubjectSpecialtyId)
         {
-            // This is a legacy method that now redirects to the new method
             _logger.LogWarning($"CheckAndUpdateCourseSubjectSpecialtyStatus is deprecated. Redirecting to CheckAndUpdateClassSubjectStatus");
             await CheckAndUpdateClassSubjectStatus(courseSubjectSpecialtyId);
         }
-        #endregion
 
-        #region Check and update Course progress
         /// <summary>
-        /// Checks and updates the Course progress status based on all related ClassSubject completions.
-        /// A Course is considered completed when all its ClassSubjects are completed.
-        /// This will update the Course.Progress property from Ongoing to Completed when appropriate.
+        /// Checks and updates the Course progress status.
         /// </summary>
-        /// <param name="courseId">The ID of the Course to check</param>
         public async Task CheckAndUpdateCourseStatus(string courseId)
         {
             try
             {
                 _logger.LogInformation($"Checking status for Course ID: {courseId}");
 
-                // Sử dụng GetAsync thay vì GetByIdAsync với includes
                 var course = await _unitOfWork.CourseRepository
                     .GetAsync(c => c.CourseId == courseId, c => c.Classes);
 
@@ -165,51 +340,7 @@ namespace OCMS_Services.Service
                     return;
                 }
 
-                // Lấy tất cả class ids để lấy class subjects
-                var classIds = course.Classes.Select(c => c.ClassId).ToList();
-                var classSubjects = await _unitOfWork.ClassSubjectRepository
-                    .FindAsync(cs => classIds.Contains(cs.ClassId));
-
-                if (!classSubjects.Any())
-                {
-                    _logger.LogWarning($"No ClassSubjects found for Course {courseId}");
-                    return;
-                }
-
-                // Kiểm tra xem tất cả classSubjects đã hoàn thành chưa
-                bool allClassSubjectsCompleted = true;
-                foreach (var classSubject in classSubjects)
-                {
-                    var schedules = await _scheduleRepository
-                        .GetSchedulesByClassSubjectIdAsync(classSubject.ClassSubjectId);
-
-                    bool subjectCompleted = schedules.All(s =>
-                        s.Status == ScheduleStatus.Completed || s.Status == ScheduleStatus.Canceled);
-
-                    if (!subjectCompleted)
-                    {
-                        allClassSubjectsCompleted = false;
-                        break;
-                    }
-
-                    // Kiểm tra grades cho traineeAssigns
-                    var traineeAssigns = await _unitOfWork.TraineeAssignRepository
-                        .FindAsync(ta => ta.ClassSubjectId == classSubject.ClassSubjectId);
-
-                    var grades = await _unitOfWork.GradeRepository
-                        .FindAsync(g => traineeAssigns.Select(ta => ta.TraineeAssignId).Contains(g.TraineeAssignID));
-
-                    bool allGraded = traineeAssigns.All(ta =>
-                        grades.Any(g => g.TraineeAssignID == ta.TraineeAssignId));
-
-                    if (!allGraded)
-                    {
-                        allClassSubjectsCompleted = false;
-                        break;
-                    }
-                }
-
-                if (allClassSubjectsCompleted)
+                if (await IsCourseCompleted(courseId))
                 {
                     course.Progress = Progress.Completed;
                     course.UpdatedAt = DateTime.Now;
@@ -228,76 +359,7 @@ namespace OCMS_Services.Service
                 throw;
             }
         }
-        #endregion
 
-        #region System-wide progress check
-        /// <summary>
-        /// Performs a system-wide check and update of all educational entities' progress statuses.
-        /// This method:
-        /// 1. Updates schedule statuses (Approved → Incoming)
-        /// 2. Processes completed ClassSubjects
-        /// 3. Updates Course progress (Ongoing → Completed)
-        /// </summary>
-        public async Task CheckAndUpdateAllStatuses()
-        {
-            try
-            {
-                _logger.LogInformation("Starting system-wide status check");
-
-                // 1. Check schedules that should be marked as Incoming (approved and past start time)
-                var startingSchedules = await _unitOfWork.TrainingScheduleRepository.FindAsync(
-                    s => s.Status == ScheduleStatus.Approved && s.StartDateTime <= DateTime.Now);
-
-                foreach (var schedule in startingSchedules)
-                {
-                    schedule.Status = ScheduleStatus.Incoming;
-                    schedule.ModifiedDate = DateTime.Now;
-                    await _unitOfWork.TrainingScheduleRepository.UpdateAsync(schedule);
-                    _logger.LogInformation($"Updated Schedule {schedule.ScheduleID} to Incoming");
-                }
-
-                if (startingSchedules.Any())
-                {
-                    await _unitOfWork.SaveChangesAsync();
-                    _logger.LogInformation($"Updated {startingSchedules.Count()} schedules to Incoming status");
-                }
-
-                // 2. Check schedules that have ended but not yet marked as completed
-                var expiredSchedules = await _unitOfWork.TrainingScheduleRepository.FindAsync(
-                    s => s.Status == ScheduleStatus.Incoming && s.EndDateTime < DateTime.Now);
-
-                var processedClassSubjectIds = new HashSet<string>();
-
-                foreach (var schedule in expiredSchedules)
-                {
-                    // Process each ClassSubject only once
-                    if (!processedClassSubjectIds.Contains(schedule.ClassSubjectId))
-                    {
-                        await CheckAndUpdateClassSubjectStatus(schedule.ClassSubjectId);
-                        processedClassSubjectIds.Add(schedule.ClassSubjectId);
-                    }
-                }
-
-                _logger.LogInformation($"Processed {processedClassSubjectIds.Count} ClassSubjects with expired schedules");
-
-                // 3. Check ongoing courses
-                var ongoingCourses = await _unitOfWork.CourseRepository.FindAsync(
-                    c => c.Progress == Progress.Ongoing && c.Status == CourseStatus.Approved);
-
-                foreach (var course in ongoingCourses)
-                {
-                    await CheckAndUpdateCourseStatus(course.CourseId);
-                }
-
-                _logger.LogInformation($"Processed {ongoingCourses.Count()} ongoing courses");
-                _logger.LogInformation("System-wide status check completed");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error during system-wide status check");
-                throw;
-            }
-        }
         #endregion
     }
 }

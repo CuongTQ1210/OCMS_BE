@@ -884,14 +884,14 @@ namespace OCMS_Services.Service
                         }
 
                         var course = await _courseRepository.GetWithIncludesAsync(
-               c => c.CourseId == request.RequestEntityId,
-               query => query.Include(c => c.SubjectSpecialties)
-                    .ThenInclude(ss => ss.Subject)
-                    .Include(c => c.SubjectSpecialties)
-                    .ThenInclude(ss => ss.Specialty)
-                    .Include(c => c.CreatedByUser)
-                    .Include(c => c.RelatedCourse)
-           );
+                               c => c.CourseId == request.RequestEntityId,
+                               query => query.Include(c => c.SubjectSpecialties)
+                                    .ThenInclude(ss => ss.Subject)
+                                    .Include(c => c.SubjectSpecialties)
+                                    .ThenInclude(ss => ss.Specialty)
+                                    .Include(c => c.CreatedByUser)
+                                    .Include(c => c.RelatedCourse)
+                           );
                         // Check if course has subject specialties
                         if (course.SubjectSpecialties == null || !course.SubjectSpecialties.Any())
                             throw new InvalidOperationException($"Course '{course.CourseName}' must have at least one subject.");
