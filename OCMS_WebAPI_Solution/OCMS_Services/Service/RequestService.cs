@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using MimeKit.Cryptography;
 using OCMS_BOs.Entities;
@@ -31,6 +32,8 @@ namespace OCMS_Services.Service
         private readonly IInstructorAssignmentRepository _instructorAssignmentRepository;
         private readonly ITraineeAssignRepository _traineeAssignRepository;
         private readonly IGradeService _gradeService;
+        private readonly IBackgroundJobClient _backgroundJobClient;
+
         public RequestService(
             UnitOfWork unitOfWork,
             IMapper mapper,
@@ -42,7 +45,8 @@ namespace OCMS_Services.Service
             ICourseRepository courseRepository,
             IInstructorAssignmentRepository instructorAssignmentRepository,
             ITraineeAssignRepository traineeAssignRepository,
-            IGradeService gradeService)
+            IGradeService gradeService,
+            IBackgroundJobClient backgroundJobClient)
         {
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
@@ -55,6 +59,7 @@ namespace OCMS_Services.Service
             _instructorAssignmentRepository = instructorAssignmentRepository ?? throw new ArgumentNullException(nameof(instructorAssignmentRepository));
             _traineeAssignRepository = traineeAssignRepository ?? throw new ArgumentNullException(nameof(traineeAssignRepository));
             _gradeService = gradeService ?? throw new ArgumentNullException(nameof(gradeService));
+            _backgroundJobClient = backgroundJobClient ?? throw new ArgumentNullException(nameof(backgroundJobClient));
         }
         public RequestService(UnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService, IUserRepository userRepository, ICandidateRepository candidateRepository)
         {
@@ -112,12 +117,12 @@ namespace OCMS_Services.Service
                 var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
                 foreach (var director in directors)
                 {
-                    await _notificationService.SendNotificationAsync(
+                    _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                         director.UserId,
                         "New Request Submitted",
                         $"A new {newRequest.RequestType} request has been submitted for review.",
                         "Request"
-                    );
+                    ));
                 }
             }
             if (newRequest.RequestType == RequestType.SignRequest)
@@ -126,12 +131,12 @@ namespace OCMS_Services.Service
                 var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
                 foreach (var director in directors)
                 {
-                    await _notificationService.SendNotificationAsync(
+                    _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                         director.UserId,
                         "New Request Submitted",
                         $"A new {newRequest.RequestType} for certificateId {requestDto.RequestEntityId} need to be signed.",
                         "Request"
-                    );
+                    ));
                 }
             }
             else if (newRequest.RequestType == RequestType.CreateNew ||
@@ -143,12 +148,12 @@ namespace OCMS_Services.Service
 
                 foreach (var edu in eduofficers)
                 {
-                    await _notificationService.SendNotificationAsync(
+                    _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                         edu.UserId,
                         "New Request Submitted",
                         $"A new {newRequest.RequestType} request has been submitted for review.",
                         "Request"
-                    );
+                    ));
                 }
             }
 
@@ -157,12 +162,12 @@ namespace OCMS_Services.Service
                 var staffs = await _userRepository.GetUsersByRoleAsync("Training staff");
                 foreach (var staff in staffs)
                 {
-                    await _notificationService.SendNotificationAsync(
+                    _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                         staff.UserId,
                         "New Candidate Import Request",
                         $"A new {newRequest.RequestType} request has been submitted for review.",
                         "CandidateImport"
-                    );
+                    ));
                 }
             }
 
@@ -171,12 +176,12 @@ namespace OCMS_Services.Service
                 var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
                 foreach (var director in directors)
                 {
-                    await _notificationService.SendNotificationAsync(
+                    _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                         director.UserId,
                         "New Template Approval Request",
                         "A new template approval request has been submitted for review.",
                         "TemplateApprove"
-                    );
+                    ));
                 }
             }
             if (newRequest.RequestType == RequestType.CertificateTemplate)
@@ -184,12 +189,12 @@ namespace OCMS_Services.Service
                 var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
                 foreach (var director in directors)
                 {
-                    await _notificationService.SendNotificationAsync(
+                    _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                         director.UserId,
                         "New Template Approval Request",
                         "A new template approval request has been submitted for review.",
                         "TemplateApprove"
-                    );
+                    ));
                 }
             }
             if (newRequest.RequestType == RequestType.Revoke)
@@ -197,12 +202,12 @@ namespace OCMS_Services.Service
                 var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
                 foreach (var director in directors)
                 {
-                    await _notificationService.SendNotificationAsync(
+                    _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                         director.UserId,
                         "Revoke Certificate Approval Request",
                         "A new Revoke approval request has been submitted for review.",
                         "RevokeCertificate"
-                    );
+                    ));
                 }
             }
             if (newRequest.RequestType == RequestType.NewCourse ||
@@ -212,12 +217,12 @@ namespace OCMS_Services.Service
                 var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
                 foreach (var director in directors)
                 {
-                    await _notificationService.SendNotificationAsync(
+                    _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                         director.UserId,
                         "New Course Request Submitted",
                         $"A new {newRequest.RequestType} request has been submitted for review.",
                         "CourseRequest"
-                    );
+                    ));
                 }
             }
             return newRequest;
@@ -555,12 +560,12 @@ namespace OCMS_Services.Service
                             }
 
                             await _unitOfWork.SaveChangesAsync();
-                            await _notificationService.SendNotificationAsync(
+                            _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                                 request.RequestUserId,
                                 "Delete Request Approved",
                                 $"Your request to delete all subjects for Course: {courseIdPart} - Specialty: {specialtyIdPart} has been approved.",
                                 "Delete Subjects"
-                            );
+                            ));
 
                             actionSuccessful = true;
                             break;
@@ -605,12 +610,12 @@ namespace OCMS_Services.Service
                             }
 
                             await _unitOfWork.SaveChangesAsync();
-                            await _notificationService.SendNotificationAsync(
+                            _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                                 request.RequestUserId,
                                 "Delete Request Approved",
                                 $"Your request to delete all subjects for Course: {courseId} - Specialty: {specialtyId} has been approved.",
                                 "Delete Subjects"
-                            );
+                            ));
 
                             actionSuccessful = true;
                             break;
@@ -675,12 +680,12 @@ namespace OCMS_Services.Service
                             }
 
                             await _unitOfWork.SaveChangesAsync();
-                            await _notificationService.SendNotificationAsync(
+                            _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                                 request.RequestUserId,
                                 "Add Subject Request Approved",
                                 $"Your request to add subject {subjectId} to course {courseId} with specialty {specialtyId} has been approved.",
                                 "Add Subject"
-                            );
+                            ));
 
                             actionSuccessful = true;
                             break;
@@ -693,12 +698,12 @@ namespace OCMS_Services.Service
                             // Update status to pending
                             // Note: Since TrainingPlanRepository is no longer available,
                             // we're treating this request as a generic entity update
-                            await _notificationService.SendNotificationAsync(
+                            _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                                 request.RequestUserId,
                                 "Request Status Updated",
                                 $"Your request for {request.RequestEntityId} has been set to pending for {request.RequestType.ToString().ToLower()}.",
                                 $"{request.RequestType.ToString()}"
-                            );
+                            ));
 
                             actionSuccessful = true;
                         }
@@ -800,12 +805,12 @@ namespace OCMS_Services.Service
                         var admins = await _userRepository.GetUsersByRoleAsync("Admin");
                         foreach (var admin in admins)
                         {
-                            await _notificationService.SendNotificationAsync(
+                            _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                                 admin.UserId,
                                 "Candidate Import Approved",
                                 "The candidate import request has been approved. Please create user accounts for the new candidates.",
                                 "CandidateImport"
-                            );
+                            ));
                         }
                         actionSuccessful = true;
                         break;
@@ -823,12 +828,12 @@ namespace OCMS_Services.Service
                             await _unitOfWork.TrainingScheduleRepository.UpdateAsync(classSchedule);
 
                             // Send notification to the requester
-                            await _notificationService.SendNotificationAsync(
+                            _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                                 request.RequestUserId,
                                 "Schedule Approved",
                                 $"Your schedule request has been approved. Schedule ID: {classSchedule.ScheduleID}",
                                 "Schedule"
-                            );
+                            ));
                         }
                         actionSuccessful = true;
                         break;
@@ -904,12 +909,12 @@ namespace OCMS_Services.Service
                             await _unitOfWork.CourseRepository.UpdateAsync(course);
 
                             // Send notification
-                            await _notificationService.SendNotificationAsync(
+                            _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                                 request.RequestUserId,
                                 "Course Approved",
                                 $"Your course '{course.CourseName}' has been approved.",
                                 "Course"
-                            );
+                            ));
                         }
                         actionSuccessful = true;
                         break;
@@ -929,12 +934,12 @@ namespace OCMS_Services.Service
                             await _unitOfWork.CourseRepository.UpdateAsync(courseToUpdate);
 
                             // Send notification
-                            await _notificationService.SendNotificationAsync(
+                            _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                                 request.RequestUserId,
                                 "Course Update Approved",
                                 $"Your request to update course '{courseToUpdate.CourseName}' has been approved.",
                                 "Course"
-                            );
+                            ));
                         }
                         actionSuccessful = true;
                         break;
@@ -997,12 +1002,12 @@ namespace OCMS_Services.Service
                             await _unitOfWork.CourseRepository.UpdateAsync(courseToDelete);
 
                             // Send notification
-                            await _notificationService.SendNotificationAsync(
+                            _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                                 request.RequestUserId,
                                 "Course Deletion Approved",
                                 $"Your request to delete course '{courseToDelete.CourseName}' has been approved.",
                                 "Course"
-                            );
+                            ));
                         }
                         actionSuccessful = true;
                         break;
@@ -1020,12 +1025,12 @@ namespace OCMS_Services.Service
                             await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(instructorAssignment);
 
                             // Send notification to the requester
-                            await _notificationService.SendNotificationAsync(
+                            _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                                 request.RequestUserId,
                                 "Instructor Assignment Approved",
                                 $"Your instructor assignment request has been approved. Assignment ID: {instructorAssignment.AssignmentId}",
                                 "InstructorAssignment"
-                            );
+                            ));
                         }
                         actionSuccessful = true;
                         break;
@@ -1042,12 +1047,12 @@ namespace OCMS_Services.Service
                     request.Status = RequestStatus.Approved;
 
                     // Notify the requester about the approval
-                    await _notificationService.SendNotificationAsync(
+                    _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                         request.RequestUserId,
                         "Request Approved",
                         $"Your request ({request.RequestType}) has been approved.",
                         "Request"
-                    );
+                    ));
 
                     await _unitOfWork.RequestRepository.UpdateAsync(request);
                     await _unitOfWork.SaveChangesAsync();
@@ -1315,12 +1320,12 @@ namespace OCMS_Services.Service
                 var hrs = await _userRepository.GetUsersByRoleAsync("HR");
                 foreach (var hr in hrs)
                 {
-                    await _notificationService.SendNotificationAsync(
+                    _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                         hr.UserId,
                         "Candidate Import Rejected",
                         $"The candidate import request has been rejected. Reason: {rejectionReason}",
                         "CandidateImport"
-                    );
+                    ));
                 }
             }
 
