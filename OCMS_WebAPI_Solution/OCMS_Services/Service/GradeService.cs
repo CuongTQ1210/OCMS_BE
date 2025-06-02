@@ -50,6 +50,8 @@ namespace OCMS_Services.Service
                 g => g.TraineeAssign,
                 g => g.TraineeAssign.ClassSubject,
                 g => g.TraineeAssign.ClassSubject.SubjectSpecialty,
+                g => g.TraineeAssign.ClassSubject.SubjectSpecialty.Subject,
+                g => g.TraineeAssign.ClassSubject.Class.Course,
                 g => g.TraineeAssign.Trainee);
 
             grades = grades.Where(g => g.TraineeAssign?.ClassSubject?.SubjectSpecialty != null)
@@ -67,6 +69,7 @@ namespace OCMS_Services.Service
                 g => g.TraineeAssign,
                 g => g.TraineeAssign.ClassSubject,
                 g => g.TraineeAssign.ClassSubject.SubjectSpecialty,
+                g => g.TraineeAssign.ClassSubject.Class.Course,
                 g => g.TraineeAssign.Trainee);
 
             if (grade == null)
@@ -154,7 +157,7 @@ namespace OCMS_Services.Service
                 throw new Exception("Subject or Class not found.");
 
             // Get the course information for the class
-            var course = await _courseRepository.GetCourseByClassIdAsync(classInfo.ClassId);
+            var course = await _courseRepository.GetCourseByClassIdAsync(classInfo.CourseId);
             if (course == null)
                 throw new Exception("Course not found for the class.");
 
@@ -245,7 +248,9 @@ namespace OCMS_Services.Service
                 g => g.GradeId == id,
                 g => g.TraineeAssign,
                 g => g.TraineeAssign.ClassSubject,
-                g => g.TraineeAssign.ClassSubject.Class);
+                g => g.TraineeAssign.ClassSubject.SubjectSpecialty,
+                g => g.TraineeAssign.ClassSubject.Class,
+                g => g.TraineeAssign.ClassSubject.SubjectSpecialty.Subject);
             if (existing == null)
                 throw new KeyNotFoundException($"Grade with ID '{id}' not found.");
 
