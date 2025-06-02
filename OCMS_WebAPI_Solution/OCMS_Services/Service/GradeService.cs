@@ -50,6 +50,8 @@ namespace OCMS_Services.Service
                 g => g.TraineeAssign,
                 g => g.TraineeAssign.ClassSubject,
                 g => g.TraineeAssign.ClassSubject.SubjectSpecialty,
+                g => g.TraineeAssign.ClassSubject.SubjectSpecialty.Subject,
+                g => g.TraineeAssign.ClassSubject.Class.Course,
                 g => g.TraineeAssign.Trainee);
 
             grades = grades.Where(g => g.TraineeAssign?.ClassSubject?.SubjectSpecialty != null)
@@ -67,6 +69,7 @@ namespace OCMS_Services.Service
                 g => g.TraineeAssign,
                 g => g.TraineeAssign.ClassSubject,
                 g => g.TraineeAssign.ClassSubject.SubjectSpecialty,
+                g => g.TraineeAssign.ClassSubject.Class.Course,
                 g => g.TraineeAssign.Trainee);
 
             if (grade == null)
@@ -194,20 +197,26 @@ namespace OCMS_Services.Service
                 {
                     if (!traineeWithCerts.Contains(assignTrainee.TraineeId))
                     {
-                        await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(course.CourseId, existing.GradedByInstructorId);
-                        var decisionRequest = new CreateDecisionDTO { CourseId = course.CourseId };
-                        await _decisionService.CreateDecisionForCourseAsync(decisionRequest, existing.GradedByInstructorId);
+                        var certificates = await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(course.CourseId, existing.GradedByInstructorId);
+                        if (certificates != null && certificates.Any())
+                        {
+                            var decisionRequest = new CreateDecisionDTO { CourseId = course.CourseId };
+                            await _decisionService.CreateDecisionForCourseAsync(decisionRequest, existing.GradedByInstructorId);
+                        }
                     }
                 }
                 else if (course.CourseLevel == CourseLevel.Recurrent)
                 {
-                    await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(course.CourseId, existing.GradedByInstructorId);
-                    var existingDecision = await _unitOfWork.DecisionRepository.GetAsync(
-                        d => d.Certificate.CourseId == course.CourseId);
-                    if (existingDecision == null)
+                    var certificates = await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(course.CourseId, existing.GradedByInstructorId);
+                    if (certificates != null && certificates.Any())
                     {
-                        var decisionRequest = new CreateDecisionDTO { CourseId = course.CourseId };
-                        await _decisionService.CreateDecisionForCourseAsync(decisionRequest, existing.GradedByInstructorId);
+                        var existingDecision = await _unitOfWork.DecisionRepository.GetAsync(
+                            d => d.Certificate.CourseId == course.CourseId);
+                        if (existingDecision == null)
+                        {
+                            var decisionRequest = new CreateDecisionDTO { CourseId = course.CourseId };
+                            await _decisionService.CreateDecisionForCourseAsync(decisionRequest, existing.GradedByInstructorId);
+                        }
                     }
                 }
                 else if (course.CourseLevel == CourseLevel.Relearn)
@@ -245,7 +254,9 @@ namespace OCMS_Services.Service
                 g => g.GradeId == id,
                 g => g.TraineeAssign,
                 g => g.TraineeAssign.ClassSubject,
-                g => g.TraineeAssign.ClassSubject.Class);
+                g => g.TraineeAssign.ClassSubject.SubjectSpecialty,
+                g => g.TraineeAssign.ClassSubject.Class,
+                g => g.TraineeAssign.ClassSubject.SubjectSpecialty.Subject);
             if (existing == null)
                 throw new KeyNotFoundException($"Grade with ID '{id}' not found.");
 
@@ -253,7 +264,7 @@ namespace OCMS_Services.Service
             var classInfo = assignTrainee.ClassSubject.Class;
 
             // Get the course information for the class
-            var course = await _unitOfWork.CourseRepository.GetByIdAsync(classInfo.ClassId);
+            var course = await _unitOfWork.CourseRepository.GetByIdAsync(classInfo.CourseId);
             if (course == null)
                 throw new Exception("Course not found for the class.");
 
@@ -871,12 +882,8 @@ namespace OCMS_Services.Service
                     // Generate certificate
                     if (course.CourseLevel == CourseLevel.Initial || course.CourseLevel == CourseLevel.Recurrent)
                     {
-                        await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(courseId, processedByUserId);
-
-                        // Create decision document if needed
-                        var existingDecision = await _unitOfWork.DecisionRepository.GetFirstOrDefaultAsync(
-                            d => d.Certificate.CourseId == courseId);
-                        if (existingDecision == null)
+                        var certificates = await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(courseId, processedByUserId);
+                        if (certificates != null && certificates.Any())
                         {
                             var decisionRequest = new CreateDecisionDTO { CourseId = courseId };
                             await _decisionService.CreateDecisionForCourseAsync(decisionRequest, processedByUserId);

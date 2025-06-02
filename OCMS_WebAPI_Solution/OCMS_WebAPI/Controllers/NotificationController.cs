@@ -96,7 +96,7 @@ namespace OCMS_WebAPI.Controllers
                 foreach (var notification in newNotifications)
                 {
                     // Thêm id và retry để hỗ trợ reconnect
-                    await Response.WriteAsync($"id: {notification.Id}\n");
+                    await Response.WriteAsync($"id: {notification.NotificationId}\n");
                     await Response.WriteAsync("retry: 5000\n"); // Thử kết nối lại sau 5 giây
                     await Response.WriteAsync($"data: {System.Text.Json.JsonSerializer.Serialize(notification)}\n\n");
                     await Response.Body.FlushAsync();
