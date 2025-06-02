@@ -253,7 +253,7 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.GradeStatus, opt => opt.MapFrom(src => src.gradeStatus.ToString()))
                 .ForMember(dest => dest.TraineeAssignId, opt => opt.MapFrom(src => src.TraineeAssignID))
                 .ForMember(dest => dest.TraineeId, opt => opt.MapFrom(src => src.TraineeAssign.TraineeId))
-                .ForMember(dest => dest.CourseId, opt => opt.Ignore())
+                .ForMember(dest => dest.CourseId, opt => opt.MapFrom(src=> src.TraineeAssign.ClassSubject.Class.CourseId))
                 .ForMember(dest => dest.Fullname, opt => opt.MapFrom(src => src.TraineeAssign.Trainee.FullName))
                 .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.TraineeAssign.ClassSubject.SubjectSpecialty.SubjectId))
                 .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.TraineeAssign.ClassSubject.SubjectSpecialty.Subject.SubjectName))
