@@ -446,7 +446,6 @@ namespace OCMS_Services.Service
         }
         #endregion
 
-
         #region Delete Training Schedule
         /// <summary>
         /// Deletes a training schedule by its ID. Instructor assignments are managed separately.
