@@ -157,7 +157,7 @@ namespace OCMS_Services.Service
                 throw new Exception("Subject or Class not found.");
 
             // Get the course information for the class
-            var course = await _courseRepository.GetCourseByClassIdAsync(classInfo.CourseId);
+            var course = await _courseRepository.GetCourseByClassIdAsync(classInfo.ClassId);
             if (course == null)
                 throw new Exception("Course not found for the class.");
 
@@ -258,7 +258,7 @@ namespace OCMS_Services.Service
             var classInfo = assignTrainee.ClassSubject.Class;
 
             // Get the course information for the class
-            var course = await _unitOfWork.CourseRepository.GetByIdAsync(classInfo.ClassId);
+            var course = await _unitOfWork.CourseRepository.GetByIdAsync(classInfo.CourseId);
             if (course == null)
                 throw new Exception("Course not found for the class.");
 
