@@ -107,7 +107,7 @@ namespace OCMS_Services.Service
             var grade = _mapper.Map<Grade>(dto);
             grade.GradeId = $"G-{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
             grade.GradedByInstructorId = gradedByUserId;
-            grade.EvaluationDate = DateTime.UtcNow;
+            grade.EvaluationDate = DateTime.Now;
             grade.TraineeAssignID = traineeAssign.TraineeAssignId;
 
             // Set initial scores to -1
@@ -684,7 +684,7 @@ namespace OCMS_Services.Service
 
             // 2. Get all ClassSubjects linked to the original course
             var originalClassSubjects = await _unitOfWork.ClassSubjectRepository.FindAsync(
-                cs => cs.ClassId == originalCourse.CourseId);
+                cs => cs.Class.CourseId == originalCourse.CourseId);
 
             // 3. Get all failed subjects in the original course
             var failedSubjects = new List<string>();
@@ -709,7 +709,7 @@ namespace OCMS_Services.Service
 
             // 5. Get all ClassSubjects linked to the relearn course
             var relearnClassSubjects = await _unitOfWork.ClassSubjectRepository.FindAsync(
-                cs => cs.ClassId == relearnCourse.CourseId);
+                cs => cs.Class.CourseId == relearnCourse.CourseId);
 
             // 6. Check if student is assigned to the appropriate relearn course
             var traineeAssignment = await _unitOfWork.TraineeAssignRepository.GetAsync(
@@ -771,8 +771,25 @@ namespace OCMS_Services.Service
                     break;
                 }
             }
-
-            // 10. No processing in this method - aftermath handling is done in calling methods
+            // 10. Create Initial Certificate if all relearn subjects are passed
+            if (allRelearnSubjectsPassed)
+            {
+                var existingCertificate = await _unitOfWork.CertificateRepository.GetFirstOrDefaultAsync(
+                    c => c.CourseId == relearnCourse.CourseId && c.UserId == traineeId && c.Status == CertificateStatus.Active);
+                if (existingCertificate == null)
+                {
+                    // Generate certificate
+                    await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(relearnCourse.CourseId, grade.GradedByInstructorId);
+                    // Create decision document if needed
+                    var existingDecision = await _unitOfWork.DecisionRepository.GetFirstOrDefaultAsync(
+                        d => d.Certificate.CourseId == relearnCourse.CourseId);
+                    if (existingDecision == null)
+                    {
+                        var decisionRequest = new CreateDecisionDTO { CourseId = relearnCourse.CourseId };
+                        await _decisionService.CreateDecisionForCourseAsync(decisionRequest, grade.GradedByInstructorId);
+                    }
+                }
+            }
         }
 
         // Tìm khóa không phải relearn gần nhất, không phải lúc nào cũng là khóa "gốc"
