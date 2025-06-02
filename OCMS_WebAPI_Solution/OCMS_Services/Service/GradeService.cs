@@ -197,20 +197,26 @@ namespace OCMS_Services.Service
                 {
                     if (!traineeWithCerts.Contains(assignTrainee.TraineeId))
                     {
-                        await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(course.CourseId, existing.GradedByInstructorId);
-                        var decisionRequest = new CreateDecisionDTO { CourseId = course.CourseId };
-                        await _decisionService.CreateDecisionForCourseAsync(decisionRequest, existing.GradedByInstructorId);
+                        var certificates = await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(course.CourseId, existing.GradedByInstructorId);
+                        if (certificates != null && certificates.Any())
+                        {
+                            var decisionRequest = new CreateDecisionDTO { CourseId = course.CourseId };
+                            await _decisionService.CreateDecisionForCourseAsync(decisionRequest, existing.GradedByInstructorId);
+                        }
                     }
                 }
                 else if (course.CourseLevel == CourseLevel.Recurrent)
                 {
-                    await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(course.CourseId, existing.GradedByInstructorId);
-                    var existingDecision = await _unitOfWork.DecisionRepository.GetAsync(
-                        d => d.Certificate.CourseId == course.CourseId);
-                    if (existingDecision == null)
+                    var certificates = await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(course.CourseId, existing.GradedByInstructorId);
+                    if (certificates != null && certificates.Any())
                     {
-                        var decisionRequest = new CreateDecisionDTO { CourseId = course.CourseId };
-                        await _decisionService.CreateDecisionForCourseAsync(decisionRequest, existing.GradedByInstructorId);
+                        var existingDecision = await _unitOfWork.DecisionRepository.GetAsync(
+                            d => d.Certificate.CourseId == course.CourseId);
+                        if (existingDecision == null)
+                        {
+                            var decisionRequest = new CreateDecisionDTO { CourseId = course.CourseId };
+                            await _decisionService.CreateDecisionForCourseAsync(decisionRequest, existing.GradedByInstructorId);
+                        }
                     }
                 }
                 else if (course.CourseLevel == CourseLevel.Relearn)
@@ -859,12 +865,8 @@ namespace OCMS_Services.Service
                     // Generate certificate
                     if (course.CourseLevel == CourseLevel.Initial || course.CourseLevel == CourseLevel.Recurrent)
                     {
-                        await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(courseId, processedByUserId);
-
-                        // Create decision document if needed
-                        var existingDecision = await _unitOfWork.DecisionRepository.GetFirstOrDefaultAsync(
-                            d => d.Certificate.CourseId == courseId);
-                        if (existingDecision == null)
+                        var certificates = await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(courseId, processedByUserId);
+                        if (certificates != null && certificates.Any())
                         {
                             var decisionRequest = new CreateDecisionDTO { CourseId = courseId };
                             await _decisionService.CreateDecisionForCourseAsync(decisionRequest, processedByUserId);

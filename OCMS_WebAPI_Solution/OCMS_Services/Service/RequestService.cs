@@ -834,7 +834,16 @@ namespace OCMS_Services.Service
                                 $"Your schedule request has been approved. Schedule ID: {classSchedule.ScheduleID}",
                                 "Schedule"
                             ));
+                            var instructor = await _unitOfWork.InstructorAssignmentRepository.GetByIdAsync(classSchedule.ClassSubject.InstructorAssignmentID);
+                            _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
+                                instructor.InstructorId,
+                                "Class Schedule",
+                                $"You have a new Schedule for class {classSchedule.ClassSubjectId}",
+                                "Schedule"
+                            ));
                         }
+                        
+
                         actionSuccessful = true;
                         break;
 
