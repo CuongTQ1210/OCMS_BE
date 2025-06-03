@@ -65,6 +65,13 @@ namespace OCMS_Services.Service
             if (!instructorExists)
                 throw new ArgumentException($"Instructor with ID {dto.InstructorId} does not exist.");
 
+            var assignExists = await _unitOfWork.InstructorAssignmentRepository.ExistsAsync(i => i.InstructorId == dto.InstructorId && i.SubjectId == dto.SubjectId);
+            
+                if (assignExists)
+            {
+                throw new ArgumentException($"Instructor with ID {dto.InstructorId} already can teach subject id {dto.SubjectId}.");
+            }
+            
             var userExists = await _unitOfWork.UserRepository.ExistsAsync(u => u.UserId == assignByUserId);
             if (!userExists)
                 throw new ArgumentException($"User with ID {assignByUserId} does not exist.");
@@ -80,7 +87,7 @@ namespace OCMS_Services.Service
             assignment.SubjectId = dto.SubjectId;
             assignment.InstructorId = dto.InstructorId;
             assignment.AssignByUserId = assignByUserId;
-            assignment.AssignDate = DateTime.UtcNow;
+            assignment.AssignDate = DateTime.Now;
             assignment.RequestStatus = RequestStatus.Pending;
 
             var user = await _unitOfWork.UserRepository.FirstOrDefaultAsync(u => u.UserId == dto.InstructorId);
