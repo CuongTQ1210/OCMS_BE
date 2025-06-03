@@ -230,7 +230,6 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.EndDateTime, opt => opt.MapFrom(src => src.EndDay))
                 .ForMember(dest => dest.DaysOfWeek, opt => opt.MapFrom(src => src.DaysOfWeek != null ? src.DaysOfWeek.Select(d => (DayOfWeek)d).ToList() : new List<DayOfWeek>()))
                 .ForMember(dest => dest.ClassTime, opt => opt.MapFrom(src => src.ClassTime))
-                .ForMember(dest => dest.SubjectPeriod, opt => opt.MapFrom(src => src.SubjectPeriod))
                 .ForMember(dest => dest.CreatedDate, opt => opt.MapFrom(_ => DateTime.Now))
                 .ForMember(dest => dest.ModifiedDate, opt => opt.MapFrom(_ => DateTime.Now))
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(_ => ScheduleStatus.Pending))
@@ -245,8 +244,7 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.StartDay, opt => opt.MapFrom(src => src.StartDateTime))
                 .ForMember(dest => dest.EndDay, opt => opt.MapFrom(src => src.EndDateTime))
                 .ForMember(dest => dest.DaysOfWeek, opt => opt.MapFrom(src => src.DaysOfWeek != null ? src.DaysOfWeek.Select(d => (int)d).ToList() : new List<int>()))
-                .ForMember(dest => dest.ClassTime, opt => opt.MapFrom(src => src.ClassTime))
-                .ForMember(dest => dest.SubjectPeriod, opt => opt.MapFrom(src => src.SubjectPeriod));
+                .ForMember(dest => dest.ClassTime, opt => opt.MapFrom(src => src.ClassTime));
 
             // Grade Mappings
             CreateMap<Grade, GradeModel>()
