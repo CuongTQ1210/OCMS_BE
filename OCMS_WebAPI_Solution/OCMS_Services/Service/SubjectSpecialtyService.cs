@@ -111,12 +111,14 @@ namespace OCMS_Services.Service
             entity.SubjectSpecialtyId = generatedId;
 
             await _unitOfWork.SubjectSpecialtyRepository.AddAsync(entity);
+            await _unitOfWork.SaveChangesAsync();
             return _mapper.Map<SubjectSpecialtyModel>(entity);
         }
 
         public async Task<bool> DeleteAsync(string id)
         {
             await _unitOfWork.SubjectSpecialtyRepository.DeleteAsync(id);
+            await _unitOfWork.SaveChangesAsync();
             return true;
         }
     }
