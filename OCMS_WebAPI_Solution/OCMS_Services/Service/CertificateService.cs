@@ -73,10 +73,8 @@ namespace OCMS_Services.Service
                 var course = await _courseRepository.GetCourseWithDetailsAsync(courseId);
                 if (course == null || !course.SubjectSpecialties.Any() || course.Status != CourseStatus.Approved)
                 {
-                    throw new Exception($"Course with ID {courseId} not found or not active or has no subjects!");
+                    throw new Exception($"Course with ID {courseId} not found, not active, or has no subjects!");
                 }
-
-                int subjectCount = course.SubjectSpecialties.Count;
 
                 var templateId = await GetTemplateIdByCourseLevelAsync(course.CourseLevel);
                 if (string.IsNullOrEmpty(templateId))
@@ -112,7 +110,6 @@ namespace OCMS_Services.Service
 
                 var issueDate = DateTime.Now;
 
-                // Group trainee assignments by trainee and specialty
                 var traineeAssignmentsByTrainee = traineeAssignments
                     .GroupBy(ta => ta.TraineeId)
                     .ToDictionary(g => g.Key, g => g.ToList());
@@ -128,7 +125,6 @@ namespace OCMS_Services.Service
                     var traineeId = traineeGroup.Key;
                     var assignments = traineeGroup.Value;
 
-                    // Get specialty from the first assignment's ClassSubject
                     var specialtyId = assignments.First().ClassSubject.SubjectSpecialty.SpecialtyId;
                     if (assignments.Any(ta => ta.ClassSubject.SubjectSpecialty.SpecialtyId != specialtyId))
                     {
@@ -144,14 +140,16 @@ namespace OCMS_Services.Service
 
                     var traineeGrades = assignments.SelectMany(ta => gradesByTraineeAssign.GetValueOrDefault(ta.TraineeAssignId, new List<Grade>()));
                     var passedCssIds = traineeGrades.Where(g => g.gradeStatus == GradeStatus.Pass)
-                                                    .Select(g => g.TraineeAssign.ClassSubject.SubjectSpecialtyId)
-                                                    .ToHashSet();
+                                                   .Select(g => g.TraineeAssign.ClassSubject.SubjectSpecialtyId)
+                                                   .ToHashSet();
                     var requiredCssIds = requiredCss.Select(css => css.SubjectSpecialtyId).ToHashSet();
 
-                    // Explicitly construct the tuple with named parameters
                     if (requiredCssIds.All(id => passedCssIds.Contains(id)) && !traineeWithCerts.Contains(traineeId))
                     {
-                        eligibleTrainees.Add((TraineeId: traineeId, SpecialtyId: specialtyId));
+                        if (await IsEligibleForCertificateAsync(traineeId, course, specialtyId))
+                        {
+                            eligibleTrainees.Add((TraineeId: traineeId, SpecialtyId: specialtyId));
+                        }
                     }
                 }
 
@@ -176,54 +174,7 @@ namespace OCMS_Services.Service
                             .SelectMany(ta => gradesByTraineeAssign.GetValueOrDefault(ta.TraineeAssignId, new List<Grade>()))
                             .ToList();
 
-                        if (course.CourseLevel == CourseLevel.Recurrent)
-                        {
-                            var initialCourseId = course.RelatedCourseId;
-
-                            if (!string.IsNullOrEmpty(initialCourseId))
-                            {
-                                var initialCert = (await _unitOfWork.CertificateRepository.GetAllAsync(c =>
-                                    c.UserId == trainee.UserId &&
-                                    c.CourseId == initialCourseId &&
-                                    c.Status == CertificateStatus.Active))
-                                    .OrderByDescending(c => c.IssueDate)
-                                    .FirstOrDefault();
-
-                                if (initialCert != null)
-                                {
-                                    initialCert.ExpirationDate = DateTime.Now.AddYears(2);
-                                    initialCert.CourseId = course.CourseId; // Update to recurrent course ID
-                                    initialCert.IssueByUserId = issuedByUserId;
-                                    initialCert.IssueDate = DateTime.Now;
-                                    initialCert.Status = CertificateStatus.Pending;
-                                    initialCert.SpecialtyId = specialtyId; // Set SpecialtyId for recurrent course
-
-                                    lock (certToUpdate)
-                                    {
-                                        certToUpdate.Add(initialCert);
-                                    }
-
-                                    await _unitOfWork.CertificateRepository.UpdateAsync(initialCert);
-
-                                    return initialCert;
-                                }
-                                else
-                                {
-                                    _logger.LogWarning($"No Initial certificate found for recurrent trainee {trainee.UserId} in course {course.CourseName}");
-                                    return null;
-                                }
-                            }
-                            else
-                            {
-                                _logger.LogWarning($"Recurrent course {course.CourseId} has no related initial course specified");
-                                return null;
-                            }
-                        }
-                        else
-                        {
-                            return await GenerateCertificateAsync(
-                                trainee, course, templateId, templateHtml, templateType, grades, issuedByUserId, issueDate, specialtyId);
-                        }
+                        return await ProcessCertificateForTraineeAsync(trainee, course, templateId, templateHtml, templateType, grades, issuedByUserId, issueDate, specialtyId, certToUpdate);
                     }
                     catch (Exception ex)
                     {
@@ -294,18 +245,10 @@ namespace OCMS_Services.Service
 
             try
             {
-                var existingCertificate = await _unitOfWork.CertificateRepository.GetAllAsync(c =>
-                    c.UserId == userId && c.CourseId == courseId && c.Status == CertificateStatus.Active);
-
-                if (existingCertificate.Any())
-                {
-                    throw new InvalidOperationException($"Trainee already has an active certificate for this course");
-                }
-
                 var course = await _courseRepository.GetCourseWithDetailsAsync(courseId);
                 if (course == null || !course.SubjectSpecialties.Any() || course.Status != CourseStatus.Approved)
                 {
-                    throw new Exception($"Course with ID {courseId} not found or not active or has no subjects!");
+                    throw new Exception($"Course with ID {courseId} not found, not active, or has no subjects!");
                 }
 
                 var trainee = await _userRepository.GetByIdAsync(userId);
@@ -314,14 +257,12 @@ namespace OCMS_Services.Service
                     throw new Exception($"Trainee with ID {userId} not found");
                 }
 
-                // Get specialty from trainee info
                 string specialtyId = trainee.SpecialtyId;
                 if (string.IsNullOrEmpty(specialtyId))
                 {
                     throw new InvalidOperationException($"Trainee does not have a specialty assigned");
                 }
 
-                // Get trainee assignments for this course with the assigned specialty
                 var traineeAssignments = await _unitOfWork.TraineeAssignRepository.GetAllAsync(
                     ta => ta.TraineeId == userId &&
                           ta.ClassSubject.Class.CourseId == courseId &&
@@ -333,7 +274,6 @@ namespace OCMS_Services.Service
                     throw new InvalidOperationException($"Trainee is not enrolled in this course with their specialty");
                 }
 
-                // Get subject specialties for the trainee's specialty
                 var courseSubjectSpecialties = course.SubjectSpecialties
                     .Where(css => css.SpecialtyId == specialtyId)
                     .ToList();
@@ -343,7 +283,6 @@ namespace OCMS_Services.Service
                     throw new InvalidOperationException($"No subjects found for trainee's specialty {specialtyId} in this course");
                 }
 
-                // Check if trainee is enrolled in all required subjects for their specialty
                 var assignedSubjectIds = traineeAssignments
                     .Select(ta => ta.ClassSubject.SubjectSpecialty.SubjectId)
                     .Distinct()
@@ -360,20 +299,24 @@ namespace OCMS_Services.Service
                     throw new InvalidOperationException($"Trainee is not enrolled in all required subjects for their specialty");
                 }
 
-                // Check grades for all subjects
+                var allGrades = new List<Grade>();
                 foreach (var traineeAssignment in traineeAssignments)
                 {
                     var grades = await _gradeRepository.GetGradesByTraineeAssignIdAsync(traineeAssignment.TraineeAssignId);
-
                     if (!grades.Any())
                     {
                         throw new InvalidOperationException($"Trainee has not completed subject '{traineeAssignment.ClassSubject.SubjectSpecialty.Subject?.SubjectName ?? traineeAssignment.ClassSubjectId}' in this course");
                     }
-
                     if (grades.Any(g => g.gradeStatus != GradeStatus.Pass))
                     {
                         throw new InvalidOperationException($"Trainee has not passed subject '{traineeAssignment.ClassSubject.SubjectSpecialty.Subject?.SubjectName ?? traineeAssignment.ClassSubjectId}' in this course");
                     }
+                    allGrades.AddRange(grades);
+                }
+
+                if (!(await IsEligibleForCertificateAsync(userId, course, specialtyId)))
+                {
+                    throw new InvalidOperationException($"Trainee is not eligible for a certificate in this course");
                 }
 
                 var templateId = await GetTemplateIdByCourseLevelAsync(course.CourseLevel);
@@ -392,62 +335,20 @@ namespace OCMS_Services.Service
                 var templateType = GetTemplateTypeFromName(certificateTemplate.TemplateName);
 
                 var issueDate = DateTime.Now;
-                Certificate certificate;
 
-                // Get all grades for certificate creation
-                var allGrades = new List<Grade>();
-                foreach (var traineeAssign in traineeAssignments)
+                var certToUpdate = new List<Certificate>();
+                var certificate = await ProcessCertificateForTraineeAsync(
+                    trainee, course, templateId, templateHtml, templateType, allGrades, issuedByUserId, issueDate, specialtyId, certToUpdate);
+
+                if (certToUpdate.Contains(certificate))
                 {
-                    var assignGrades = await _gradeRepository.GetGradesByTraineeAssignIdAsync(traineeAssign.TraineeAssignId);
-                    allGrades.AddRange(assignGrades);
-                }
-
-                if (course.CourseLevel == CourseLevel.Recurrent)
-                {
-                    var initialCourseId = course.RelatedCourseId;
-
-                    if (!string.IsNullOrEmpty(initialCourseId))
-                    {
-                        var initialCert = (await _unitOfWork.CertificateRepository.GetAllAsync(c =>
-                            c.UserId == trainee.UserId &&
-                            c.CourseId == initialCourseId &&
-                            c.Status == CertificateStatus.Active))
-                            .OrderByDescending(c => c.IssueDate)
-                            .FirstOrDefault();
-
-                        if (initialCert != null)
-                        {
-                            initialCert.ExpirationDate = DateTime.Now.AddYears(2);
-                            initialCert.IssueByUserId = issuedByUserId;
-                            initialCert.IssueDate = issueDate;
-                            initialCert.Status = CertificateStatus.Pending;
-                            initialCert.CourseId = course.CourseId;
-                            initialCert.SpecialtyId = specialtyId;
-                            await _unitOfWork.CertificateRepository.UpdateAsync(initialCert);
-                            await _unitOfWork.SaveChangesAsync();
-
-                            certificate = initialCert;
-                        }
-                        else
-                        {
-                            _logger.LogWarning($"No Initial certificate found for recurrent trainee {trainee.UserId} in course {course.CourseName}");
-                            throw new Exception($"No initial certificate found for recurrent course");
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogWarning($"Recurrent course {course.CourseId} has no related initial course specified");
-                        throw new Exception($"Recurrent course has no related initial course specified");
-                    }
+                    await _unitOfWork.CertificateRepository.UpdateAsync(certificate);
                 }
                 else
                 {
-                    certificate = await GenerateCertificateAsync(
-                        trainee, course, templateId, templateHtml, templateType, allGrades, issuedByUserId, issueDate, specialtyId);
-
                     await _unitOfWork.CertificateRepository.AddAsync(certificate);
-                    await _unitOfWork.SaveChangesAsync();
                 }
+                await _unitOfWork.SaveChangesAsync();
 
                 var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
                 foreach (var director in directors)
@@ -469,127 +370,6 @@ namespace OCMS_Services.Service
             {
                 _logger.LogError(ex, $"Error in CreateCertificateManuallyAsync for user {userId} in course {courseId}");
                 throw new Exception("Failed to create certificate manually", ex);
-            }
-        }
-        #endregion
-
-        #region Create Certificate with Custom Grade
-        public async Task<CertificateModel> CreateCertificateWithCustomGradesAsync(string courseId, string userId, string issuedByUserId, List<Grade> customGrades)
-        {
-            if (string.IsNullOrEmpty(courseId) || string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(issuedByUserId))
-                throw new ArgumentException("CourseId, UserId and IssuedByUserId are required");
-
-            try
-            {
-                var course = await _courseRepository.GetCourseWithDetailsAsync(courseId);
-                if (course == null || !course.SubjectSpecialties.Any() || course.Status != CourseStatus.Approved)
-                {
-                    throw new Exception($"Course with ID {courseId} not found or not active or has no subjects!");
-                }
-
-                var trainee = await _userRepository.GetByIdAsync(userId);
-                if (trainee == null)
-                {
-                    throw new Exception($"Trainee with ID {userId} not found");
-                }
-
-                string specialtyId = trainee.SpecialtyId;
-                if (string.IsNullOrEmpty(specialtyId))
-                {
-                    throw new InvalidOperationException($"Trainee does not have a specialty assigned");
-                }
-
-                var certToCreate = new List<Certificate>();
-                var certToUpdate = new List<Certificate>();
-                if (course.CourseLevel == CourseLevel.Recurrent)
-                {
-                    var initialCourseId = course.RelatedCourseId;
-
-                    if (!string.IsNullOrEmpty(initialCourseId))
-                    {
-                        var initialCert = (await _unitOfWork.CertificateRepository.GetAllAsync(c =>
-                            c.UserId == trainee.UserId &&
-                            c.CourseId == initialCourseId &&
-                            c.Status == CertificateStatus.Active))
-                            .OrderByDescending(c => c.IssueDate)
-                            .FirstOrDefault();
-
-                        if (initialCert != null)
-                        {
-                            initialCert.ExpirationDate = DateTime.Now.AddYears(2);
-                            initialCert.CourseId = course.CourseId; // Update to recurrent course ID
-                            initialCert.IssueByUserId = issuedByUserId;
-                            initialCert.IssueDate = DateTime.Now;
-                            initialCert.Status = CertificateStatus.Pending;
-                            initialCert.SpecialtyId = specialtyId; // Set SpecialtyId for recurrent course
-
-                            lock (certToUpdate)
-                            {
-                                certToUpdate.Add(initialCert);
-                            }
-
-                            await _unitOfWork.CertificateRepository.UpdateAsync(initialCert);
-
-                            return _mapper.Map<CertificateModel>(initialCert);
-                        }
-                        else
-                        {
-                            _logger.LogWarning($"No Initial certificate found for recurrent trainee {trainee.UserId} in course {course.CourseName}");
-                            return null;
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogWarning($"Recurrent course {course.CourseId} has no related initial course specified");
-                        return null;
-                    }
-                }
-
-                var templateId = await GetTemplateIdByCourseLevelAsync(course.CourseLevel);
-                if (string.IsNullOrEmpty(templateId))
-                {
-                    throw new Exception($"No active template for course level {course.CourseLevel}");
-                }
-
-                var certificateTemplate = await _unitOfWork.CertificateTemplateRepository.GetByIdAsync(templateId);
-                if (certificateTemplate == null || certificateTemplate.templateStatus != TemplateStatus.Active)
-                {
-                    throw new Exception($"Certificate template with ID {templateId} not found or not active");
-                }
-
-                var templateHtml = await GetCachedTemplateHtmlAsync(certificateTemplate.TemplateFile);
-                var templateType = GetTemplateTypeFromName(certificateTemplate.TemplateName);
-
-                var issueDate = DateTime.Now;
-
-                // Use custom grades directly
-                var certificate = await GenerateCertificateAsync(
-                    trainee, course, templateId, templateHtml, templateType,
-                    customGrades, issuedByUserId, issueDate, specialtyId);
-
-                await _unitOfWork.CertificateRepository.AddAsync(certificate);
-                await _unitOfWork.SaveChangesAsync();
-
-                var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
-                foreach (var director in directors)
-                {
-                    await _notificationService.SendNotificationAsync(
-                        director.UserId,
-                        "New Certificate Request",
-                        $"A new certificate request for {trainee.FullName} in course '{course.CourseName}' needs your signature.",
-                        "CertificateSignature"
-                    );
-                }
-
-                var certificateModel = _mapper.Map<CertificateModel>(certificate);
-                certificateModel.CertificateURLwithSas = await _blobService.GetBlobUrlWithSasTokenAsync(certificate.CertificateURL, TimeSpan.FromHours(1));
-
-                return certificateModel;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error in CreateCertificateWithCustomGradesAsync for user {userId} in course {courseId}");
-                throw new Exception("Failed to create certificate with custom grades", ex);
             }
         }
         #endregion
@@ -922,6 +702,300 @@ namespace OCMS_Services.Service
         #endregion
 
         #region Helper Methods
+        private async Task<bool> IsEligibleForCertificateAsync(string traineeId, Course course, string specialtyId)
+        {
+            switch (course.CourseLevel)
+            {
+                case CourseLevel.Initial:
+                    // No prerequisite check for Initial course
+                    return true;
+
+                case CourseLevel.Professional:
+                    if (string.IsNullOrEmpty(course.RelatedCourseId))
+                    {
+                        _logger.LogWarning($"Professional course {course.CourseId} has no related initial course specified");
+                        return false;
+                    }
+                    var initialCert = await _unitOfWork.CertificateRepository.GetFirstOrDefaultAsync(
+                        c => c.UserId == traineeId &&
+                             c.CourseId == course.RelatedCourseId &&
+                             c.Status == CertificateStatus.Active &&
+                             c.SpecialtyId == specialtyId);
+                    if (initialCert == null)
+                    {
+                        _logger.LogWarning($"Trainee {traineeId} does not have an active Initial certificate for related course {course.RelatedCourseId}");
+                        return false;
+                    }
+                    return true;
+
+                case CourseLevel.Recurrent:
+                    if (string.IsNullOrEmpty(course.RelatedCourseId))
+                    {
+                        _logger.LogWarning($"Recurrent course {course.CourseId} has no related initial course specified");
+                        return false;
+                    }
+                    var relatedCert = await _unitOfWork.CertificateRepository.GetFirstOrDefaultAsync(
+                        c => c.UserId == traineeId &&
+                             c.CourseId == course.RelatedCourseId &&
+                             c.Status == CertificateStatus.Active &&
+                             c.SpecialtyId == specialtyId);
+                    if (relatedCert == null)
+                    {
+                        _logger.LogWarning($"Trainee {traineeId} does not have an active Initial or Professional certificate for related course {course.RelatedCourseId}");
+                        return false;
+                    }
+                    return true;
+
+                case CourseLevel.Relearn:
+                    return await ValidateRelearnCourseEligibilityAsync(traineeId, course, specialtyId);
+
+                default:
+                    _logger.LogWarning($"Unsupported course level {course.CourseLevel} for certificate eligibility");
+                    return false;
+            }
+        }
+
+        private async Task<bool> ValidateRelearnCourseEligibilityAsync(string traineeId, Course relearnCourse, string specialtyId)
+        {
+            if (string.IsNullOrEmpty(relearnCourse.RelatedCourseId))
+            {
+                _logger.LogWarning($"Relearn course {relearnCourse.CourseId} has no related course specified");
+                return false;
+            }
+
+            var relatedCourse = await _courseRepository.GetCourseWithDetailsAsync(relearnCourse.RelatedCourseId);
+            if (relatedCourse == null)
+            {
+                _logger.LogWarning($"Related course {relearnCourse.RelatedCourseId} not found for relearn course {relearnCourse.CourseId}");
+                return false;
+            }
+
+            // If related course is Recurrent, find the base course (Initial or Professional)
+            Course baseCourse = relatedCourse;
+            if (relatedCourse.CourseLevel == CourseLevel.Recurrent)
+            {
+                if (string.IsNullOrEmpty(relatedCourse.RelatedCourseId))
+                {
+                    _logger.LogWarning($"Recurrent course {relatedCourse.CourseId} has no base course specified");
+                    return false;
+                }
+                baseCourse = await _courseRepository.GetCourseWithDetailsAsync(relatedCourse.RelatedCourseId);
+                if (baseCourse == null)
+                {
+                    _logger.LogWarning($"Base course {relatedCourse.RelatedCourseId} not found for recurrent course {relatedCourse.CourseId}");
+                    return false;
+                }
+            }
+
+            // Validate certificate for base course
+            if (baseCourse.CourseLevel == CourseLevel.Professional)
+            {
+                var prerequisiteCourseId = baseCourse.RelatedCourseId;
+                if (!string.IsNullOrEmpty(prerequisiteCourseId))
+                {
+                    var initialCert = await _unitOfWork.CertificateRepository.GetFirstOrDefaultAsync(
+                        c => c.UserId == traineeId &&
+                             c.CourseId == prerequisiteCourseId &&
+                             c.Status == CertificateStatus.Active &&
+                             c.SpecialtyId == specialtyId);
+                    if (initialCert == null)
+                    {
+                        _logger.LogWarning($"Trainee {traineeId} does not have an active Initial certificate for prerequisite course {prerequisiteCourseId}");
+                        return false;
+                    }
+                }
+            }
+
+            var existingCert = await _unitOfWork.CertificateRepository.GetFirstOrDefaultAsync(
+                c => c.UserId == traineeId &&
+                     c.CourseId == baseCourse.CourseId &&
+                     c.Status == CertificateStatus.Active &&
+                     c.SpecialtyId == specialtyId);
+            if (existingCert == null)
+            {
+                _logger.LogWarning($"Trainee {traineeId} does not have an active certificate for base course {baseCourse.CourseId}");
+                return false;
+            }
+
+            // Get all required subjects from related course (Recurrent) and Relearn course
+            var allCourseIds = new[] { relatedCourse.CourseId, relearnCourse.CourseId };
+            var classSubjects = await _unitOfWork.ClassSubjectRepository.FindAsync(
+                cs => allCourseIds.Contains(cs.Class.CourseId) && cs.SubjectSpecialty.SpecialtyId == specialtyId,
+                cs => cs.SubjectSpecialty.Subject);
+
+            var requiredSubjectIds = classSubjects
+                .Select(cs => cs.SubjectSpecialty.SubjectId)
+                .Distinct()
+                .ToHashSet();
+
+            // Get trainee assignments for both related and relearn courses
+            var traineeAssignments = await _unitOfWork.TraineeAssignRepository.FindAsync(
+                ta => ta.TraineeId == traineeId &&
+                      allCourseIds.Contains(ta.ClassSubject.Class.CourseId) &&
+                      ta.RequestStatus == RequestStatus.Approved);
+
+            var grades = await _unitOfWork.GradeRepository.FindAsync(
+                g => traineeAssignments.Select(ta => ta.TraineeAssignId).Contains(g.TraineeAssignID) &&
+                     g.gradeStatus == GradeStatus.Pass);
+
+            var passedSubjectIds = grades
+                .Select(g => g.TraineeAssign.ClassSubject.SubjectSpecialty.SubjectId)
+                .Distinct()
+                .ToHashSet();
+
+            // Check if all required subjects are passed
+            return requiredSubjectIds.All(id => passedSubjectIds.Contains(id));
+        }
+
+        private async Task<Course> FindRootCourseAsync(Course course)
+        {
+            if (course == null || course.CourseLevel == CourseLevel.Initial || course.CourseLevel == CourseLevel.Professional)
+                return course;
+
+            if (string.IsNullOrEmpty(course.RelatedCourseId))
+                return null;
+
+            var relatedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(course.RelatedCourseId);
+            return await FindRootCourseAsync(relatedCourse);
+        }
+
+        private async Task<List<Course>> GetAllRelatedCoursesAsync(Course rootCourse)
+        {
+            var result = new List<Course> { rootCourse };
+            var relearnCourses = await _unitOfWork.CourseRepository.FindAsync(
+                c => c.RelatedCourseId == rootCourse.CourseId && c.CourseLevel == CourseLevel.Relearn);
+            result.AddRange(relearnCourses);
+
+            foreach (var relearn in relearnCourses)
+            {
+                var subRelearns = await GetAllRelatedCoursesAsync(relearn);
+                result.AddRange(subRelearns.Where(c => c.CourseId != relearn.CourseId));
+            }
+
+            return result.Distinct().ToList();
+        }
+
+        private async Task<Certificate> ProcessCertificateForTraineeAsync(
+            User trainee,
+            Course course,
+            string templateId,
+            string templateHtml,
+            string templateType,
+            List<Grade> grades,
+            string issuedByUserId,
+            DateTime issueDate,
+            string specialtyId,
+            List<Certificate> certToUpdate)
+        {
+            if (course.CourseLevel == CourseLevel.Recurrent)
+            {
+                if (string.IsNullOrEmpty(course.RelatedCourseId))
+                {
+                    _logger.LogWarning($"Recurrent course {course.CourseId} has no related initial course specified");
+                    throw new Exception($"Recurrent course has no related initial course specified");
+                }
+
+                var initialCert = await _unitOfWork.CertificateRepository.GetFirstOrDefaultAsync(
+                    c => c.UserId == trainee.UserId &&
+                         c.CourseId == course.RelatedCourseId &&
+                         c.Status == CertificateStatus.Active &&
+                         c.SpecialtyId == specialtyId);
+
+                if (initialCert != null)
+                {
+                    initialCert.ExpirationDate = issueDate.AddYears(2);
+                    initialCert.CourseId = course.CourseId;
+                    initialCert.IssueByUserId = issuedByUserId;
+                    initialCert.IssueDate = issueDate;
+                    initialCert.Status = CertificateStatus.Pending;
+                    initialCert.SpecialtyId = specialtyId;
+
+                    lock (certToUpdate)
+                    {
+                        certToUpdate.Add(initialCert);
+                    }
+                    await _unitOfWork.CertificateRepository.UpdateAsync(initialCert);
+                    return initialCert;
+                }
+                else
+                {
+                    _logger.LogWarning($"No initial certificate found for recurrent trainee {trainee.UserId} in course {course.CourseName}");
+                    throw new Exception($"No initial certificate found for recurrent course");
+                }
+            }
+            else if (course.CourseLevel == CourseLevel.Relearn)
+            {
+                if (string.IsNullOrEmpty(course.RelatedCourseId))
+                {
+                    _logger.LogWarning($"Relearn course {course.CourseId} has no related course specified");
+                    throw new Exception($"No related course found for relearn course");
+                }
+
+                var relatedCourse = await _unitOfWork.CourseRepository.GetByIdAsync(course.RelatedCourseId);
+                if (relatedCourse == null)
+                {
+                    _logger.LogWarning($"Related course {course.RelatedCourseId} not found for relearn course {course.CourseId}");
+                    throw new Exception($"Related course not found for relearn course");
+                }
+
+                var existingCert = await _unitOfWork.CertificateRepository.GetFirstOrDefaultAsync(
+                    c => c.UserId == trainee.UserId &&
+                         c.CourseId == relatedCourse.CourseId &&
+                         c.Status == CertificateStatus.Active &&
+                         c.SpecialtyId == specialtyId);
+
+                if (existingCert != null)
+                {
+                    // Update existing certificate based on RelatedCourseId's CourseLevel
+                    existingCert.ExpirationDate = issueDate.AddYears(relatedCourse.CourseLevel == CourseLevel.Initial ? 3 : 2);
+                    existingCert.IssueByUserId = issuedByUserId;
+                    existingCert.IssueDate = issueDate;
+                    existingCert.Status = CertificateStatus.Pending;
+                    existingCert.IncludesRelearn = true;
+                    existingCert.RelearnSubjects = string.Join(",", grades.Select(g => g.TraineeAssign.ClassSubject.SubjectSpecialty.SubjectId));
+
+                    lock (certToUpdate)
+                    {
+                        certToUpdate.Add(existingCert);
+                    }
+                    await _unitOfWork.CertificateRepository.UpdateAsync(existingCert);
+                    return existingCert;
+                }
+                else if (relatedCourse.CourseLevel == CourseLevel.Initial)
+                {
+                    // Create new Initial certificate if none exists
+                    return await GenerateCertificateAsync(trainee, relatedCourse, templateId, templateHtml, "Initial", grades, issuedByUserId, issueDate, specialtyId);
+                }
+                else if (relatedCourse.CourseLevel == CourseLevel.Professional)
+                {
+                    // For Professional, ensure Initial certificate exists for prerequisite
+                    var prerequisiteCourseId = relatedCourse.RelatedCourseId;
+                    if (!string.IsNullOrEmpty(prerequisiteCourseId))
+                    {
+                        var initialCert = await _unitOfWork.CertificateRepository.GetFirstOrDefaultAsync(
+                            c => c.UserId == trainee.UserId &&
+                                 c.CourseId == prerequisiteCourseId &&
+                                 c.Status == CertificateStatus.Active &&
+                                 c.SpecialtyId == specialtyId);
+                        if (initialCert == null)
+                        {
+                            _logger.LogWarning($"No Initial certificate found for prerequisite course {prerequisiteCourseId} for trainee {trainee.UserId}");
+                            throw new Exception($"No Initial certificate found for prerequisite course");
+                        }
+                    }
+                    // Create new Professional certificate
+                    return await GenerateCertificateAsync(trainee, relatedCourse, templateId, templateHtml, "Professional", grades, issuedByUserId, issueDate, specialtyId);
+                }
+                else
+                {
+                    _logger.LogWarning($"Invalid CourseLevel {relatedCourse.CourseLevel} for related course {relatedCourse.CourseId}");
+                    throw new Exception($"Invalid related course level for Relearn");
+                }
+            }
+
+            return await GenerateCertificateAsync(trainee, course, templateId, templateHtml, templateType, grades, issuedByUserId, issueDate, specialtyId);
+        }
+
         private async Task<string> GetCachedTemplateHtmlAsync(string templateFileUrl)
         {
             string cacheKey = string.Format(TEMPLATE_HTML_CACHE_KEY, templateFileUrl.GetHashCode());
@@ -1269,7 +1343,128 @@ namespace OCMS_Services.Service
         {
             var pendingCertificates = await _unitOfWork.CertificateRepository.GetAllAsync(c => c.Status == CertificateStatus.Active);
             return _mapper.Map<List<CertificateModel>>(pendingCertificates);
-        }        
+        }
+        #endregion
+
+        #region Unused Methods
+        //public async Task<CertificateModel> CreateCertificateWithCustomGradesAsync(string courseId, string userId, string issuedByUserId, List<Grade> customGrades)
+        //{
+        //    if (string.IsNullOrEmpty(courseId) || string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(issuedByUserId))
+        //        throw new ArgumentException("CourseId, UserId and IssuedByUserId are required");
+
+        //    try
+        //    {
+        //        var course = await _courseRepository.GetCourseWithDetailsAsync(courseId);
+        //        if (course == null || !course.SubjectSpecialties.Any() || course.Status != CourseStatus.Approved)
+        //        {
+        //            throw new Exception($"Course with ID {courseId} not found or not active or has no subjects!");
+        //        }
+
+        //        var trainee = await _userRepository.GetByIdAsync(userId);
+        //        if (trainee == null)
+        //        {
+        //            throw new Exception($"Trainee with ID {userId} not found");
+        //        }
+
+        //        string specialtyId = trainee.SpecialtyId;
+        //        if (string.IsNullOrEmpty(specialtyId))
+        //        {
+        //            throw new InvalidOperationException($"Trainee does not have a specialty assigned");
+        //        }
+
+        //        var certToCreate = new List<Certificate>();
+        //        var certToUpdate = new List<Certificate>();
+        //        if (course.CourseLevel == CourseLevel.Recurrent)
+        //        {
+        //            var initialCourseId = course.RelatedCourseId;
+
+        //            if (!string.IsNullOrEmpty(initialCourseId))
+        //            {
+        //                var initialCert = (await _unitOfWork.CertificateRepository.GetAllAsync(c =>
+        //                    c.UserId == trainee.UserId &&
+        //                    c.CourseId == initialCourseId &&
+        //                    c.Status == CertificateStatus.Active))
+        //                    .OrderByDescending(c => c.IssueDate)
+        //                    .FirstOrDefault();
+
+        //                if (initialCert != null)
+        //                {
+        //                    initialCert.ExpirationDate = DateTime.Now.AddYears(2);
+        //                    initialCert.CourseId = course.CourseId; // Update to recurrent course ID
+        //                    initialCert.IssueByUserId = issuedByUserId;
+        //                    initialCert.IssueDate = DateTime.Now;
+        //                    initialCert.Status = CertificateStatus.Pending;
+        //                    initialCert.SpecialtyId = specialtyId; // Set SpecialtyId for recurrent course
+
+        //                    lock (certToUpdate)
+        //                    {
+        //                        certToUpdate.Add(initialCert);
+        //                    }
+
+        //                    await _unitOfWork.CertificateRepository.UpdateAsync(initialCert);
+
+        //                    return _mapper.Map<CertificateModel>(initialCert);
+        //                }
+        //                else
+        //                {
+        //                    _logger.LogWarning($"No Initial certificate found for recurrent trainee {trainee.UserId} in course {course.CourseName}");
+        //                    return null;
+        //                }
+        //            }
+        //            else
+        //            {
+        //                _logger.LogWarning($"Recurrent course {course.CourseId} has no related initial course specified");
+        //                return null;
+        //            }
+        //        }
+
+        //        var templateId = await GetTemplateIdByCourseLevelAsync(course.CourseLevel);
+        //        if (string.IsNullOrEmpty(templateId))
+        //        {
+        //            throw new Exception($"No active template for course level {course.CourseLevel}");
+        //        }
+
+        //        var certificateTemplate = await _unitOfWork.CertificateTemplateRepository.GetByIdAsync(templateId);
+        //        if (certificateTemplate == null || certificateTemplate.templateStatus != TemplateStatus.Active)
+        //        {
+        //            throw new Exception($"Certificate template with ID {templateId} not found or not active");
+        //        }
+
+        //        var templateHtml = await GetCachedTemplateHtmlAsync(certificateTemplate.TemplateFile);
+        //        var templateType = GetTemplateTypeFromName(certificateTemplate.TemplateName);
+
+        //        var issueDate = DateTime.Now;
+
+        //        // Use custom grades directly
+        //        var certificate = await GenerateCertificateAsync(
+        //            trainee, course, templateId, templateHtml, templateType,
+        //            customGrades, issuedByUserId, issueDate, specialtyId);
+
+        //        await _unitOfWork.CertificateRepository.AddAsync(certificate);
+        //        await _unitOfWork.SaveChangesAsync();
+
+        //        var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
+        //        foreach (var director in directors)
+        //        {
+        //            await _notificationService.SendNotificationAsync(
+        //                director.UserId,
+        //                "New Certificate Request",
+        //                $"A new certificate request for {trainee.FullName} in course '{course.CourseName}' needs your signature.",
+        //                "CertificateSignature"
+        //            );
+        //        }
+
+        //        var certificateModel = _mapper.Map<CertificateModel>(certificate);
+        //        certificateModel.CertificateURLwithSas = await _blobService.GetBlobUrlWithSasTokenAsync(certificate.CertificateURL, TimeSpan.FromHours(1));
+
+        //        return certificateModel;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, $"Error in CreateCertificateWithCustomGradesAsync for user {userId} in course {courseId}");
+        //        throw new Exception("Failed to create certificate with custom grades", ex);
+        //    }
+        //}
         #endregion
     }
 }
