@@ -347,8 +347,8 @@ namespace OCMS_Services.Service
                         result.Errors.Add($"ClassSubject with ID '{classSubjectId}' not found.");
                         return result;
                     }
-
-
+                    var Class = await _unitOfWork.ClassRepository.GetByIdAsync(classSubject.ClassId);
+                    var course = await _unitOfWork.CourseRepository.GetByIdAsync(Class.CourseId);
                     // Prepare for import
                     var lastTraineeAssignId = await GetLastTraineeAssignIdAsync();
                     int lastIdNumber = 0;
@@ -369,20 +369,24 @@ namespace OCMS_Services.Service
                         if (!IsRowEmpty(worksheet, row))
                             traineeRowCount++;
                     }
-
+                    if(course.CourseLevel != CourseLevel.Relearn) { 
                     // Validate trainee count
-                    if (traineeRowCount < 5)
-                    {
-                        result.Errors.Add("The minimum number of trainees per import is 5.");
-                        result.FailedCount = traineeRowCount;
-                        return result;
+                        if (traineeRowCount < 5)
+                            {
+                                    result.Errors.Add("The minimum number of trainees per import is 5.");
+                                    result.FailedCount = traineeRowCount;
+                                    return result;
+                            }
+                        
                     }
+
                     if (traineeRowCount > 35)
                     {
                         result.Errors.Add("The maximum number of trainees per import is 35.");
                         result.FailedCount = traineeRowCount;
                         return result;
                     }
+
                     result.TotalRecords = traineeRowCount;
 
                     // Start from row 3
