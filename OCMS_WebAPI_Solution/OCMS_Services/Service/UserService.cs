@@ -357,7 +357,7 @@ Trân trọng,
             // Tìm số lớn nhất trong các UserId có cùng prefix
             foreach (var userId in userIds)
             {
-                if (userId.Length == specialtyPrefix.Length + 3) // Format: XX000 (prefix + 3 số)
+                if (userId.Length == specialtyPrefix.Length + 6) // Format: XX000 (prefix + 3 số)
                 {
                     string numericPart = userId.Substring(specialtyPrefix.Length); // Lấy 3 số cuối
                     if (int.TryParse(numericPart, out int number))
