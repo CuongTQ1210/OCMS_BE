@@ -136,6 +136,12 @@ namespace OCMS_Services.Service
             schedule.ModifiedDate = DateTime.Now;
             schedule.Status = ScheduleStatus.Pending;
 
+            var uniqueDays = dto.DaysOfWeek.Distinct().OrderBy(d => d).ToList();
+            if (uniqueDays.Count == 1 && uniqueDays[0] == 0) // Sunday only
+                schedule.SubjectPeriod = TimeSpan.FromMinutes(170);
+            else
+                schedule.SubjectPeriod = TimeSpan.FromMinutes(85);
+
             await _unitOfWork.TrainingScheduleRepository.AddAsync(schedule);
             await _unitOfWork.SaveChangesAsync();
 
@@ -526,13 +532,25 @@ namespace OCMS_Services.Service
                     if (day < 0 || day > 6)
                         throw new ArgumentException($"Invalid day of week value: {day}. Must be between 0 (Sunday) and 6 (Saturday).");
                 }
+
+                var uniqueDays = dto.DaysOfWeek.Distinct().OrderBy(d => d).ToList();
+                bool isValidCombo =
+                    (uniqueDays.Count == 2 && uniqueDays[0] == 1 && uniqueDays[1] == 4) || // Monday & Thursday
+                    (uniqueDays.Count == 2 && uniqueDays[0] == 2 && uniqueDays[1] == 5) || // Tuesday & Friday
+                    (uniqueDays.Count == 2 && uniqueDays[0] == 3 && uniqueDays[1] == 6) || // Wednesday & Saturday
+                    (uniqueDays.Count == 1 && uniqueDays[0] == 0);                         // Sunday only
+
+                if (!isValidCombo)
+                    throw new ArgumentException("DaysOfWeek must be a valid combo: [Monday,Thursday], [Tuesday,Friday], [Wednesday,Saturday], or [Sunday] only.");
             }
 
             // Validate ClassTime
             var allowedTimes = new List<TimeOnly>
             {
-                new(7, 0),  new(8, 0),  new(9, 0), new(11, 0), new(12, 0), new(13, 0),
-                new(14, 0), new(15, 0), new(16, 0), new(17, 0), new(18, 0), new(19, 0), new(20, 0)
+                new(7, 0),  new(8, 0),  new(9, 0), new(10,0),new(11, 0), new(12, 0), new(13, 0),
+                new(14, 0), new(15, 0), new(16, 0), new(17, 0), new(18, 0), new(19, 0), new(20, 0),
+                new(7, 30),  new(8, 30),  new(9, 30), new(10,30),new(11, 30), new(12, 30), new(13, 30),
+                new(14, 30), new(15, 30), new(16, 30), new(17, 30), new(18, 30), new(19,30), new(20, 30)
             };
 
             if (!allowedTimes.Contains(dto.ClassTime))
@@ -551,20 +569,14 @@ namespace OCMS_Services.Service
                 throw new ArgumentException("StartDay must be before EndDay.");
             if (dto.StartDay < DateTime.UtcNow)
                 throw new ArgumentException("StartDay cannot be in the past.");
-            
+
             // Validate for overlapping schedules (excluding current schedule in case of update)
             var existingSchedules = await _unitOfWork.TrainingScheduleRepository
                 .GetAllAsync(s => s.Location == dto.Location
                                && s.Room == dto.Room
                                && s.ClassTime == dto.ClassTime);
 
-            // Ensure duration is between 1h20 and 2h50
-            var duration = dto.SubjectPeriod;
-            if (duration < TimeSpan.FromMinutes(80) || duration > TimeSpan.FromMinutes(170))
-            {
-                throw new ArgumentException(
-                    $"Schedule duration must be between 1 hour 20 minutes and 2 hours 50 minutes. Current duration: {duration.TotalMinutes} minutes.");
-            }
+
 
             foreach (var existingSchedule in existingSchedules)
             {
@@ -590,6 +602,6 @@ namespace OCMS_Services.Service
                 }
             }
         }
-        #endregion
+#endregion
     }
 }
