@@ -779,10 +779,22 @@ namespace OCMS_Services.Service
                     _logger.LogWarning($"Recurrent course {relatedCourse.CourseId} has no base course specified");
                     return false;
                 }
+
                 baseCourse = await _courseRepository.GetCourseWithDetailsAsync(relatedCourse.RelatedCourseId);
                 if (baseCourse == null)
                 {
                     _logger.LogWarning($"Base course {relatedCourse.RelatedCourseId} not found for recurrent course {relatedCourse.CourseId}");
+                    return false;
+                }
+
+                var existingCert = await _unitOfWork.CertificateRepository.GetFirstOrDefaultAsync(
+                c => c.UserId == traineeId &&
+                     c.CourseId == baseCourse.CourseId &&
+                     c.Status == CertificateStatus.Active &&
+                     c.SpecialtyId == specialtyId);
+                if (existingCert == null)
+                {
+                    _logger.LogWarning($"Trainee {traineeId} does not have an active certificate for base course {baseCourse.CourseId}");
                     return false;
                 }
             }
@@ -806,16 +818,6 @@ namespace OCMS_Services.Service
                 }
             }
 
-            var existingCert = await _unitOfWork.CertificateRepository.GetFirstOrDefaultAsync(
-                c => c.UserId == traineeId &&
-                     c.CourseId == baseCourse.CourseId &&
-                     c.Status == CertificateStatus.Active &&
-                     c.SpecialtyId == specialtyId);
-            if (existingCert == null)
-            {
-                _logger.LogWarning($"Trainee {traineeId} does not have an active certificate for base course {baseCourse.CourseId}");
-                return false;
-            }
 
             // Get all required subjects from related course (Recurrent) and Relearn course
             var allCourseIds = new[] { relatedCourse.CourseId, relearnCourse.CourseId };
@@ -824,9 +826,10 @@ namespace OCMS_Services.Service
                 cs => cs.SubjectSpecialty.Subject);
 
             var requiredSubjectIds = classSubjects
-                .Select(cs => cs.SubjectSpecialty.SubjectId)
-                .Distinct()
-                .ToHashSet();
+    .Where(cs => cs.Class.CourseId == relearnCourse.CourseId)
+    .Select(cs => cs.SubjectSpecialty.SubjectId)
+    .Distinct()
+    .ToHashSet();
 
             // Get trainee assignments for both related and relearn courses
             var traineeAssignments = await _unitOfWork.TraineeAssignRepository.FindAsync(

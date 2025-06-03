@@ -658,10 +658,10 @@ namespace OCMS_Services.Service
             var course = await _unitOfWork.CourseRepository.GetByIdAsync(courseId);
             if (course == null)
                 throw new KeyNotFoundException($"Course with ID '{courseId}' not found.");
-
+            
             // Get all ClassSubjects linked to this course
             var classSubjects = await _unitOfWork.ClassSubjectRepository.FindAsync(
-                cs => cs.ClassId == courseId,
+                cs => cs.Class.CourseId == courseId,
                 cs => cs.SubjectSpecialty.Subject);
 
             // Get all trainee assignments for this trainee in the course
@@ -690,60 +690,63 @@ namespace OCMS_Services.Service
                     }
                 }
             }
-
-            // Get all required subjects for the course
-            var allRequiredSubjects = await GetAllRequiredSubjects(course);
-
-            // Check if all required subjects have passing grades
-            var allRequiredSubjectsPassed = allRequiredSubjects.All(subjectsWithPassingGrades.Contains);
-
-            if (allRequiredSubjectsPassed)
+            if (course.CourseLevel != CourseLevel.Relearn)
             {
-                // Check if there are any active certificates for this course and trainee
-                var existingCertificate = await _unitOfWork.CertificateRepository.GetFirstOrDefaultAsync(
-                    c => c.CourseId == courseId && c.UserId == traineeId && c.Status == CertificateStatus.Active);
+                // Get all required subjects for the course
+                var allRequiredSubjects = await GetAllRequiredSubjects(course);
 
-                if (existingCertificate == null)
+                // Check if all required subjects have passing grades
+                var allRequiredSubjectsPassed = allRequiredSubjects.All(subjectsWithPassingGrades.Contains);
+
+                if (allRequiredSubjectsPassed)
                 {
-                    // Generate certificate
-                    if (course.CourseLevel == CourseLevel.Initial || course.CourseLevel == CourseLevel.Recurrent)
+                    // Check if there are any active certificates for this course and trainee
+                    var existingCertificate = await _unitOfWork.CertificateRepository.GetFirstOrDefaultAsync(
+                        c => c.CourseId == courseId && c.UserId == traineeId && c.Status == CertificateStatus.Active);
+
+                    if (existingCertificate == null)
                     {
+                        // Generate certificate
+                        if (course.CourseLevel == CourseLevel.Initial || course.CourseLevel == CourseLevel.Recurrent || course.CourseLevel==CourseLevel.Professional)
+                        {
+                            var certificates = await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(courseId, processedByUserId);
+                            if (certificates != null && certificates.Any())
+                            {
+                                var decisionRequest = new CreateDecisionDTO { CourseId = courseId };
+                                await _decisionService.CreateDecisionForCourseAsync(decisionRequest, processedByUserId);
+                            }
+                        }
+                        
+                    }
+
+                }
+            } else
+            {
+                // For relearn courses, we need to find the root course
+                var rootCourse = await FindRootCourse(course);
+                // Get all required subjects for the course
+                var allRequiredSubjects = await GetAllRequiredSubjects(course);
+
+                // Check if all required subjects have passing grades
+                var allRequiredSubjectsPassed = await ValidateAllRequiredSubjectsPassedThroughRelearnChain(rootCourse, traineeId);
+
+                if (allRequiredSubjectsPassed)
+                {
+                    var existingCertificate = await _unitOfWork.CertificateRepository.GetFirstOrDefaultAsync(
+                        c => c.CourseId == rootCourse.CourseId && c.UserId == traineeId && c.Status == CertificateStatus.Active);
+
+                    if (existingCertificate == null)
+                    {
+                        // Call CertificateService to auto-generate certificate
                         var certificates = await _certificateService.AutoGenerateCertificatesForPassedTraineesAsync(courseId, processedByUserId);
                         if (certificates != null && certificates.Any())
                         {
-                            var decisionRequest = new CreateDecisionDTO { CourseId = courseId };
+                            var decisionRequest = new CreateDecisionDTO { CourseId = rootCourse.CourseId };
                             await _decisionService.CreateDecisionForCourseAsync(decisionRequest, processedByUserId);
                         }
                     }
-                    else if (course.CourseLevel == CourseLevel.Relearn)
-                    {
-                        // For relearn courses, we need to find the root course
-                        var rootCourse = await FindRootCourse(course);
-
-                        if (await IsRootCoursePassed(rootCourse, traineeId))
-                        {
-                            // If already passed, perhaps just update the certificate extension date
-                            await UpdateExistingCertificate(rootCourse, traineeId, processedByUserId);
-                            return;
-                        }
-
-                        // Check if all required subjects are passed through the chain
-                        var allRequiredPassedThroughChain = await ValidateAllRequiredSubjectsPassedThroughRelearnChain(rootCourse, traineeId);
-
-                        if (allRequiredPassedThroughChain)
-                        {
-                            // Update certificate for the root course
-                            await UpdateExistingCertificate(rootCourse, traineeId, processedByUserId);
-                        }
-                    }
                 }
 
-                // Update course progress
-                if (course.Progress != Progress.Completed)
-                {
-                    course.Progress = Progress.Completed;
-                    await _unitOfWork.CourseRepository.UpdateAsync(course);
-                }
             }
         }
 
