@@ -111,7 +111,8 @@ namespace OCMS_Services.Service
                 newRequest.RequestType == RequestType.Delete ||
                 newRequest.RequestType == RequestType.AssignTrainee ||
                 newRequest.RequestType == RequestType.AddTraineeAssign ||
-                newRequest.RequestType == RequestType.SignRequest
+                newRequest.RequestType == RequestType.SignRequest||
+                newRequest.RequestType == RequestType.AssignInstructor
                 )
             {
                 var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");
@@ -227,7 +228,7 @@ namespace OCMS_Services.Service
             }
             return newRequest;
         }
-        #endregion
+        #endregion  
 
         #region Get All Requests
         public async Task<IEnumerable<RequestModel>> GetAllRequestsAsync()
