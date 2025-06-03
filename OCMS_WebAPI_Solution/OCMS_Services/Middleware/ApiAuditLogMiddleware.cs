@@ -17,6 +17,7 @@ namespace OCMS_Services.Middleware
     public class ApiAuditLogMiddleware
     {
         private readonly RequestDelegate _next;
+        private static readonly object _lock = new object();
 
         public ApiAuditLogMiddleware(RequestDelegate next)
         {
@@ -205,35 +206,26 @@ namespace OCMS_Services.Middleware
 
         private async Task<int> GenerateSequentialLogId(OCMSDbContext dbContext)
         {
-            // Create an execution strategy specific to this operation
-            var strategy = dbContext.Database.CreateExecutionStrategy();
-
-            // Use the strategy to execute our transaction logic
-            return await strategy.ExecuteAsync(async () =>
+            lock (_lock) // Synchronize access to prevent concurrent ID generation
             {
-                // Start a transaction within the execution strategy
-                using var transaction = await dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+                // Use a transaction to ensure atomicity
+                using var transaction = dbContext.Database.BeginTransaction(System.Data.IsolationLevel.Serializable);
                 try
                 {
-                    // Get the maximum log ID from the database
-                    var maxLogId = await dbContext.AuditLogs
-                        .MaxAsync(l => (int?)l.LogId) ?? 0;
+                    var maxLogId = dbContext.AuditLogs
+                        .Max(l => (int?)l.LogId) ?? 0;
 
-                    // Increment the value by 1
                     int newLogId = maxLogId + 1;
 
-                    // Commit the transaction
-                    await transaction.CommitAsync();
-
+                    transaction.Commit();
                     return newLogId;
                 }
                 catch
                 {
-                    // If anything goes wrong, roll back the transaction
-                    await transaction.RollbackAsync();
+                    transaction.Rollback();
                     throw;
                 }
-            });
+            }
         }
     }
 
