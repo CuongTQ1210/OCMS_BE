@@ -818,20 +818,28 @@ namespace OCMS_Services.Service
                 }
             }
 
+            var relatedCourseClassSubjects = await _unitOfWork.ClassSubjectRepository.FindAsync(
+               cs => cs.Class.CourseId == relatedCourse.CourseId && cs.SubjectSpecialty.SpecialtyId == specialtyId,
+               cs => cs.SubjectSpecialty.Subject);
 
-            // Get all required subjects from related course (Recurrent) and Relearn course
+            var relatedCourseRequiredSubjects = relatedCourseClassSubjects
+                .Select(cs => cs.SubjectSpecialty.SubjectId)
+                .Distinct()
+                .ToHashSet();
+
+            if (!relatedCourseRequiredSubjects.Any())
+            {
+                _logger.LogWarning($"No required subjects found for related course {relatedCourse.CourseId}");
+                return false;
+            }
+
+            // Get all required subjects from related course and Relearn course
             var allCourseIds = new[] { relatedCourse.CourseId, relearnCourse.CourseId };
+
             var classSubjects = await _unitOfWork.ClassSubjectRepository.FindAsync(
                 cs => allCourseIds.Contains(cs.Class.CourseId) && cs.SubjectSpecialty.SpecialtyId == specialtyId,
                 cs => cs.SubjectSpecialty.Subject);
 
-            var requiredSubjectIds = classSubjects
-    .Where(cs => cs.Class.CourseId == relearnCourse.CourseId)
-    .Select(cs => cs.SubjectSpecialty.SubjectId)
-    .Distinct()
-    .ToHashSet();
-
-            // Get trainee assignments for both related and relearn courses
             var traineeAssignments = await _unitOfWork.TraineeAssignRepository.FindAsync(
                 ta => ta.TraineeId == traineeId &&
                       allCourseIds.Contains(ta.ClassSubject.Class.CourseId) &&
@@ -847,7 +855,19 @@ namespace OCMS_Services.Service
                 .ToHashSet();
 
             // Check if all required subjects are passed
-            return requiredSubjectIds.All(id => passedSubjectIds.Contains(id));
+            var isEligible = relatedCourseRequiredSubjects.All(subjectId => passedSubjectIds.Contains(subjectId));
+
+            if (!isEligible)
+            {
+                var missingSubjects = relatedCourseRequiredSubjects.Except(passedSubjectIds);
+                _logger.LogWarning($"Trainee {traineeId} has not completed all required subjects for related course {relatedCourse.CourseId}. Missing: {string.Join(", ", missingSubjects)}");
+            }
+            else
+            {
+                _logger.LogInformation($"Trainee {traineeId} has completed all required subjects for related course {relatedCourse.CourseId} (including supplementary subjects from relearn course {relearnCourse.CourseId})");
+            }
+
+            return isEligible;
         }
 
         private async Task<Course> FindRootCourseAsync(Course course)
