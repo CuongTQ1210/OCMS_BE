@@ -506,8 +506,8 @@ namespace OCMS_Services.Service
             // Validate only one schedule per ClassSubject
             var classSubjectSchedules = await _unitOfWork.TrainingScheduleRepository
                 .GetAllAsync(s => s.ClassSubjectId == dto.ClassSubjectId);
-
-            if (scheduleId == null && classSubjectSchedules.Any())
+            ;
+            if (scheduleId == null && classSubjectSchedules.Any() && classSubjectSchedules.Where(s => s.Status != ScheduleStatus.Canceled).Any())
             {
                 // Creating new schedule but one already exists
                 throw new ArgumentException($"ClassSubject with ID {dto.ClassSubjectId} already has a schedule. Only one schedule is allowed per ClassSubject.");
