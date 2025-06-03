@@ -257,7 +257,7 @@ namespace OCMS_Services.Service
                 AssignDate = DateTime.Now,
                 ApprovalDate = null,
                 ApproveByUserId = null,
-                Notes = dto.Notes
+                Notes = dto.Notes ?? ""
             };
 
             var user = await _unitOfWork.UserRepository.FirstOrDefaultAsync(u => u.UserId == dto.TraineeId);
