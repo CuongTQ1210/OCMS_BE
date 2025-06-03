@@ -8,7 +8,7 @@ namespace OCMS_BOs.Entities
     public class AuditLog
     {
         [Key]
-        public int LogId { get; set; }
+        public Guid LogId { get; set; }
 
         [ForeignKey("User")]
         public string UserId { get; set; }

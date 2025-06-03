@@ -111,7 +111,7 @@ namespace OCMS_Services.Middleware
                     // Tạo bản ghi AuditLog
                     var auditLog = new AuditLog
                     {
-                        LogId = await GenerateSequentialLogId(dbContext),
+                        LogId = Guid.NewGuid(),
                         UserId = userId,
                         SessionId = sessionId,
                         Action = action,
@@ -202,31 +202,7 @@ namespace OCMS_Services.Middleware
                     writer.WriteNullValue();
                     break;
             }
-        }
-
-        private async Task<int> GenerateSequentialLogId(OCMSDbContext dbContext)
-        {
-            lock (_lock) // Synchronize access to prevent concurrent ID generation
-            {
-                // Use a transaction to ensure atomicity
-                using var transaction = dbContext.Database.BeginTransaction(System.Data.IsolationLevel.Serializable);
-                try
-                {
-                    var maxLogId = dbContext.AuditLogs
-                        .Max(l => (int?)l.LogId) ?? 0;
-
-                    int newLogId = maxLogId + 1;
-
-                    transaction.Commit();
-                    return newLogId;
-                }
-                catch
-                {
-                    transaction.Rollback();
-                    throw;
-                }
-            }
-        }
+        }        
     }
 
     // Phương thức mở rộng để đăng ký middleware
