@@ -841,6 +841,7 @@ namespace OCMS_Services.Service
                                 $"You have a new Schedule for class {classSchedule.ClassSubjectId}",
                                 "Schedule"
                             ));
+                            
                         }
                         
 
@@ -1032,12 +1033,19 @@ namespace OCMS_Services.Service
                         {
                             instructorAssignment.RequestStatus = RequestStatus.Approved;
                             await _unitOfWork.InstructorAssignmentRepository.UpdateAsync(instructorAssignment);
-
+                            var subject = await _unitOfWork.SubjectRepository.GetByIdAsync(instructorAssignment.SubjectId);
                             // Send notification to the requester
                             _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                                 request.RequestUserId,
                                 "Instructor Assignment Approved",
                                 $"Your instructor assignment request has been approved. Assignment ID: {instructorAssignment.AssignmentId}",
+                                "InstructorAssignment"
+                            ));
+
+                            _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
+                                instructorAssignment.InstructorId,
+                                "New Instructor Assignment",
+                                $"You has been assign to teach subject {subject.SubjectName}",
                                 "InstructorAssignment"
                             ));
                         }
@@ -1278,6 +1286,7 @@ namespace OCMS_Services.Service
                     if (rejectedSchedule != null)
                     {
                         rejectedSchedule.Status = ScheduleStatus.Canceled;
+                        rejectedSchedule.Notes = rejectionReason;
                         await _unitOfWork.TrainingScheduleRepository.UpdateAsync(rejectedSchedule);
                     }
 
