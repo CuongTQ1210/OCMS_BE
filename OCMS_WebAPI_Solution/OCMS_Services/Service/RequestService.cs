@@ -112,7 +112,8 @@ namespace OCMS_Services.Service
                 newRequest.RequestType == RequestType.AssignTrainee ||
                 newRequest.RequestType == RequestType.AddTraineeAssign ||
                 newRequest.RequestType == RequestType.SignRequest||
-                newRequest.RequestType == RequestType.AssignInstructor
+                newRequest.RequestType == RequestType.AssignInstructor||
+                newRequest.RequestType == RequestType.ClassSchedule
                 )
             {
                 var directors = await _userRepository.GetUsersByRoleAsync("HeadMaster");

@@ -408,13 +408,7 @@ namespace OCMS_Services.Service
                         return result;
                     }
 
-                    var subjectSpecialties = await _unitOfWork.SubjectSpecialtyRepository.FindAsync(
-                        ss => ss.SubjectId == subject.SubjectId && ss.SpecialtyId == user.SpecialtyId);
-                    if (!subjectSpecialties.Any())
-                    {
-                        result.Errors.Add($"No specialty association found for Subject '{subject.SubjectName}' and user's specialty.");
-                        return result;
-                    }
+                   
 
                     var instructorAssign = await _unitOfWork.InstructorAssignmentRepository.FirstOrDefaultAsync(
                         ia => ia.SubjectId == subject.SubjectId && ia.InstructorId == importedByUserId);
