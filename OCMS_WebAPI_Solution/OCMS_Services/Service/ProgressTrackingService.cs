@@ -261,14 +261,14 @@ namespace OCMS_Services.Service
                     return;
                 }
 
-                bool allSchedulesEnded = schedules.All(s =>
-                    DateTime.Now > s.EndDateTime || s.Status == ScheduleStatus.Completed);
+                //bool allSchedulesEnded = schedules.All(s =>
+                //    DateTime.Now > s.EndDateTime || s.Status == ScheduleStatus.Completed);
 
-                if (!allSchedulesEnded)
-                {
-                    _logger.LogInformation($"ClassSubject {classSubjectId} has schedules that haven't ended yet");
-                    return;
-                }
+                //if (!allSchedulesEnded)
+                //{
+                //    _logger.LogInformation($"ClassSubject {classSubjectId} has schedules that haven't ended yet");
+                //    return;
+                //}
 
                 var traineeAssigns = classSubject.traineeAssigns.ToList();
                 var traineeAssignIds = traineeAssigns.Select(ta => ta.TraineeAssignId).ToList();
