@@ -61,13 +61,14 @@ namespace OCMS_Services.Service
             _gradeService = gradeService ?? throw new ArgumentNullException(nameof(gradeService));
             _backgroundJobClient = backgroundJobClient ?? throw new ArgumentNullException(nameof(backgroundJobClient));
         }
-        public RequestService(UnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService, IUserRepository userRepository, ICandidateRepository candidateRepository)
+        public RequestService(UnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService, IUserRepository userRepository, ICandidateRepository candidateRepository, IBackgroundJobClient backgroundJobClient)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _notificationService = notificationService;
             _userRepository = userRepository;
             _candidateRepository = candidateRepository;
+            _backgroundJobClient = backgroundJobClient;
         }
 
         #region Create Request
