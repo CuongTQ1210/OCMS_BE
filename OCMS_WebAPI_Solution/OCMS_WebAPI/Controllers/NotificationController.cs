@@ -71,5 +71,41 @@ namespace OCMS_WebAPI.Controllers
             }
         }
         #endregion
+
+        #region Notification Stream
+        [HttpGet("stream")]
+        [CustomAuthorize]
+        public async Task StreamNotifications()
+        {
+            Response.Headers.Add("Content-Type", "text/event-stream");
+            Response.Headers.Add("Cache-Control", "no-cache");
+            Response.Headers.Add("Connection", "keep-alive");
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                await Response.WriteAsync("data: User ID not found.\n\n");
+                await Response.Body.FlushAsync();
+                return;
+            }
+            DateTime lastSent = DateTime.Now;
+            while (!Response.HttpContext.RequestAborted.IsCancellationRequested)
+            {
+                var notifications = await _notificationService.GetUserNotificationsAsync(userId);
+                var newNotifications = notifications.Where(n => n.CreatedAt > lastSent).ToList();
+
+                foreach (var notification in newNotifications)
+                {
+                    // Thêm id và retry để hỗ trợ reconnect
+                    await Response.WriteAsync($"id: {notification.NotificationId}\n");
+                    await Response.WriteAsync("retry: 5000\n"); // Thử kết nối lại sau 5 giây
+                    await Response.WriteAsync($"data: {System.Text.Json.JsonSerializer.Serialize(notification)}\n\n");
+                    await Response.Body.FlushAsync();
+                }
+
+                lastSent = DateTime.Now;
+                await Task.Delay(1000);
+            }
+        }
+        #endregion
     }
 }

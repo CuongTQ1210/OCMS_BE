@@ -230,7 +230,6 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.EndDateTime, opt => opt.MapFrom(src => src.EndDay))
                 .ForMember(dest => dest.DaysOfWeek, opt => opt.MapFrom(src => src.DaysOfWeek != null ? src.DaysOfWeek.Select(d => (DayOfWeek)d).ToList() : new List<DayOfWeek>()))
                 .ForMember(dest => dest.ClassTime, opt => opt.MapFrom(src => src.ClassTime))
-                .ForMember(dest => dest.SubjectPeriod, opt => opt.MapFrom(src => src.SubjectPeriod))
                 .ForMember(dest => dest.CreatedDate, opt => opt.MapFrom(_ => DateTime.Now))
                 .ForMember(dest => dest.ModifiedDate, opt => opt.MapFrom(_ => DateTime.Now))
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(_ => ScheduleStatus.Pending))
@@ -245,15 +244,14 @@ namespace OCMS_BOs.Helper
                 .ForMember(dest => dest.StartDay, opt => opt.MapFrom(src => src.StartDateTime))
                 .ForMember(dest => dest.EndDay, opt => opt.MapFrom(src => src.EndDateTime))
                 .ForMember(dest => dest.DaysOfWeek, opt => opt.MapFrom(src => src.DaysOfWeek != null ? src.DaysOfWeek.Select(d => (int)d).ToList() : new List<int>()))
-                .ForMember(dest => dest.ClassTime, opt => opt.MapFrom(src => src.ClassTime))
-                .ForMember(dest => dest.SubjectPeriod, opt => opt.MapFrom(src => src.SubjectPeriod));
+                .ForMember(dest => dest.ClassTime, opt => opt.MapFrom(src => src.ClassTime));
 
             // Grade Mappings
             CreateMap<Grade, GradeModel>()
                 .ForMember(dest => dest.GradeStatus, opt => opt.MapFrom(src => src.gradeStatus.ToString()))
                 .ForMember(dest => dest.TraineeAssignId, opt => opt.MapFrom(src => src.TraineeAssignID))
                 .ForMember(dest => dest.TraineeId, opt => opt.MapFrom(src => src.TraineeAssign.TraineeId))
-                .ForMember(dest => dest.CourseId, opt => opt.Ignore())
+                .ForMember(dest => dest.CourseId, opt => opt.MapFrom(src=> src.TraineeAssign.ClassSubject.Class.CourseId))
                 .ForMember(dest => dest.Fullname, opt => opt.MapFrom(src => src.TraineeAssign.Trainee.FullName))
                 .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.TraineeAssign.ClassSubject.SubjectSpecialty.SubjectId))
                 .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.TraineeAssign.ClassSubject.SubjectSpecialty.Subject.SubjectName))

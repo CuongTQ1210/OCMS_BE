@@ -17,6 +17,7 @@ namespace OCMS_Services.Middleware
     public class ApiAuditLogMiddleware
     {
         private readonly RequestDelegate _next;
+        private static readonly object _lock = new object();
 
         public ApiAuditLogMiddleware(RequestDelegate next)
         {
@@ -110,7 +111,7 @@ namespace OCMS_Services.Middleware
                     // Tạo bản ghi AuditLog
                     var auditLog = new AuditLog
                     {
-                        LogId = await GenerateSequentialLogId(dbContext),
+                        LogId = Guid.NewGuid(),
                         UserId = userId,
                         SessionId = sessionId,
                         Action = action,
@@ -201,40 +202,7 @@ namespace OCMS_Services.Middleware
                     writer.WriteNullValue();
                     break;
             }
-        }
-
-        private async Task<int> GenerateSequentialLogId(OCMSDbContext dbContext)
-        {
-            // Create an execution strategy specific to this operation
-            var strategy = dbContext.Database.CreateExecutionStrategy();
-
-            // Use the strategy to execute our transaction logic
-            return await strategy.ExecuteAsync(async () =>
-            {
-                // Start a transaction within the execution strategy
-                using var transaction = await dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
-                try
-                {
-                    // Get the maximum log ID from the database
-                    var maxLogId = await dbContext.AuditLogs
-                        .MaxAsync(l => (int?)l.LogId) ?? 0;
-
-                    // Increment the value by 1
-                    int newLogId = maxLogId + 1;
-
-                    // Commit the transaction
-                    await transaction.CommitAsync();
-
-                    return newLogId;
-                }
-                catch
-                {
-                    // If anything goes wrong, roll back the transaction
-                    await transaction.RollbackAsync();
-                    throw;
-                }
-            });
-        }
+        }        
     }
 
     // Phương thức mở rộng để đăng ký middleware

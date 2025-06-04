@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using OCMS_BOs.ViewModel;
 using OCMS_BOs.RequestModel;
 using Microsoft.EntityFrameworkCore;
+using Hangfire;
 
 namespace OCMS_Services.Service
 {
@@ -26,6 +27,10 @@ namespace OCMS_Services.Service
         private readonly ICourseRepository _courseRepository;
         private readonly ITraineeAssignRepository _traineeAssignRepository;
         private readonly IGradeService _gradeService;
+        private readonly Lazy<ITrainingScheduleService> _trainingScheduleService;
+        private readonly ITrainingScheduleRepository _trainingScheduleRepository;
+        private readonly IInstructorAssignmentRepository _instructorAssignmentRepository;
+        private readonly IBackgroundJobClient _backgroundJobClient;
 
         public TraineeAssignService(
             UnitOfWork unitOfWork,
@@ -35,7 +40,12 @@ namespace OCMS_Services.Service
             ICandidateRepository candidateRepository,
             ICourseRepository courseRepository,
             ITraineeAssignRepository traineeAssignRepository,
-            IGradeService gradeService)
+            IGradeService gradeService,
+            Lazy<ITrainingScheduleService> trainingScheduleService,
+            ITrainingScheduleRepository trainingScheduleRepository,
+            IInstructorAssignmentRepository instructorAssignmentRepository,
+            IBackgroundJobClient backgroundJobClient
+        )
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
@@ -45,6 +55,10 @@ namespace OCMS_Services.Service
             _courseRepository = courseRepository;
             _traineeAssignRepository = traineeAssignRepository;
             _gradeService = gradeService;
+            _trainingScheduleService = trainingScheduleService;
+            _trainingScheduleRepository = trainingScheduleRepository;
+            _instructorAssignmentRepository = instructorAssignmentRepository;
+            _backgroundJobClient = backgroundJobClient;
         }
 
         #region Get All Trainee Assignments
@@ -257,7 +271,7 @@ namespace OCMS_Services.Service
                 AssignDate = DateTime.Now,
                 ApprovalDate = null,
                 ApproveByUserId = null,
-                Notes = dto.Notes
+                Notes = dto.Notes ?? ""
             };
 
             var user = await _unitOfWork.UserRepository.FirstOrDefaultAsync(u => u.UserId == dto.TraineeId);
@@ -333,8 +347,8 @@ namespace OCMS_Services.Service
                         result.Errors.Add($"ClassSubject with ID '{classSubjectId}' not found.");
                         return result;
                     }
-
-
+                    var Class = await _unitOfWork.ClassRepository.GetByIdAsync(classSubject.ClassId);
+                    var course = await _unitOfWork.CourseRepository.GetByIdAsync(Class.CourseId);
                     // Prepare for import
                     var lastTraineeAssignId = await GetLastTraineeAssignIdAsync();
                     int lastIdNumber = 0;
@@ -355,20 +369,24 @@ namespace OCMS_Services.Service
                         if (!IsRowEmpty(worksheet, row))
                             traineeRowCount++;
                     }
-
+                    if(course.CourseLevel != CourseLevel.Relearn) { 
                     // Validate trainee count
-                    if (traineeRowCount < 5)
-                    {
-                        result.Errors.Add("The minimum number of trainees per import is 5.");
-                        result.FailedCount = traineeRowCount;
-                        return result;
+                        if (traineeRowCount < 5)
+                            {
+                                    result.Errors.Add("The minimum number of trainees per import is 5.");
+                                    result.FailedCount = traineeRowCount;
+                                    return result;
+                            }
+                        
                     }
+
                     if (traineeRowCount > 35)
                     {
                         result.Errors.Add("The maximum number of trainees per import is 35.");
                         result.FailedCount = traineeRowCount;
                         return result;
                     }
+
                     result.TotalRecords = traineeRowCount;
 
                     // Start from row 3
@@ -475,7 +493,20 @@ namespace OCMS_Services.Service
                         await _unitOfWork.BeginTransactionAsync();
                         try
                         {
-                            var requestService = new RequestService(_unitOfWork, _mapper, _notificationService, _userRepository, _candidateRepository);
+                            var requestService = new RequestService(
+                                _unitOfWork,
+                                _mapper,
+                                _notificationService,
+                                _userRepository,
+                                _candidateRepository,
+                                _trainingScheduleService,
+                                _trainingScheduleRepository,
+                                _courseRepository,
+                                _instructorAssignmentRepository,
+                                _traineeAssignRepository,
+                                _gradeService,
+                                _backgroundJobClient
+                            );
                             var requestDto = new RequestDTO
                             {
                                 RequestType = RequestType.AssignTrainee,

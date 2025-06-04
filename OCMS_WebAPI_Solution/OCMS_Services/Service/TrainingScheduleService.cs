@@ -13,6 +13,7 @@ using System.Linq.Expressions;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.ComponentModel.DataAnnotations;
 
 namespace OCMS_Services.Service
 {
@@ -135,6 +136,12 @@ namespace OCMS_Services.Service
             schedule.CreatedDate = DateTime.Now;
             schedule.ModifiedDate = DateTime.Now;
             schedule.Status = ScheduleStatus.Pending;
+
+            var uniqueDays = dto.DaysOfWeek.Distinct().OrderBy(d => d).ToList();
+            if (uniqueDays.Count == 1 && uniqueDays[0] == 0) // Sunday only
+                schedule.SubjectPeriod = TimeSpan.FromMinutes(170);
+            else
+                schedule.SubjectPeriod = TimeSpan.FromMinutes(85);
 
             await _unitOfWork.TrainingScheduleRepository.AddAsync(schedule);
             await _unitOfWork.SaveChangesAsync();
@@ -446,7 +453,6 @@ namespace OCMS_Services.Service
         }
         #endregion
 
-
         #region Delete Training Schedule
         /// <summary>
         /// Deletes a training schedule by its ID. Instructor assignments are managed separately.
@@ -508,7 +514,7 @@ namespace OCMS_Services.Service
             var classSubjectSchedules = await _unitOfWork.TrainingScheduleRepository
                 .GetAllAsync(s => s.ClassSubjectId == dto.ClassSubjectId);
 
-            if (scheduleId == null && classSubjectSchedules.Any())
+            if (scheduleId == null && classSubjectSchedules.Any() && classSubjectSchedules.Where(s => s.Status != ScheduleStatus.Canceled).Any())
             {
                 // Creating new schedule but one already exists
                 throw new ArgumentException($"ClassSubject with ID {dto.ClassSubjectId} already has a schedule. Only one schedule is allowed per ClassSubject.");
@@ -527,14 +533,26 @@ namespace OCMS_Services.Service
                     if (day < 0 || day > 6)
                         throw new ArgumentException($"Invalid day of week value: {day}. Must be between 0 (Sunday) and 6 (Saturday).");
                 }
+
+                var uniqueDays = dto.DaysOfWeek.Distinct().OrderBy(d => d).ToList();
+                bool isValidCombo =
+                    (uniqueDays.Count == 2 && uniqueDays[0] == 1 && uniqueDays[1] == 4) || // Monday & Thursday
+                    (uniqueDays.Count == 2 && uniqueDays[0] == 2 && uniqueDays[1] == 5) || // Tuesday & Friday
+                    (uniqueDays.Count == 2 && uniqueDays[0] == 3 && uniqueDays[1] == 6) || // Wednesday & Saturday
+                    (uniqueDays.Count == 1 && uniqueDays[0] == 0);                         // Sunday only
+
+                if (!isValidCombo)
+                    throw new ArgumentException("DaysOfWeek must be a valid combo: [Monday,Thursday], [Tuesday,Friday], [Wednesday,Saturday], or [Sunday] only.");
             }
 
             // Validate ClassTime
             var allowedTimes = new List<TimeOnly>
-            {
-                new(7, 0),  new(8, 0),  new(9, 0), new(11, 0), new(12, 0), new(13, 0),
-                new(14, 0), new(15, 0), new(16, 0), new(17, 0), new(18, 0), new(19, 0), new(20, 0)
-            };
+    {
+        new(7, 0),  new(8, 0),  new(9, 0), new(10,0),new(11, 0), new(12, 0), new(13, 0),
+        new(14, 0), new(15, 0), new(16, 0), new(17, 0), new(18, 0), new(19, 0), new(20, 0),
+        new(7, 30),  new(8, 30),  new(9, 30), new(10,30),new(11, 30), new(12, 30), new(13, 30),
+        new(14, 30), new(15, 30), new(16, 30), new(17, 30), new(18, 30), new(19,30), new(20, 30)
+    };
 
             if (!allowedTimes.Contains(dto.ClassTime))
             {
@@ -552,20 +570,24 @@ namespace OCMS_Services.Service
                 throw new ArgumentException("StartDay must be before EndDay.");
             if (dto.StartDay < DateTime.UtcNow)
                 throw new ArgumentException("StartDay cannot be in the past.");
-            
+
+            // Calculate subject period for the new schedule
+            var uniqueDaysForPeriod = dto.DaysOfWeek?.Distinct().OrderBy(d => d).ToList() ?? new List<int>();
+            TimeSpan newSubjectPeriod;
+            if (uniqueDaysForPeriod.Count == 1 && uniqueDaysForPeriod[0] == 0) // Sunday only
+                newSubjectPeriod = TimeSpan.FromMinutes(170);
+            else
+                newSubjectPeriod = TimeSpan.FromMinutes(85);
+
+            // Calculate end time for the new schedule
+            var newStartTime = dto.ClassTime;
+            var newEndTime = newStartTime.Add(newSubjectPeriod);
+
             // Validate for overlapping schedules (excluding current schedule in case of update)
             var existingSchedules = await _unitOfWork.TrainingScheduleRepository
                 .GetAllAsync(s => s.Location == dto.Location
                                && s.Room == dto.Room
-                               && s.ClassTime == dto.ClassTime);
-
-            // Ensure duration is between 1h20 and 2h50
-            var duration = dto.SubjectPeriod;
-            if (duration < TimeSpan.FromMinutes(80) || duration > TimeSpan.FromMinutes(170))
-            {
-                throw new ArgumentException(
-                    $"Schedule duration must be between 1 hour 20 minutes and 2 hours 50 minutes. Current duration: {duration.TotalMinutes} minutes.");
-            }
+                               && s.Status != ScheduleStatus.Canceled); // Only check non-canceled schedules
 
             foreach (var existingSchedule in existingSchedules)
             {
@@ -584,10 +606,24 @@ namespace OCMS_Services.Service
 
                 if (isDateOverlapping && isDayOverlapping)
                 {
-                    throw new ArgumentException(
-                        $"Schedule overlaps with an existing schedule (ID: {existingSchedule.ScheduleID}) " +
-                        $"at the same location ({dto.Location}, Room {dto.Room}) " +
-                        $"on the same day(s) of the week at {dto.ClassTime}.");
+                    // Calculate existing schedule's end time
+                    var existingStartTime = existingSchedule.ClassTime;
+                    var existingEndTime = existingStartTime.Add(existingSchedule.SubjectPeriod);
+
+                    // Check for time overlap
+                    // Two time periods overlap if: start1 < end2 AND start2 < end1
+                    bool isTimeOverlapping = newStartTime < existingEndTime && existingStartTime < newEndTime;
+
+                    if (isTimeOverlapping)
+                    {
+                        throw new ArgumentException(
+                            $"Schedule time conflict detected! " +
+                            $"The new schedule ({newStartTime:HH:mm} - {newEndTime:HH:mm}) " +
+                            $"overlaps with existing schedule (ID: {existingSchedule.ScheduleID}) " +
+                            $"which runs from {existingStartTime:HH:mm} to {existingEndTime:HH:mm} " +
+                            $"at the same location ({dto.Location}, Room {dto.Room}) " +
+                            $"on overlapping day(s) of the week.");
+                    }
                 }
             }
         }
