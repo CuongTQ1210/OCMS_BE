@@ -138,11 +138,18 @@ namespace OCMS_Services.Service
                         continue;
                     }
 
+                    // Filter requiredCss to only include ClassSubjects the trainee is assigned to
+                    var assignedCssIds = assignments.Select(ta => ta.ClassSubject.SubjectSpecialtyId).ToHashSet();
+                    var requiredCssIds = requiredCss
+                        .Where(css => assignedCssIds.Contains(css.SubjectSpecialtyId))
+                        .Select(css => css.SubjectSpecialtyId)
+                        .ToHashSet();
+
                     var traineeGrades = assignments.SelectMany(ta => gradesByTraineeAssign.GetValueOrDefault(ta.TraineeAssignId, new List<Grade>()));
-                    var passedCssIds = traineeGrades.Where(g => g.gradeStatus == GradeStatus.Pass)
-                                                   .Select(g => g.TraineeAssign.ClassSubject.SubjectSpecialtyId)
-                                                   .ToHashSet();
-                    var requiredCssIds = requiredCss.Select(css => css.SubjectSpecialtyId).ToHashSet();
+                    var passedCssIds = traineeGrades
+                        .Where(g => g.gradeStatus == GradeStatus.Pass)
+                        .Select(g => g.TraineeAssign.ClassSubject.SubjectSpecialtyId)
+                        .ToHashSet();
 
                     if (requiredCssIds.All(id => passedCssIds.Contains(id)) && !traineeWithCerts.Contains(traineeId))
                     {
@@ -818,35 +825,50 @@ namespace OCMS_Services.Service
                 }
             }
 
-            // Get all required subjects from related course (Recurrent) and Relearn course
+            // Get all course IDs
             var allCourseIds = new[] { relatedCourse.CourseId, relearnCourse.CourseId };
+
+            // Get all ClassSubjects for both courses
             var classSubjects = await _unitOfWork.ClassSubjectRepository.FindAsync(
                 cs => allCourseIds.Contains(cs.Class.CourseId) && cs.SubjectSpecialty.SpecialtyId == specialtyId,
                 cs => cs.SubjectSpecialty.Subject);
 
-            var requiredSubjectIds = classSubjects
-                .Where(cs => cs.Class.CourseId == relearnCourse.CourseId)
-                .Select(cs => cs.SubjectSpecialty.SubjectId)
-                .Distinct()
-                .ToHashSet();
-
-            // Get trainee assignments for both related and relearn courses
+            // Get trainee assignments for both courses
             var traineeAssignments = await _unitOfWork.TraineeAssignRepository.FindAsync(
                 ta => ta.TraineeId == traineeId &&
                       allCourseIds.Contains(ta.ClassSubject.Class.CourseId) &&
                       ta.RequestStatus == RequestStatus.Approved);
 
+            // Get grades for all assignments
             var grades = await _unitOfWork.GradeRepository.FindAsync(
-                g => traineeAssignments.Select(ta => ta.TraineeAssignId).Contains(g.TraineeAssignID) &&
-                     g.gradeStatus == GradeStatus.Pass);
+                g => traineeAssignments.Select(ta => ta.TraineeAssignId).Contains(g.TraineeAssignID));
 
-            var passedSubjectIds = grades
+            // Split assignments by course
+            var relatedCourseAssignments = traineeAssignments
+                .Where(ta => ta.ClassSubject.Class.CourseId == relatedCourse.CourseId)
+                .ToList();
+            var relearnCourseAssignments = traineeAssignments
+                .Where(ta => ta.ClassSubject.Class.CourseId == relearnCourse.CourseId)
+                .ToList();
+
+            // Get failed subjects from related course
+            var failedSubjectIdsInRelatedCourse = grades
+                .Where(g => relatedCourseAssignments.Select(ta => ta.TraineeAssignId).Contains(g.TraineeAssignID) &&
+                            g.gradeStatus == GradeStatus.Fail)
                 .Select(g => g.TraineeAssign.ClassSubject.SubjectSpecialty.SubjectId)
                 .Distinct()
                 .ToHashSet();
 
-            // Check if all required subjects are passed
-            return requiredSubjectIds.All(id => passedSubjectIds.Contains(id));
+            // Get passed subjects from relearn course
+            var passedSubjectIdsInRelearnCourse = grades
+                .Where(g => relearnCourseAssignments.Select(ta => ta.TraineeAssignId).Contains(g.TraineeAssignID) &&
+                            g.gradeStatus == GradeStatus.Pass)
+                .Select(g => g.TraineeAssign.ClassSubject.SubjectSpecialty.SubjectId)
+                .Distinct()
+                .ToHashSet();
+
+            // Check if all failed subjects from related course are passed in relearn course
+            return failedSubjectIdsInRelatedCourse.All(id => passedSubjectIdsInRelearnCourse.Contains(id));
         }
 
         private async Task<Course> FindRootCourseAsync(Course course)
