@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using Azure.Storage.Blobs;
+using Hangfire;
 using Microsoft.Extensions.Configuration;
 using OCMS_BOs.Entities;
 using OCMS_BOs.RequestModel;
@@ -25,8 +26,9 @@ namespace OCMS_Services.Service
         private readonly IUserRepository _userRepository;
         private readonly ICandidateRepository _candidateRepository;
         private readonly IExternalCertificateService _externalCertificateService;
+        private readonly IBackgroundJobClient _backgroundJobClient;
 
-        public CandidateService(UnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService, IUserRepository userRepository, ICandidateRepository candidateRepository, IExternalCertificateService externalCertificateService)
+        public CandidateService(UnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService, IUserRepository userRepository, ICandidateRepository candidateRepository, IExternalCertificateService externalCertificateService, IBackgroundJobClient backgroundJobClient)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
@@ -34,6 +36,7 @@ namespace OCMS_Services.Service
             _userRepository = userRepository;
             _candidateRepository = candidateRepository;
             _externalCertificateService = externalCertificateService;
+            _backgroundJobClient = backgroundJobClient;
         }
 
         #region Get All Candidates
@@ -314,7 +317,7 @@ namespace OCMS_Services.Service
                             if (result.SuccessCount > 0)
                             {
                                 var users = await _userRepository.GetUsersByRoleAsync("Training staff");
-                                var requestService = new RequestService(_unitOfWork, _mapper, _notificationService, _userRepository, _candidateRepository);
+                                var requestService = new RequestService(_unitOfWork, _mapper, _notificationService, _userRepository, _candidateRepository, _backgroundJobClient);
                                 var requestDto = new RequestDTO
                                 {
                                     RequestType = RequestType.CandidateImport,
