@@ -48,7 +48,7 @@ builder.Services.AddDbContext<OCMSDbContext>(options =>
 builder.Services.AddAzureClients(azureBuilder =>
     azureBuilder.AddBlobServiceClient(builder.Configuration.GetValue<string>("AzureBlobStorage")));
 
-//builder.Services.AddHostedService<StatusCheckBackgroundService>();
+builder.Services.AddHostedService<StatusCheckBackgroundService>();
 
 // Add Redis
 builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(builder.Configuration.GetValue<string>("Redis:ConnectionString")));

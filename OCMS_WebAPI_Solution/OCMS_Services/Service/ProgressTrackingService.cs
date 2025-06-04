@@ -34,29 +34,42 @@ namespace OCMS_Services.Service
 
         #region Main System Status Check
 
-        /// <summary>
-        /// System-wide status check - focuses on Course Progress management
-        /// </summary>
-        //public async Task CheckAndUpdateAllStatuses()
-        //{
-        //    try
-        //    {
-        //        _logger.LogInformation("Starting Course Progress status check");
+        // <summary>
+        // System-wide status check - focuses on Course Progress management
+        // </summary>
+        public async Task CheckAndUpdateAllStatuses()
+        {
+            try
+            {
+                _logger.LogInformation("Starting Course Progress status check");
 
-        //        // 1. Update Course Progress: NotYet → Ongoing (when StartDate begins)
-        //        await UpdateCoursesToOngoing();
+                // Get all courses that need status updates
+                var courses = await _unitOfWork.CourseRepository.FindAsync(
+                    c => c.Status == CourseStatus.Approved &&
+                         (c.Progress == Progress.NotYet || c.Progress == Progress.Ongoing));
 
-        //        // 2. Update Course Progress: Ongoing → Completed (when all conditions met)
-        //        await UpdateCoursesToCompleted();
+                foreach (var course in courses)
+                {
+                    // 1. Update Course Progress: NotYet → Ongoing(when StartDate begins)
+                    if (course.Progress == Progress.NotYet)
+                    {
+                        await UpdateCourseToOngoingAsync(course.CourseId);
+                    }
+                    // 2. Update Course Progress: Ongoing → Completed (when all conditions met)
+                    else if (course.Progress == Progress.Ongoing)
+                    {
+                        await CheckAndUpdateCourseToCompletedAsync(course.CourseId);
+                    }
+                }
 
-        //        _logger.LogInformation("Course Progress status check completed");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "Error during Course Progress status check");
-        //        throw;
-        //    }
-        //}
+                _logger.LogInformation("Course Progress status check completed");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during Course Progress status check");
+                throw;
+            }
+        }
 
         public async Task ScheduleCourseStatusUpdatesAsync()
         {
