@@ -837,7 +837,8 @@ namespace OCMS_Services.Service
                                 $"Your schedule request has been approved. Schedule ID: {classSchedule.ScheduleID}",
                                 "Schedule"
                             ));
-                            var instructor = await _unitOfWork.InstructorAssignmentRepository.GetByIdAsync(classSchedule.ClassSubject.InstructorAssignmentID);
+                            var classSubject = await _unitOfWork.ClassSubjectRepository.GetByIdAsync(classSchedule.ClassSubjectId);
+                            var instructor = await _unitOfWork.InstructorAssignmentRepository.GetByIdAsync(classSubject.InstructorAssignmentID);
                             _backgroundJobClient.Enqueue(() => _notificationService.SendNotificationAsync(
                                 instructor.InstructorId,
                                 "Class Schedule",
