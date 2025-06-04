@@ -187,6 +187,12 @@ namespace OCMS_Services.Service
                 if (course?.Classes == null || !course.Classes.Any())
                     return false;
 
+                if (course.EndDateTime > DateTime.Now)
+                {
+                    _logger.LogInformation($"Course {courseId} end date has not passed yet: {course.EndDateTime}");
+                    return false;
+                }
+
                 // Check each class in the course
                 foreach (var classEntity in course.Classes)
                 {
@@ -218,7 +224,7 @@ namespace OCMS_Services.Service
                                 .FindAsync(g => traineeAssigns.Select(ta => ta.TraineeAssignId).Contains(g.TraineeAssignID));
 
                             bool allGraded = traineeAssigns.All(ta =>
-                                grades.Any(g => g.TraineeAssignID == ta.TraineeAssignId));
+                                grades.Any(g => g.TraineeAssignID == ta.TraineeAssignId && g.gradeStatus != GradeStatus.Pending));
 
                             if (!allGraded)
                                 return false;
