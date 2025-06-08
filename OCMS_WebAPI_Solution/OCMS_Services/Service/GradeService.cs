@@ -432,12 +432,12 @@ namespace OCMS_Services.Service
                         return result;
                     }
 
-                    if (course.Status == CourseStatus.Pending || course.Status == CourseStatus.Rejected ||
-                         course.Progress == Progress.Completed)
-                    {
-                        result.Errors.Add("Course isn't suitable to create grades.");
-                        return result;
-                    }
+                    //if (course.Status == CourseStatus.Pending || course.Status == CourseStatus.Rejected ||
+                    //     course.Progress == Progress.Completed)
+                    //{
+                    //    result.Errors.Add("Course isn't suitable to create grades.");
+                    //    return result;
+                    //}
 
                     var schedule = await _trainingScheduleRepository.GetSchedulesByClassSubjectIdAsync(classSubject.ClassSubjectId);
                     if (schedule == null)
