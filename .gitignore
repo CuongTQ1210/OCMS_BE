@@ -777,3 +777,7 @@ coverage*[.json, .xml, .info]
 # Ionide (cross platform F# VS Code tools) working folder
 
 # End of https://www.toptal.com/developers/gitignore/api/csharp,aspnetcore,dotnetcore,vs,rider,redis
+
+# Custom ignores
+**/appsettings.json
+**/appsettings.Development.json
